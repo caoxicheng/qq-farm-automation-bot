@@ -688,7 +688,7 @@ const wxConfigSaving = ref(false)
 
 const localWxConfig = ref({
   enabled: true,
-  apiBase: 'http://127.0.0.1:8059/api',
+  apiBase: '/api',
   apiKey: '',
   proxyApiUrl: 'http://127.0.0.1:8059/api',
   appId: 'wx5306c5978fdb76e4',
@@ -740,7 +740,7 @@ async function handleSaveWxConfig() {
 async function handleResetWxConfig() {
   localWxConfig.value = {
     enabled: true,
-    apiBase: 'http://127.0.0.1:8059/api',
+    apiBase: '/api',
     apiKey: '',
     proxyApiUrl: 'http://127.0.0.1:8059/api',
     appId: 'wx5306c5978fdb76e4',

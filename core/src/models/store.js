@@ -590,7 +590,7 @@ function loadGlobalConfig() {
             if (data.globalWxConfig && typeof data.globalWxConfig === 'object') {
                 globalConfig.globalWxConfig = {
                     enabled: data.globalWxConfig.enabled !== false,
-                    apiBase: String(data.globalWxConfig.apiBase || 'http://127.0.0.1:8059/api').trim(),
+                    apiBase: String(data.globalWxConfig.apiBase || '/api').trim(),
                     apiKey: String(data.globalWxConfig.apiKey || '').trim(),
                     proxyApiUrl: String(data.globalWxConfig.proxyApiUrl || 'http://127.0.0.1:8059/api').trim(),
                     appId: String(data.globalWxConfig.appId || 'wx5306c5978fdb76e4').trim(),
@@ -1141,6 +1141,7 @@ function addOrUpdateAccount(acc) {
             platform: acc.platform || 'qq',
             uin: acc.uin ? String(acc.uin) : '',
             qq: acc.qq ? String(acc.qq) : (acc.uin ? String(acc.uin) : ''),
+            wxid: acc.wxid ? String(acc.wxid) : '',
             avatar: acc.avatar || acc.avatarUrl || '',
             username: acc.username || '', // 保存用户名字段
             createdAt: Date.now(),
@@ -1263,7 +1264,7 @@ function setSystemConfig(config) {
 
 const DEFAULT_WX_CONFIG = {
     enabled: true,
-    apiBase: 'http://127.0.0.1:8059/api',
+    apiBase: '/api',
     apiKey: '',
     proxyApiUrl: 'http://127.0.0.1:8059/api',
     appId: 'wx5306c5978fdb76e4',

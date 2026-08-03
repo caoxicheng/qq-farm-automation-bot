@@ -19,6 +19,7 @@ const { addOrUpdateAccount, deleteAccount } = store;
 const { findAccountByRef, normalizeAccountRef, resolveAccountId } = require('../services/account-resolver');
 const { createModuleLogger } = require('../services/logger');
 const { MiniProgramLoginSession } = require('../services/qrlogin');
+const yybProxy = require('../services/yyb-proxy');
 const { getSchedulerRegistrySnapshot } = require('../services/scheduler');
 const userStore = require('../models/user-store');
 
@@ -458,6 +459,37 @@ function startAdminServer(dataProvider) {
 
         const result = userStore.changePassword(username, oldPassword, newPassword);
         res.json(result);
+    });
+
+    // 微信扫码登录（yyb-go 应用宝协议适配层）—— 免鉴权，前端本地 API 模式调用
+    app.post('/api/Login/LoginGetQRCar', async (req, res) => {
+        try {
+            const result = await yybProxy.getQRCode();
+            res.json(result);
+        } catch (e) {
+            res.json({ Success: false, Message: `获取二维码失败: ${e.message}` });
+        }
+    });
+
+    app.post('/api/Login/LoginCheckQR', async (req, res) => {
+        try {
+            // 前端把 uuid 放在 query string（?uuid=xxx），兼容 body 两种来源
+            const uuid = (req.body && req.body.uuid) || (req.query && req.query.uuid) || '';
+            const result = await yybProxy.checkQR(uuid);
+            res.json(result);
+        } catch (e) {
+            res.json({ Success: false, Message: `检查登录状态失败: ${e.message}` });
+        }
+    });
+
+    app.post('/api/Wxapp/JSLogin', async (req, res) => {
+        try {
+            const { Wxid } = req.body || {};
+            const result = await yybProxy.getFarmCode(Wxid);
+            res.json(result);
+        } catch (e) {
+            res.json({ Success: false, Message: `获取 Code 失败: ${e.message}` });
+        }
     });
 
     app.use('/api', (req, res, next) => {
@@ -1354,13 +1386,29 @@ function startAdminServer(dataProvider) {
     });
 
     // API: 启动账号
-    app.post('/api/accounts/:id/start', (req, res) => {
+    app.post('/api/accounts/:id/start', async (req, res) => {
         try {
             const accountId = resolveAccId(req.params.id);
 
             // 检查权限
             if (!checkAccountAccess(req, accountId)) {
                 return res.status(403).json({ ok: false, error: '无权访问此账号' });
+            }
+
+            // 微信账号：启动前自动刷新登录 code（wx.login code 短时效，避免过期 400 需重新扫码）
+            try {
+                const account = provider.getAccounts().accounts.find(a => String(a.id) === String(accountId));
+                if (account && account.platform === 'wx' && account.wxid) {
+                    const refresh = await yybProxy.getFarmCode(account.wxid);
+                    if (refresh.Success && refresh.Data && refresh.Data.code) {
+                        addOrUpdateAccount({ id: accountId, code: refresh.Data.code });
+                        adminLogger.info('startAccount', { accountId, note: 'wx code refreshed automatically' });
+                    } else {
+                        adminLogger.warn('startAccount', { accountId, note: 'wx code refresh failed, fallback to stored code', msg: refresh.Message });
+                    }
+                }
+            } catch (refreshErr) {
+                adminLogger.warn('startAccount', { accountId, note: 'wx code refresh error, fallback to stored code', err: refreshErr.message });
             }
 
             const ok = provider.startAccount(accountId);

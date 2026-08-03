@@ -16,7 +16,7 @@ export const useWxLoginStore = defineStore('wx-login', () => {
   // 默认配置
   const defaultConfig: WxLoginConfig = {
     enabled: true,
-    apiBase: 'http://127.0.0.1:8059/api',
+    apiBase: '/api',
     apiKey: '',
     proxyApiUrl: 'http://127.0.0.1:8059/api',
     appId: 'wx5306c5978fdb76e4',
