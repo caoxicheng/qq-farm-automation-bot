@@ -1,0 +1,18 @@
+# 依赖
+node_modules/
+core/node_modules/
+web/node_modules/
+
+# 构建产物
+web/dist/
+web/stats.html
+
+# 运行时数据（账号凭证、日志，勿提交）
+core/data/
+core/data/*
+
+# 日志
+*.log
+
+# macOS
+.DS_Store
