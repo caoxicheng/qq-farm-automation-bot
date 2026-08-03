@@ -15,6 +15,10 @@ services:
       - TZ=${TZ:-Asia/Shanghai}
       - NODE_ENV=production
       - ADMIN_PORT=3007
+      - YYB_GO_BASE=http://yyb-go:8000
+      - YYB_API_TOKEN=${YYB_API_TOKEN:-yyb-go-local-token}
+    depends_on:
+      - yyb-go
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:3007/api/status"]
       interval: 30s
@@ -27,8 +31,32 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  # 微信扫码登录服务（应用宝协议 yyb-go，Farm5 兼容）
+  yyb-go:
+    build:
+      context: ../yyb-go
+      dockerfile: Dockerfile
+    image: yyb-go:latest
+    container_name: yyb-go
+    restart: unless-stopped
+    volumes:
+      - yyb-go-data:/app/resource
+    environment:
+      - TZ=${TZ:-Asia/Shanghai}
+      - YYB_API_TOKEN=${YYB_API_TOKEN:-yyb-go-local-token}
+      - YYB_ADMIN_USER=${YYB_ADMIN_USER:-admin}
+      - YYB_ADMIN_PASS=${YYB_ADMIN_PASS:-admin}
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
 volumes:
   qq-farm-data:
     name: qq-farm-data
   qq-farm-logs:
     name: qq-farm-logs
+  yyb-go-data:
+    name: yyb-go-data
