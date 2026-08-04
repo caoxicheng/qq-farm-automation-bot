@@ -6,7 +6,7 @@ const EventEmitter = require('node:events');
 
 const process = require('node:process');
 const WebSocket = require('ws');
-const { CONFIG } = require('../config/config');
+const { CONFIG, getClientVersion, setClientVersionPrefix, getVersionPrefix } = require('../config/config');
 const { createScheduler } = require('../services/scheduler');
 const { updateStatusFromLogin, updateStatusGold, updateStatusLevel } = require('../services/status');
 const { recordOperation } = require('../services/stats');
@@ -218,6 +218,21 @@ function handleMessage(data) {
     }
 }
 
+// 服务端版本信息校准：登录回复/心跳回复里的 version_info 带推荐/强制版本，
+// 提取版本前缀并与本地比较，不同则自动更新（根治"客户端版本过低"被踢）。
+function applyServerVersionInfo(versionInfo) {
+    try {
+        if (!versionInfo || typeof versionInfo !== 'object') return;
+        const ver = String(versionInfo.version_force || versionInfo.version_recommend || '').trim();
+        if (!ver) return;
+        const prefix = ver.split('_')[0].trim();
+        if (!prefix || prefix === getVersionPrefix()) return;
+        setClientVersionPrefix(prefix);
+        log('系统', `服务端版本信息: ${ver}，已自动校准客户端版本前缀为 ${prefix}`);
+        networkEvents.emit('versionPrefixChanged', prefix);
+    } catch { }
+}
+
 function handleNotify(msg) {
     if (!msg.body || msg.body.length === 0) return;
     try {
@@ -399,7 +414,7 @@ async function sendLogin(onLoginSuccess) {
         sharer_id: toLong(0),
         sharer_open_id: '',
         device_info: {
-            client_version: CONFIG.clientVersion,
+            client_version: getClientVersion(),
             sys_software: 'iOS 26.2.1',
             network: 'wifi',
             memory: '7672',
@@ -425,6 +440,7 @@ async function sendLogin(onLoginSuccess) {
         }
         try {
             const reply = types.LoginReply.decode(bodyBytes);
+            applyServerVersionInfo(reply.version_info);
             if (reply.basic) {
                 clearWsErrorState();
                 userState.gid = toNum(reply.basic.gid);
@@ -504,13 +520,14 @@ function startHeartbeat() {
 
         const body = types.HeartbeatRequest.encode(types.HeartbeatRequest.create({
             gid: toLong(userState.gid),
-            client_version: CONFIG.clientVersion,
+            client_version: getClientVersion(),
         })).finish();
         sendMsgAsync('gamepb.userpb.UserService', 'Heartbeat', body).then(({ body: replyBody }) => {
             lastHeartbeatResponse = Date.now();
             heartbeatMissCount = 0;
             try {
                 const reply = types.HeartbeatReply.decode(replyBody);
+                applyServerVersionInfo(reply.version_info);
                 if (reply.server_time) syncServerTime(toNum(reply.server_time));
             } catch { }
         }).catch(() => { });
@@ -524,7 +541,7 @@ let savedCode = null;
 function connect(code, onLoginSuccess) {
     savedLoginCallback = onLoginSuccess;
     if (code) savedCode = code;
-    const url = `${CONFIG.serverUrl}?platform=${CONFIG.platform}&os=${CONFIG.os}&ver=${CONFIG.clientVersion}&code=${savedCode}&openID=`;
+    const url = `${CONFIG.serverUrl}?platform=${CONFIG.platform}&os=${CONFIG.os}&ver=${getClientVersion()}&code=${savedCode}&openID=`;
 
     ws = new WebSocket(url, {
         headers: {

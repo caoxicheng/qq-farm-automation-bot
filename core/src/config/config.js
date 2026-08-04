@@ -10,6 +10,40 @@ const DEFAULT_SYSTEM_CONFIG = {
     os: 'iOS',
 };
 
+// 客户端版本前缀（游戏真实版本号）。日期部分自动取当天，无需手动更新。
+// 前缀会被服务端下发的版本信息（version_info）自动校准，见 network.js 的 applyServerVersionInfo。
+const CLIENT_VERSION_PREFIX = '1.11.1.7';
+let runtimeVersionPrefix = CLIENT_VERSION_PREFIX;
+
+function setClientVersionPrefix(prefix) {
+    const t = String(prefix || '').trim();
+    if (t) runtimeVersionPrefix = t;
+}
+
+function getVersionPrefix() {
+    return runtimeVersionPrefix;
+}
+
+// 自动重登默认配置（账号级，可在 Web 面板按账号覆盖）
+const DEFAULT_AUTO_RELOGIN = {
+    enabled: false,          // 默认关闭，需手动开启
+    delayMinutes: 15,        // 被踢后延迟重登（分钟）
+    maxPerDay: 3,            // 每日自动重登上限
+    kickWindowMinutes: 10,   // 重登后 N 分钟内再被踢 = 手机还在玩 → 禁用当天自动重登
+    loginFailWindowSec: 60,  // 重登后 N 秒内未登录成功（进程退出） = 登录失败 → 禁用当天自动重登
+};
+
+function pad2(n) {
+    return String(n).padStart(2, '0');
+}
+
+// 动态生成客户端版本号：前缀（可被服务端校准）_ 当天日期（自动）
+function getClientVersion() {
+    const d = new Date();
+    const ymd = `${d.getFullYear()}${pad2(d.getMonth() + 1)}${pad2(d.getDate())}`;
+    return `${runtimeVersionPrefix}_${ymd}`;
+}
+
 const CONFIG = {
     serverUrl: DEFAULT_SYSTEM_CONFIG.serverUrl,
     clientVersion: DEFAULT_SYSTEM_CONFIG.clientVersion,
@@ -68,4 +102,4 @@ const PlantPhase = {
 
 const PHASE_NAMES = ['未知', '种子', '发芽', '小叶', '大叶', '开花', '成熟', '枯死'];
 
-module.exports = { CONFIG, PlantPhase, PHASE_NAMES, updateRuntimeConfig, getRuntimeConfig, getDefaultSystemConfig };
+module.exports = { CONFIG, PlantPhase, PHASE_NAMES, updateRuntimeConfig, getRuntimeConfig, getDefaultSystemConfig, getClientVersion, setClientVersionPrefix, getVersionPrefix, DEFAULT_AUTO_RELOGIN };

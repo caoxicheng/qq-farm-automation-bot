@@ -23,12 +23,17 @@ const { setRecordGoldExpHook } = require('../services/status');
 const { cleanupTaskSystem, checkAndClaimTasks, getTaskClaimDailyState, getTaskDailyStateLikeApp, getGrowthTaskStateLikeApp } = require('../services/task');
 const { sellAllFruits, getBag, getBagItems, openFertilizerGiftPacksSilently } = require('../services/warehouse');
 const { connect, cleanup, getWs, getUserState, networkEvents } = require('../utils/network');
+const { setClientVersionPrefix } = require('../config/config');
 const { loadProto } = require('../utils/proto');
 const { setLogHook, log, toNum } = require('../utils/utils');
 
 if (parentPort && workerData && workerData.accountId && !process.env.FARM_ACCOUNT_ID) {
     process.env.FARM_ACCOUNT_ID = String(workerData.accountId);
 }
+
+// 应用主进程传入的版本前缀（服务端 version_info 校准结果，跨重启持久化）
+if (process.env.FARM_VERSION_PREFIX) setClientVersionPrefix(process.env.FARM_VERSION_PREFIX);
+if (workerData && workerData.versionPrefix) setClientVersionPrefix(workerData.versionPrefix);
 
 function sendToMaster(payload) {
     if (process.send) {
@@ -472,6 +477,11 @@ async function startBot(config) {
     networkEvents.on('ws_error', onWsError);
 
     networkEvents.on('kickout', onKickout);
+
+    // 服务端版本前缀校准结果上报主进程（用于持久化，跨重启生效）
+    networkEvents.on('versionPrefixChanged', (prefix) => {
+        sendToMaster({ type: 'version_prefix_update', prefix });
+    });
 
     const onLoginSuccess = async () => {
         loginReady = true;

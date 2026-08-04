@@ -1,4 +1,5 @@
 const { createScheduler } = require('../services/scheduler');
+const { getVersionPrefix } = require('../config/config');
 
 function createWorkerManager(options) {
     const {
@@ -18,17 +19,112 @@ function createWorkerManager(options) {
         triggerOfflineReminder,
         addOrUpdateAccount,
         deleteAccount,
+        getAutoRelogin,
+        getAccounts,
         onStatusSync,
         onWorkerLog,
     } = options;
     const managerScheduler = createScheduler('worker_manager');
     const useThreadRuntime = runtimeMode === 'thread' && !processRef.pkg && typeof WorkerThread === 'function';
 
+    // ============ 自动重登状态跟踪 ============
+    // accountId -> { dayKey, count, disabled, lastReloginAt }
+    const reloginState = new Map();
+
+    function dayKeyOf(d) {
+        const pad = (n) => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    }
+
+    function getReloginState(accountId) {
+        const now = new Date();
+        const key = dayKeyOf(now);
+        let st = reloginState.get(accountId);
+        if (!st || st.dayKey !== key) {
+            st = { dayKey: key, count: 0, disabled: false, lastReloginAt: 0 };
+            reloginState.set(accountId, st);
+        }
+        return st;
+    }
+
+    function resetAutoReloginState(accountId) {
+        reloginState.delete(accountId);
+    }
+
+    // 账号被踢下线后的自动重登调度
+    function scheduleAutoRelogin(accountId, reason) {
+        const cfg = typeof getAutoRelogin === 'function' ? getAutoRelogin(accountId) : null;
+        if (!cfg || !cfg.enabled) return;
+
+        const st = getReloginState(accountId);
+        const name = (workers[accountId] && workers[accountId].name) || accountId;
+
+        if (st.disabled) {
+            log('系统', `账号 ${name} 当天自动重登已禁用（此前触发禁用条件），跳过`, { accountId: String(accountId) });
+            return;
+        }
+
+        if (st.count >= cfg.maxPerDay) {
+            log('系统', `账号 ${name} 今日自动重登已达上限（${cfg.maxPerDay} 次），跳过`, { accountId: String(accountId) });
+            return;
+        }
+
+        // 上次自动重登后窗口内再次被踢 → 判定手机还在占用，禁用当天自动重登
+        if (st.lastReloginAt > 0) {
+            const kickWindowMs = cfg.kickWindowMinutes * 60 * 1000;
+            const sinceRelogin = Date.now() - st.lastReloginAt;
+            if (sinceRelogin < kickWindowMs) {
+                st.disabled = true;
+                log('系统', `账号 ${name} 自动重登后 ${Math.round(sinceRelogin / 1000)}s 内再次被踢，判定手机占用，禁用当天自动重登`, { accountId: String(accountId) });
+                return;
+            }
+        }
+
+        const delayMs = cfg.delayMinutes * 60 * 1000;
+        log('系统', `账号 ${name} 将于 ${cfg.delayMinutes} 分钟后自动重登（今日第 ${st.count + 1}/${cfg.maxPerDay} 次），原因: ${reason}`, { accountId: String(accountId) });
+
+        managerScheduler.setTimeoutTask(`autorelogin_${accountId}`, delayMs, async () => {
+            const accounts = (typeof getAccounts === 'function' ? getAccounts() : { accounts: [] });
+            const acc = (accounts.accounts || []).find((a) => String(a.id) === String(accountId));
+            if (!acc) {
+                log('系统', `自动重登失败：账号 ${accountId} 不存在或已删除`, { accountId: String(accountId) });
+                return;
+            }
+            if (workers[accountId]) {
+                log('系统', `自动重登跳过：账号 ${acc.name} 已在运行`, { accountId: String(accountId) });
+                return;
+            }
+            // 微信账号：重登前刷新登录 code（与手动启动一致，避免旧 code 过期导致握手 400）
+            if (acc.platform === 'wx' && acc.wxid) {
+                try {
+                    const { getFarmCode } = require('../services/yyb-proxy');
+                    const refresh = await getFarmCode(acc.wxid);
+                    if (refresh.Success && refresh.Data && refresh.Data.code) {
+                        const { addOrUpdateAccount } = require('../models/store');
+                        addOrUpdateAccount({ id: acc.id, code: refresh.Data.code });
+                        acc.code = refresh.Data.code;
+                        log('系统', `账号 ${acc.name} 自动重登已刷新登录 code`, { accountId: String(accountId) });
+                    } else {
+                        log('系统', `账号 ${acc.name} 自动重登刷新 code 失败，降级用旧 code: ${refresh.Message || '未知'}`, { accountId: String(accountId) });
+                    }
+                } catch (refreshErr) {
+                    log('系统', `账号 ${acc.name} 自动重登刷新 code 出错，降级用旧 code: ${refreshErr.message}`, { accountId: String(accountId) });
+                }
+            }
+            const cur = getReloginState(accountId);
+            cur.count += 1;
+            cur.lastReloginAt = Date.now();
+            log('系统', `账号 ${acc.name} 自动重登中...`, { accountId: String(accountId) });
+            startWorker(acc);
+        });
+    }
+
     function createThreadWorker(account) {
         const worker = new WorkerThread(workerScriptPath, {
             workerData: {
                 accountId: String(account.id || ''),
                 channel: 'thread',
+                versionPrefix: getVersionPrefix(),
             },
         });
         // 与 child_process 保持同形接口
@@ -43,12 +139,12 @@ function createWorkerManager(options) {
             return fork(mainEntryPath, [], {
                 execPath: processRef.execPath,
                 stdio: ['inherit', 'inherit', 'inherit', 'ipc'],
-                env: { ...processRef.env, FARM_WORKER: '1', FARM_ACCOUNT_ID: String(account.id || '') },
+                env: { ...processRef.env, FARM_WORKER: '1', FARM_ACCOUNT_ID: String(account.id || ''), FARM_VERSION_PREFIX: getVersionPrefix() },
             });
         }
         return fork(workerScriptPath, [], {
             stdio: ['inherit', 'inherit', 'inherit', 'ipc'],
-            env: { ...processRef.env, FARM_ACCOUNT_ID: String(account.id || '') },
+            env: { ...processRef.env, FARM_ACCOUNT_ID: String(account.id || ''), FARM_VERSION_PREFIX: getVersionPrefix() },
         });
     }
 
@@ -117,6 +213,21 @@ function createWorkerManager(options) {
 
             managerScheduler.clear(`force_kill_${account.id}`);
             managerScheduler.clear(`restart_fallback_${account.id}`);
+
+            // 自动重登失败检测：自动重登启动后短时间内进程异常退出（登录失败），禁用当天自动重登
+            // 正常停止（stopWorker 设置 stopping=true）不会触发；被踢后 worker 自身退出也是 stopping=true
+            if (current && !current.stopping) {
+                const st = reloginState.get(account.id);
+                if (st && st.lastReloginAt > 0) {
+                    const cfg = (typeof getAutoRelogin === 'function') ? getAutoRelogin(account.id) : null;
+                    const failWindowMs = ((cfg && cfg.loginFailWindowSec) || 60) * 1000;
+                    const elapsed = Date.now() - st.lastReloginAt;
+                    if (elapsed < failWindowMs) {
+                        st.disabled = true;
+                        log('系统', `账号 ${displayName} 自动重登后 ${Math.round(elapsed / 1000)}s 内进程异常退出（疑似登录失败），禁用当天自动重登`, { accountId: String(account.id) });
+                    }
+                }
+            }
 
             if (current && current.requests && current.requests.size > 0) {
                 for (const [reqId, req] of current.requests.entries()) {
@@ -300,6 +411,16 @@ function createWorkerManager(options) {
             });
             addAccountLog('kickout_stop', `账号 ${worker.name} 被踢下线，已自动停止`, accountId, worker.name, { reason });
             stopWorker(accountId);
+            // 自动重登（配置开启时，15 分钟后重新登录，带每日上限与防循环）
+            scheduleAutoRelogin(accountId, reason);
+        } else if (msg.type === 'version_prefix_update') {
+            // 服务端 version_info 校准：worker 上报新版本前缀，持久化跨重启
+            const prefix = String(msg.prefix || '').trim();
+            if (prefix) {
+                const { setVersionPrefix } = require('../models/store');
+                setVersionPrefix(prefix);
+                log('系统', `服务端版本校准：账号 ${worker.name} 上报新版本前缀 ${prefix}，已持久化`, { accountId: String(accountId), accountName: worker.name });
+            }
         } else if (msg.type === 'api_response') {
             const { id, result, error } = msg;
             managerScheduler.clear(`api_timeout_${accountId}_${id}`);
@@ -355,6 +476,7 @@ function createWorkerManager(options) {
         stopWorker,
         restartWorker,
         callWorkerApi,
+        resetAutoReloginState,
     };
 }
 

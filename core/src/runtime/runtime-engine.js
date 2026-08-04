@@ -3,7 +3,7 @@ const path = require('node:path')
 const process = require('node:process');
 const { Worker } = require('node:worker_threads')
 const store = require('../models/store')
-const { updateRuntimeConfig, getRuntimeConfig, getDefaultSystemConfig } = require('../config/config')
+const { updateRuntimeConfig, getRuntimeConfig, getDefaultSystemConfig, setClientVersionPrefix } = require('../config/config')
 const { sendPushooMessage } = require('../services/push')
 const { MiniProgramLoginSession } = require('../services/qrlogin')
 const { createDataProvider } = require('./data-provider')
@@ -16,6 +16,12 @@ const OPERATION_KEYS = ['harvest', 'water', 'weed', 'bug', 'fertilize', 'plant',
 function createRuntimeEngine(options = {}) {
   const processRef = options.processRef || process
   const mainEntryPath = options.mainEntryPath || path.join(__dirname, '../../client.js')
+
+  // 启动时恢复服务端校准过的版本前缀（跨重启持久化），供 worker 进程继承
+  if (typeof store.getVersionPrefix === 'function') {
+    const savedPrefix = store.getVersionPrefix()
+    if (savedPrefix) setClientVersionPrefix(savedPrefix)
+  }
   const workerScriptPath = options.workerScriptPath || path.join(__dirname, '../core/worker.js')
   const runtimeMode = String(options.runtimeMode || processRef.env.FARM_RUNTIME_MODE || 'thread').toLowerCase()
   const onStatusSync = typeof options.onStatusSync === 'function' ? options.onStatusSync : null
@@ -58,7 +64,7 @@ function createRuntimeEngine(options = {}) {
     triggerOfflineReminder,
   } = reloginReminder
 
-  const { startWorker, stopWorker, restartWorker, callWorkerApi } = createWorkerManager({
+  const { startWorker, stopWorker, restartWorker, callWorkerApi, resetAutoReloginState } = createWorkerManager({
     fork,
     WorkerThread: Worker,
     runtimeMode,
@@ -75,6 +81,8 @@ function createRuntimeEngine(options = {}) {
     triggerOfflineReminder,
     addOrUpdateAccount: store.addOrUpdateAccount,
     deleteAccount: store.deleteAccount,
+    getAutoRelogin: store.getAutoRelogin,
+    getAccounts: store.getAccounts,
     onStatusSync: (accountId, status, accountName) => {
       runtimeEvents.emit('status', { accountId, status, accountName })
       if (onStatusSync) onStatusSync(accountId, status, accountName)
@@ -103,6 +111,7 @@ function createRuntimeEngine(options = {}) {
     startWorker,
     stopWorker,
     restartWorker,
+    resetAutoReloginState,
   })
 
   runtimeEvents.on('log', (entry) => {

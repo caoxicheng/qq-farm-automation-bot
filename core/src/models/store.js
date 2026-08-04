@@ -196,6 +196,14 @@ const DEFAULT_ACCOUNT_CONFIG = {
     bagSeedPriority: [],
     // 背包种子用完后的回退策略
     bagSeedFallbackStrategy: 'level',
+    // 自动重登配置（默认关闭，需在 Web 面板手动开启）
+    autoRelogin: {
+        enabled: false,
+        delayMinutes: 15,
+        maxPerDay: 3,
+        kickWindowMinutes: 10,
+        loginFailWindowSec: 60,
+    },
 };
 const ALLOWED_AUTOMATION_KEYS = new Set(Object.keys(DEFAULT_ACCOUNT_CONFIG.automation));
 
@@ -312,11 +320,14 @@ function cloneAccountConfig(base = DEFAULT_ACCOUNT_CONFIG) {
     // 蔬菜黑名单
     const rawPlantBlacklist = Array.isArray(base.plantBlacklist) ? base.plantBlacklist : [];
 
+    const autoRelogin = normalizeAutoRelogin(base.autoRelogin, DEFAULT_ACCOUNT_CONFIG.autoRelogin);
+
     return {
         ...base,
         automation,
         intervals: { ...(base.intervals || DEFAULT_ACCOUNT_CONFIG.intervals) },
         friendQuietHours: { ...(base.friendQuietHours || DEFAULT_ACCOUNT_CONFIG.friendQuietHours) },
+        autoRelogin,
         knownFriendGids,
         knownFriendGidSyncCooldownSec,
         friendsListCacheTtlSec,
@@ -391,6 +402,17 @@ function normalizeAccountConfig(input, fallback = accountFallbackConfig) {
             start: normalizeTimeString(src.friendQuietHours.start, old.start || '23:00'),
             end: normalizeTimeString(src.friendQuietHours.end, old.end || '07:00'),
         };
+    }
+
+    if (src.autoRelogin && typeof src.autoRelogin === 'object') {
+        const old = cfg.autoRelogin || DEFAULT_ACCOUNT_CONFIG.autoRelogin;
+        cfg.autoRelogin = normalizeAutoRelogin({
+            enabled: src.autoRelogin.enabled !== undefined ? !!src.autoRelogin.enabled : !!old.enabled,
+            delayMinutes: src.autoRelogin.delayMinutes !== undefined ? src.autoRelogin.delayMinutes : old.delayMinutes,
+            maxPerDay: src.autoRelogin.maxPerDay !== undefined ? src.autoRelogin.maxPerDay : old.maxPerDay,
+            kickWindowMinutes: src.autoRelogin.kickWindowMinutes !== undefined ? src.autoRelogin.kickWindowMinutes : old.kickWindowMinutes,
+            loginFailWindowSec: src.autoRelogin.loginFailWindowSec !== undefined ? src.autoRelogin.loginFailWindowSec : old.loginFailWindowSec,
+        }, old);
     }
 
     if (Array.isArray(src.friendBlacklist)) {
@@ -583,6 +605,7 @@ function loadGlobalConfig() {
                     clientVersion: String(data.systemConfig.clientVersion || '').trim(),
                     platform: String(data.systemConfig.platform || 'qq').trim(),
                     os: String(data.systemConfig.os || 'iOS').trim(),
+                    versionPrefix: String(data.systemConfig.versionPrefix || '').trim(),
                 };
             }
 
@@ -680,6 +703,7 @@ function getConfigSnapshot(accountId) {
         preferredSeedId: cfg.preferredSeedId,
         intervals: { ...cfg.intervals },
         friendQuietHours: { ...cfg.friendQuietHours },
+        autoRelogin: { ...cfg.autoRelogin },
         knownFriendGids: [...(cfg.knownFriendGids || [])],
         knownFriendGidSyncCooldownSec: cfg.knownFriendGidSyncCooldownSec,
         friendsListCacheTtlSec: cfg.friendsListCacheTtlSec,
@@ -744,6 +768,17 @@ function applyConfigSnapshot(snapshot, options = {}) {
             start: normalizeTimeString(cfg.friendQuietHours.start, old.start || '23:00'),
             end: normalizeTimeString(cfg.friendQuietHours.end, old.end || '07:00'),
         };
+    }
+
+    if (cfg.autoRelogin && typeof cfg.autoRelogin === 'object') {
+        const old = next.autoRelogin || DEFAULT_ACCOUNT_CONFIG.autoRelogin;
+        next.autoRelogin = normalizeAutoRelogin({
+            enabled: cfg.autoRelogin.enabled !== undefined ? !!cfg.autoRelogin.enabled : !!old.enabled,
+            delayMinutes: cfg.autoRelogin.delayMinutes !== undefined ? cfg.autoRelogin.delayMinutes : old.delayMinutes,
+            maxPerDay: cfg.autoRelogin.maxPerDay !== undefined ? cfg.autoRelogin.maxPerDay : old.maxPerDay,
+            kickWindowMinutes: cfg.autoRelogin.kickWindowMinutes !== undefined ? cfg.autoRelogin.kickWindowMinutes : old.kickWindowMinutes,
+            loginFailWindowSec: cfg.autoRelogin.loginFailWindowSec !== undefined ? cfg.autoRelogin.loginFailWindowSec : old.loginFailWindowSec,
+        }, old);
     }
 
     if (Array.isArray(cfg.friendBlacklist)) {
@@ -908,6 +943,28 @@ function normalizeTimeString(v, fallback) {
 
 function getFriendQuietHours(accountId) {
     return { ...getAccountConfigSnapshot(accountId).friendQuietHours };
+}
+
+// ============ 自动重登 ============
+function normalizeAutoRelogin(input, fallback = DEFAULT_ACCOUNT_CONFIG.autoRelogin) {
+    const src = (input && typeof input === 'object') ? input : {};
+    const def = (fallback && typeof fallback === 'object') ? fallback : DEFAULT_ACCOUNT_CONFIG.autoRelogin;
+    const num = (v, d, min, max) => {
+        const n = Number.parseInt(v, 10);
+        if (!Number.isFinite(n)) return d;
+        return Math.max(min, Math.min(max, n));
+    };
+    return {
+        enabled: src.enabled !== undefined ? !!src.enabled : !!def.enabled,
+        delayMinutes: num(src.delayMinutes, def.delayMinutes || 15, 1, 1440),
+        maxPerDay: num(src.maxPerDay, def.maxPerDay || 3, 1, 100),
+        kickWindowMinutes: num(src.kickWindowMinutes, def.kickWindowMinutes || 10, 1, 1440),
+        loginFailWindowSec: num(src.loginFailWindowSec, def.loginFailWindowSec || 60, 5, 3600),
+    };
+}
+
+function getAutoRelogin(accountId) {
+    return { ...getAccountConfigSnapshot(accountId).autoRelogin };
 }
 
 function getKnownFriendGids(accountId) {
@@ -1257,9 +1314,24 @@ function setSystemConfig(config) {
         clientVersion: String(config.clientVersion || '').trim(),
         platform: String(config.platform || 'qq').trim(),
         os: String(config.os || 'iOS').trim(),
+        versionPrefix: String(config.versionPrefix || '').trim(),
     };
     saveGlobalConfig();
     return { ...globalConfig.systemConfig };
+}
+
+// ============ 客户端版本前缀（服务端 version_info 自动校准，持久化跨重启） ============
+function getVersionPrefix() {
+    return (globalConfig.systemConfig && globalConfig.systemConfig.versionPrefix) || '';
+}
+
+function setVersionPrefix(prefix) {
+    const t = String(prefix || '').trim();
+    if (!t) return '';
+    if (!globalConfig.systemConfig) globalConfig.systemConfig = {};
+    globalConfig.systemConfig.versionPrefix = t;
+    saveGlobalConfig();
+    return t;
 }
 
 const DEFAULT_WX_CONFIG = {
@@ -1303,6 +1375,9 @@ module.exports = {
     getBagSeedFallbackStrategy,
     getIntervals,
     getFriendQuietHours,
+    getAutoRelogin,
+    getVersionPrefix,
+    setVersionPrefix,
     getKnownFriendGids,
     setKnownFriendGids,
     getKnownFriendGidSyncCooldownSec,

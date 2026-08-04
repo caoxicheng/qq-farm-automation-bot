@@ -215,6 +215,7 @@ const localStrategySettings = ref({
   plantDelaySeconds: 0,
   intervals: { farmMin: 2, farmMax: 5, helpMin: 10, helpMax: 15, stealMin: 10, stealMax: 15 },
   friendQuietHours: { enabled: false, start: '23:00', end: '07:00' },
+  autoRelogin: { enabled: false, delayMinutes: 15, maxPerDay: 3, kickWindowMinutes: 10, loginFailWindowSec: 60 },
 })
 
 const plantingStrategyOptions = [
@@ -450,6 +451,7 @@ function syncLocalStrategySettings() {
       plantDelaySeconds: settings.value.plantDelaySeconds ?? 0,
       intervals: settings.value.intervals,
       friendQuietHours: settings.value.friendQuietHours,
+      autoRelogin: settings.value.autoRelogin,
     }))
   }
 }
@@ -1236,6 +1238,58 @@ async function handleTestOffline() {
                   :disabled="!localStrategySettings.friendQuietHours.enabled"
                 >
               </div>
+            </div>
+
+            <div class="border-t pt-3 space-y-3 dark:border-gray-700">
+              <h4 class="text-sm text-gray-700 font-medium dark:text-gray-300">
+                自动重登设置
+              </h4>
+              <p class="text-xs text-gray-400">
+                账号被踢下线后，延迟一段时间自动重新登录。默认关闭，需手动开启。
+              </p>
+              <div class="flex flex-wrap items-center gap-4">
+                <BaseSwitch
+                  v-model="localStrategySettings.autoRelogin.enabled"
+                  label="启用自动重登"
+                />
+              </div>
+              <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
+                <BaseInput
+                  v-model.number="localStrategySettings.autoRelogin.delayMinutes"
+                  label="延迟重登 (分钟)"
+                  type="number"
+                  min="1"
+                  max="1440"
+                  :disabled="!localStrategySettings.autoRelogin.enabled"
+                />
+                <BaseInput
+                  v-model.number="localStrategySettings.autoRelogin.maxPerDay"
+                  label="每日上限 (次)"
+                  type="number"
+                  min="1"
+                  max="100"
+                  :disabled="!localStrategySettings.autoRelogin.enabled"
+                />
+                <BaseInput
+                  v-model.number="localStrategySettings.autoRelogin.kickWindowMinutes"
+                  label="重登窗口 (分钟)"
+                  type="number"
+                  min="1"
+                  max="1440"
+                  :disabled="!localStrategySettings.autoRelogin.enabled"
+                />
+                <BaseInput
+                  v-model.number="localStrategySettings.autoRelogin.loginFailWindowSec"
+                  label="登录失败窗口 (秒)"
+                  type="number"
+                  min="5"
+                  max="3600"
+                  :disabled="!localStrategySettings.autoRelogin.enabled"
+                />
+              </div>
+              <p class="text-xs text-gray-400">
+                重登后窗口内再次被踢（手机占用）或登录失败，将自动停止当天的自动重登。
+              </p>
             </div>
 
             <div class="border-t pt-3 space-y-3 dark:border-gray-700">

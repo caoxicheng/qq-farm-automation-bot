@@ -18,6 +18,7 @@ function createDataProvider(options) {
         startWorker,
         stopWorker,
         restartWorker,
+        resetAutoReloginState,
     } = options;
 
     function getStoredAccountsList() {
@@ -133,6 +134,7 @@ function createDataProvider(options) {
                 preferredSeedId,
                 intervals: body.intervals,
                 friendQuietHours: body.friendQuietHours,
+                autoRelogin: body.autoRelogin,
                 stealDelaySeconds: body.stealDelaySeconds,
                 plantOrderRandom: body.plantOrderRandom,
                 plantDelaySeconds: body.plantDelaySeconds,
@@ -152,6 +154,7 @@ function createDataProvider(options) {
                 preferredSeed: store.getPreferredSeed(accountId),
                 intervals: store.getIntervals(accountId),
                 friendQuietHours: store.getFriendQuietHours(accountId),
+                autoRelogin: store.getAutoRelogin(accountId),
                 stealDelaySeconds: store.getStealDelaySeconds(accountId),
                 plantOrderRandom: store.getPlantOrderRandom(accountId),
                 plantDelaySeconds: store.getPlantDelaySeconds(accountId),
@@ -201,6 +204,8 @@ function createDataProvider(options) {
             const accountId = resolveAccountRefId(accountRef);
             const acc = findAccountByAnyRef(accountId || accountRef);
             if (!acc) return false;
+            // 手动启动：重置自动重登状态（计数、禁用标记）
+            if (typeof resetAutoReloginState === 'function' && accountId) resetAutoReloginState(accountId);
             startWorker(acc);
             return true;
         },
@@ -217,6 +222,8 @@ function createDataProvider(options) {
             const accountId = resolveAccountRefId(accountRef);
             const acc = findAccountByAnyRef(accountId || accountRef);
             if (!acc) return false;
+            // 手动重启：重置自动重登状态
+            if (typeof resetAutoReloginState === 'function' && accountId) resetAutoReloginState(accountId);
             restartWorker(acc);
             return true;
         },

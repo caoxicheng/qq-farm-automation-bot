@@ -37,6 +37,14 @@ export interface FriendQuietHoursConfig {
   end?: string
 }
 
+export interface AutoReloginConfig {
+  enabled?: boolean
+  delayMinutes?: number
+  maxPerDay?: number
+  kickWindowMinutes?: number
+  loginFailWindowSec?: number
+}
+
 export interface OfflineConfig {
   channel: string
   reloginUrlMode: string
@@ -58,6 +66,7 @@ export interface SettingsState {
   bagSeedFallbackStrategy: string
   intervals: IntervalsConfig
   friendQuietHours: FriendQuietHoursConfig
+  autoRelogin: AutoReloginConfig
   automation: AutomationConfig
   ui: UIConfig
   offlineReminder: OfflineConfig
@@ -79,6 +88,7 @@ export const useSettingStore = defineStore('setting', () => {
     bagSeedFallbackStrategy: 'level',
     intervals: {},
     friendQuietHours: { enabled: false, start: '23:00', end: '07:00' },
+    autoRelogin: { enabled: false, delayMinutes: 15, maxPerDay: 3, kickWindowMinutes: 10, loginFailWindowSec: 60 },
     automation: {},
     ui: {},
     offlineReminder: {
@@ -115,6 +125,7 @@ export const useSettingStore = defineStore('setting', () => {
         settings.value.preferredSeedId = d.preferredSeed || 0
         settings.value.intervals = d.intervals || {}
         settings.value.friendQuietHours = d.friendQuietHours || { enabled: false, start: '23:00', end: '07:00' }
+        settings.value.autoRelogin = d.autoRelogin || { enabled: false, delayMinutes: 15, maxPerDay: 3, kickWindowMinutes: 10, loginFailWindowSec: 60 }
         settings.value.automation = d.automation || {}
         settings.value.ui = d.ui || {}
         settings.value.offlineReminder = d.offlineReminder || {
@@ -155,6 +166,7 @@ export const useSettingStore = defineStore('setting', () => {
         bagSeedFallbackStrategy: newSettings.bagSeedFallbackStrategy ?? 'level',
         intervals: newSettings.intervals,
         friendQuietHours: newSettings.friendQuietHours,
+        autoRelogin: newSettings.autoRelogin,
         stealDelaySeconds: newSettings.stealDelaySeconds ?? 0,
         plantOrderRandom: newSettings.plantOrderRandom ?? false,
         plantDelaySeconds: newSettings.plantDelaySeconds ?? 0,
