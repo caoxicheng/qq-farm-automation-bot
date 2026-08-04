@@ -4,7 +4,7 @@
 
 const protobuf = require('protobufjs');
 const { CONFIG, PlantPhase, PHASE_NAMES } = require('../config/config');
-const { getPlantNameBySeedId, getPlantName, getPlantExp, formatGrowTime, getPlantGrowTime, getAllSeeds, getPlantById, getPlantBySeedId, getSeedImageBySeedId } = require('../config/gameConfig');
+const { getPlantNameBySeedId, getPlantName, getPlantExp, formatGrowTime, getPlantGrowTime, getAllSeeds, getPlantById, getPlantBySeedId, getSeedImageBySeedId, deriveSeedIdFromPlantId } = require('../config/gameConfig');
 const { isAutomationOn, getPreferredSeed, getAutomation, getPlantingStrategy, getBagSeedPriority, getBagSeedFallbackStrategy, getFertilizerBuyOrganicCount, getFertilizerBuyOrganicThresholdHours, getFertilizerBuyNormalCount, getFertilizerBuyNormalThresholdHours, getFertilizerBuyCheckIntervalMinutes } = require('../models/store');
 const { sendMsgAsync, getUserState, networkEvents, getWsErrorState } = require('../utils/network');
 const { types } = require('../utils/proto');
@@ -961,7 +961,7 @@ async function getLandsDetail() {
             const plantId = toNum(plant.id);
             const plantName = getPlantName(plantId) || plant.name || '未知';
             const plantCfg = getPlantById(plantId);
-            const seedId = toNum(plantCfg && plantCfg.seed_id);
+            const seedId = toNum(plantCfg && plantCfg.seed_id) || deriveSeedIdFromPlantId(plantId);
             const seedImage = seedId > 0 ? getSeedImageBySeedId(seedId) : '';
             const plantSize = Math.max(1, toNum(plantCfg && plantCfg.size) || 1);
             const totalSeason = Math.max(1, toNum(plantCfg && plantCfg.seasons) || 1);

@@ -246,6 +246,24 @@ function getPlantByFruitId(fruitId) {
 }
 
 /**
+ * 从植物ID推导种子ID（活动作物不在本地配置时的兜底）。
+ * 服务端 PlantInfo.id 是植物ID（如 1020002），背包物品 id 是种子ID（如 20002），
+ * 规律为 plant_id - 1000000（1x1，128/129 覆盖）；哈哈南瓜类 2x2 差 2000000。
+ * 推导结果校验落在 2xxxx 种子段才返回，否则 0。
+ * @param {number} plantId - 植物ID
+ * @returns {number} 种子ID（推导失败返回 0）
+ */
+function deriveSeedIdFromPlantId(plantId) {
+    const id = Number(plantId) || 0;
+    if (id <= 0) return 0;
+    for (const delta of [1000000, 2000000]) {
+        const seedId = id - delta;
+        if (seedId >= 20000 && seedId < 30000) return seedId;
+    }
+    return 0;
+}
+
+/**
  * 获取所有种子信息（用于备选）
  */
 function getAllSeeds() {
@@ -354,4 +372,6 @@ module.exports = {
     getSeedPrice,
     getFruitPrice,
     getSeedImageBySeedId,
+    // 活动作物兼容（plant_id → seed_id 推导，本地配置缺失时兜底）
+    deriveSeedIdFromPlantId,
 };

@@ -3,7 +3,7 @@
  */
 
 const { CONFIG, PlantPhase, PHASE_NAMES } = require('../config/config');
-const { getPlantName, getPlantById, getSeedImageBySeedId, getPlantGrowTime } = require('../config/gameConfig');
+const { getPlantName, getPlantById, getSeedImageBySeedId, getPlantGrowTime, deriveSeedIdFromPlantId } = require('../config/gameConfig');
 const { parentPort } = require('node:worker_threads');
 const {
     isAutomationOn,
@@ -824,7 +824,7 @@ function analyzeFriendLands(lands, myGid, friendName = '', options = {}) {
 
                 // 获取种子ID用于黑名单检查（前端黑名单使用seedId）
                 const plantCfg = getPlantById(plantId);
-                const seedId = plantCfg ? toNum(plantCfg.seed_id) : 0;
+                const seedId = toNum(plantCfg && plantCfg.seed_id) || deriveSeedIdFromPlantId(plantId);
 
                 // 蔬菜黑名单过滤 - 使用seedId检查
                 if (plantBlacklist && seedId > 0 && plantBlacklist.includes(seedId)) {
@@ -1011,7 +1011,7 @@ async function getFriendLandsDetail(friendGid) {
             const plantId = toNum(plant.id);
             const plantName = getPlantName(plantId) || plant.name || '未知';
             const plantCfg = getPlantById(plantId);
-            const seedId = toNum(plantCfg && plantCfg.seed_id);
+            const seedId = toNum(plantCfg && plantCfg.seed_id) || deriveSeedIdFromPlantId(plantId);
             const seedImage = seedId > 0 ? getSeedImageBySeedId(seedId) : '';
             const plantSize = Math.max(1, toNum(plantCfg && plantCfg.size) || 1);
             const totalSeason = Math.max(1, toNum(plantCfg && plantCfg.seasons) || 1);

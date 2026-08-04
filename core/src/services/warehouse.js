@@ -12,6 +12,13 @@ const { toLong, toNum, log, logWarn, sleep } = require('../utils/utils');
 const { updateStatusGold } = require('./status');
 
 const SELL_BATCH_SIZE = 15;
+// 种子物品 ID 段（2xxxx）：活动种子不在本地 Plant.json 时也按种子处理
+const SEED_ID_MIN = 20000;
+const SEED_ID_MAX = 30000;
+function isLikelySeedId(id) {
+    const n = Number(id) || 0;
+    return n >= SEED_ID_MIN && n < SEED_ID_MAX;
+}
 const FERTILIZER_RELATED_IDS = new Set([
     100003, // 化肥礼包
     100004, // 有机化肥礼包
@@ -340,9 +347,9 @@ async function getBagDetail() {
         } else if (getPlantByFruitId(id)) {
             if (!name) name = `${getFruitName(id)}果实`;
             category = 'fruit';
-        } else if (getPlantBySeedId(id)) {
+        } else if (getPlantBySeedId(id) || isLikelySeedId(id)) {
             const p = getPlantBySeedId(id);
-            if (!name) name = `${p && p.name ? p.name : '未知'}种子`;
+            if (!name) name = p && p.name ? `${p.name}种子` : `种子#${id}`;
             category = 'seed';
         }
         if (!name) name = `物品${id}`;
@@ -357,7 +364,7 @@ async function getBagDetail() {
                 name,
                 image: getItemImageById(id),
                 category,
-                itemType: info ? (Number(info.type) || 0) : 0,
+                itemType: category === 'seed' ? 5 : (info ? (Number(info.type) || 0) : 0),
                 priceId,
                 price: info ? (Number(info.price) || 0) : 0,
                 priceUnit,
@@ -533,15 +540,18 @@ async function getBagSeeds() {
         if (seedId <= 0 || count <= 0) continue;
 
         const plant = getPlantBySeedId(seedId);
-        if (!plant) continue;
+        // 活动种子（2xxxx 段）不在本地植物配置时，兜底识别为种子：
+        // 种植请求直接按 seedId 发送，服务端自行处理（含 2x2 从属地块）
+        const isUnknownSeed = !plant && isLikelySeedId(seedId);
+        if (!plant && !isUnknownSeed) continue;
 
         const current = merged.get(seedId) || {
             seedId,
-            name: String(plant.name || `种子#${seedId}`),
+            name: String((plant && plant.name) || `种子#${seedId}`),
             count: 0,
-            requiredLevel: Math.max(0, Number(plant.land_level_need || 0)),
+            requiredLevel: Math.max(0, Number((plant && plant.land_level_need) || 0)),
             image: getSeedImageBySeedId(seedId) || getItemImageById(seedId),
-            plantSize: Math.max(1, Number(plant.size || 1)),
+            plantSize: Math.max(1, Number((plant && plant.size) || 1)),
         };
         current.count += count;
         merged.set(seedId, current);
