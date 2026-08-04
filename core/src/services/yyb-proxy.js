@@ -142,4 +142,24 @@ async function getFarmCode(openid) {
     }
 }
 
-module.exports = { getQRCode, checkQR, getFarmCode, YYB_BASE };
+/**
+ * 获取账号头像（微信，yyb-go 本地头像文件）
+ * 返回 fetch Response（图片流），失败返回 null
+ */
+async function getAccountAvatar(openid) {
+    if (!openid) return null;
+    try {
+        const response = await fetch(`${YYB_BASE}/accounts/avatar?ref=${encodeURIComponent(openid)}`, {
+            headers: { Authorization: `Bearer ${YYB_TOKEN}` },
+            redirect: 'follow',
+            timeout: 10000,
+        });
+        if (!response.ok) return null;
+        return response;
+    } catch (e) {
+        logger.warn('yyb getAccountAvatar failed', { openid, error: e.message });
+        return null;
+    }
+}
+
+module.exports = { getQRCode, checkQR, getFarmCode, getAccountAvatar, YYB_BASE };

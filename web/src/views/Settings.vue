@@ -163,6 +163,12 @@ function selectAccount(account: any) {
   accountStore.selectAccount(String(account.id))
 }
 
+function onAvatarError(e: Event) {
+  // 头像加载失败（无头像/接口异常）时隐藏图片，显示圆形背景
+  const el = e.target as HTMLElement
+  el.style.display = 'none'
+}
+
 function openClearStoppedConfirm() {
   if (stoppedAccountsCount.value === 0) {
     showAlert('没有已停止的账号需要清理', 'primary')
@@ -934,7 +940,8 @@ async function handleTestOffline() {
               <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
                 <div class="flex min-w-0 flex-1 items-center gap-3">
                   <div class="h-10 w-10 flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-100 dark:bg-gray-700 sm:h-12 sm:w-12">
-                    <img v-if="acc.uin" :src="`https://q1.qlogo.cn/g?b=qq&nk=${acc.uin}&s=100`" class="h-full w-full object-cover">
+                    <img v-if="acc.platform === 'wx'" :src="`/api/accounts/${acc.id}/avatar`" class="h-full w-full object-cover" @error="onAvatarError">
+                    <img v-else-if="acc.uin" :src="`https://q1.qlogo.cn/g?b=qq&nk=${acc.uin}&s=100`" class="h-full w-full object-cover" @error="onAvatarError">
                     <div v-else class="i-carbon-user text-xl text-gray-400 sm:text-2xl" />
                   </div>
                   <div class="min-w-0 flex-1">

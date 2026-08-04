@@ -492,6 +492,33 @@ function startAdminServer(dataProvider) {
         }
     });
 
+    // 账号头像（微信）：免鉴权（<img> 无法携带 x-admin-token），仅返回头像图片流，
+    // 不泄露 openid；带 10 分钟内存缓存
+    const avatarCache = new Map();
+    const AVATAR_CACHE_TTL_MS = 10 * 60 * 1000;
+    app.get('/api/accounts/:id/avatar', async (req, res) => {
+        try {
+            const id = Number(req.params.id) || 0;
+            if (id <= 0) return res.status(404).end();
+            const hit = avatarCache.get(id);
+            if (hit && Date.now() - hit.at < AVATAR_CACHE_TTL_MS) {
+                return res.set('Content-Type', hit.type).set('Cache-Control', 'public, max-age=600').send(hit.buf);
+            }
+            const accList = provider.getAccounts() || {};
+            const accounts = Array.isArray(accList) ? accList : (accList.accounts || []);
+            const acc = accounts.find((a) => Number(a.id) === id);
+            if (!acc || !acc.wxid) return res.status(404).end();
+            const resp = await yybProxy.getAccountAvatar(acc.wxid);
+            if (!resp) return res.status(404).end();
+            const buf = Buffer.from(await resp.arrayBuffer());
+            const type = resp.headers.get('content-type') || 'image/jpeg';
+            avatarCache.set(id, { buf, type, at: Date.now() });
+            res.set('Content-Type', type).set('Cache-Control', 'public, max-age=600').send(buf);
+        } catch {
+            res.status(404).end();
+        }
+    });
+
     app.use('/api', (req, res, next) => {
         if (req.path === '/login' || req.path === '/qr/create' || req.path === '/qr/check' || req.path === '/proxy' || req.path === '/card-claim/status' || req.path === '/card-claim/claim' || req.path === '/game-version') return next();
         return authRequired(req, res, next);
