@@ -21,6 +21,7 @@ const itemInfoMap = new Map();  // item_id -> item
 const seedItemMap = new Map();  // seed_id -> item(type=5)
 const seedImageMap = new Map(); // seed_id -> image url
 const seedAssetImageMap = new Map(); // asset_name (Crop_xxx) -> image url
+const fruitImageMap = new Map(); // fruit/item_id -> image url（成熟果实图）
 
 /**
  * 加载配置文件
@@ -93,6 +94,7 @@ function loadConfigs() {
         const seedImageDir = path.join(configDir, 'seed_images_named');
         seedImageMap.clear();
         seedAssetImageMap.clear();
+        fruitImageMap.clear();
         if (fs.existsSync(seedImageDir)) {
             const files = fs.readdirSync(seedImageDir);
             for (const file of files) {
@@ -114,6 +116,15 @@ function loadConfigs() {
                     const assetName = byAsset[1];
                     if (assetName && !seedAssetImageMap.has(assetName)) {
                         seedAssetImageMap.set(assetName, fileUrl);
+                    }
+                }
+
+                // 3) id_..._Mature.png 命名，按物品ID（果实）建立映射
+                const byMature = filename.match(/^(\d+)_.*_Mature\.(?:png|jpg|jpeg|webp|gif)$/i);
+                if (byMature) {
+                    const itemId = Number(byMature[1]) || 0;
+                    if (itemId > 0 && !fruitImageMap.has(itemId)) {
+                        fruitImageMap.set(itemId, fileUrl);
                     }
                 }
             }
@@ -303,6 +314,9 @@ function getItemImageById(itemId) {
         // 1. 优先按物品ID命中（如 20003_胡萝卜_Crop_3_Seed.png）
         const direct = seedImageMap.get(targetId);
         if (direct) return direct;
+        // 2. 果实/物品图片（id_..._Mature.png，如 46032_Crop_6032_Mature.png）
+        const fruit = fruitImageMap.get(targetId);
+        if (fruit) return fruit;
 
         // 2. 其次按 ItemInfo.asset_name 命中（如 Crop_3_Seed.png）
         const item = itemInfoMap.get(targetId);

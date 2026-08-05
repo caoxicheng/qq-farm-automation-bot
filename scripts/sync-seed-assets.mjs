@@ -31,6 +31,7 @@ const HEX = '0123456789abcdef';
 
 const args = process.argv.slice(2);
 const DRY_RUN = args.includes('--dry-run');
+const MATURE = args.includes('--mature');
 const CONFIG_URL_ARG = args.find((a) => a.startsWith('--config-url='))?.split('=')[1];
 
 // ---------- 工具 ----------
@@ -107,6 +108,81 @@ function findConfigUrl() {
   throw new Error('未在微信缓存找到 plant config。请先在微信里打开一次游戏（让资源缓存），或用 --config-url 手动指定。');
 }
 
+// ---------- 成熟果实图同步（--mature） ----------
+async function syncMature(cfg, tmp, astcenc) {
+  const { paths, uuids, versions = {} } = cfg;
+  // 收集 Crop_n_6（最后生长阶段 = 成熟果实形态），排除 gold 变体
+  const crops = [];
+  for (const [idxStr, p] of Object.entries(paths)) {
+    const idx = Number(idxStr);
+    const assetPath = p[0];
+    const m = assetPath.match(/^model\/v4\/(Crop_(\d+)_6)$/);
+    if (m) crops.push({ idx, n: Number(m[2]), assetPath: m[1] });
+  }
+  crops.sort((a, b) => a.n - b.n);
+  log(`② 共发现 ${crops.length} 个成熟形态资源`);
+
+  fs.mkdirSync(IMG_DIR, { recursive: true });
+  const existing = fs.readdirSync(IMG_DIR);
+  const missing = [];
+  for (const c of crops) {
+    const fruitId = 40000 + c.n; // 果实ID = 种子ID(20000+n) + 20000
+    const has = existing.some((f) => new RegExp(`^${fruitId}_`).test(f));
+    if (!has) missing.push({ ...c, fruitId });
+  }
+  log(`③ 本地已有 ${crops.length - missing.length} 个，缺失 ${missing.length} 个`);
+  for (const c of missing) log(`   - fruit ${c.fruitId} (Crop_${c.n}_6)`);
+  if (DRY_RUN) { log('（--dry-run，不下载）'); return; }
+  if (missing.length === 0) { log('✅ 无缺失，无需同步'); return; }
+
+  const success = [];
+  const failed = [];
+  for (const c of missing) {
+    try {
+      const compressed = uuids[c.idx];
+      if (!compressed || compressed.length !== 22) { failed.push([c.fruitId, 'uuids 无条目']); continue; }
+      const full = decodeUuid(compressed);
+      const sub = `${compressed}@f9941`;
+      const subIdx = uuids.indexOf(sub);
+      if (subIdx < 0) { failed.push([c.fruitId, 'SpriteFrame 子资源缺失']); continue; }
+      const sfHash = sparseLookup(versions.import || [], subIdx);
+      const nativeHash = sparseLookup(versions.native || [], c.idx);
+      if (!sfHash || !nativeHash) { failed.push([c.fruitId, '版本 hash 缺失']); continue; }
+
+      // 下载 SpriteFrame → rect
+      const sfPath = path.join(tmp, `${c.n}_sf.json`);
+      fetchUrl(`https://cdn-resource.nqf.qq.com/release/remote/plant/import/${full.slice(0, 2)}/${full}@f9941.${sfHash}.json`, sfPath);
+      const sf = JSON.parse(fs.readFileSync(sfPath, 'utf8'));
+      const sprite = sf?.[5]?.[0];
+      const rect = sprite?.rect;
+      if (!rect) { failed.push([c.fruitId, 'SpriteFrame 无 rect']); continue; }
+      if (sprite.rotated) { failed.push([c.fruitId, 'rotated=true 暂不支持']); continue; }
+
+      // 下载 ASTC → 解码 → 裁剪
+      const astcPath = path.join(tmp, `${c.n}.astc`);
+      const pngPath = path.join(tmp, `${c.n}.png`);
+      const outPath = path.join(tmp, `${c.n}_crop.png`);
+      fetchUrl(`https://cdn-resource.nqf.qq.com/release/remote/plant/native/${full.slice(0, 2)}/${full}.${nativeHash}.astc`, astcPath);
+      sh([astcenc, '-dl', astcPath, pngPath]);
+      sh(['sips', '-c', String(rect.height), String(rect.width), '--cropOffset', String(rect.y), String(rect.x), pngPath, '--out', outPath]);
+
+      const finalName = `${c.fruitId}_Crop_${c.n}_Mature.png`;
+      fs.copyFileSync(outPath, path.join(IMG_DIR, finalName));
+      success.push([c.fruitId, `Crop_${c.n}_Mature`, `${rect.width}x${rect.height}`]);
+      log(`   ✅ ${finalName}`);
+    } catch (e) {
+      failed.push([c.fruitId, e.message.slice(0, 80)]);
+      log(`   ❌ fruit ${c.fruitId}: ${e.message.slice(0, 80)}`);
+    }
+  }
+
+  log(`\n完成：成功 ${success.length}，失败 ${failed.length}`);
+  if (failed.length) {
+    log('失败明细：');
+    for (const [id, reason] of failed) log(`   - ${id}: ${reason}`);
+  }
+}
+
 // ---------- 2. 主流程 ----------
 async function main() {
   // 依赖检查（PATH + 常见安装路径）
@@ -131,6 +207,13 @@ async function main() {
   const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
   const { paths, uuids, versions = {} } = cfg;
   log(`   paths=${Object.keys(paths).length} uuids=${uuids.length}`);
+
+  // 成熟果实图模式（--mature）：下载 Crop_n_6（最后生长阶段=果实形态）→ {40000+n}_Crop_{n}_Mature.png
+  if (MATURE) {
+    await syncMature(cfg, tmp, astcenc);
+    fs.rmSync(tmp, { recursive: true, force: true });
+    return;
+  }
 
   // ② 收集所有普通版 Crop_n_Seed（排除 gold 变体）
   const seeds = [];

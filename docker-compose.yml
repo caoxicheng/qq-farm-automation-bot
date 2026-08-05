@@ -11,6 +11,8 @@ services:
     volumes:
       - qq-farm-data:/app/core/data
       - qq-farm-logs:/app/core/data/logs
+      # 种子/果实图片目录：宿主机同步脚本更新后容器即时生效（免重建）
+      - ./core/src/gameConfig/seed_images_named:/app/core/src/gameConfig/seed_images_named:ro
     environment:
       - TZ=${TZ:-Asia/Shanghai}
       - NODE_ENV=production
