@@ -424,15 +424,6 @@ function handleNotify(msg) {
             return;
         }
 
-        // 战令变更通知（保留事件发射：活动中心千星游记后续可作推送驱动刷新面板数据）
-        if (type.includes('BattlePassChangeNotify')) {
-            try {
-                const notify = types.BattlePassChangeNotify.decode(eventBody);
-                networkEvents.emit('battlePassChangeNotify', notify);
-            } catch { }
-            return;
-        }
-
         // 红点类通知（图鉴/头像框/成就等）：界面状态提示，bot 无需响应，静默识别避免刷"未处理"日志
         if (type.includes('RedDotNotify')) {
             return;

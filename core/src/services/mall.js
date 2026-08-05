@@ -5,7 +5,7 @@ const { Buffer } = require('node:buffer');
 
 const { sendMsgAsync, getUserState } = require('../utils/network');
 const { types } = require('../utils/proto');
-const { toNum, toLong, log, logWarn, sleep } = require('../utils/utils');
+const { toNum, log, sleep } = require('../utils/utils');
 
 const ORGANIC_FERTILIZER_MALL_GOODS_ID = 1002;
 const INORGANIC_FERTILIZER_MALL_GOODS_ID = 1003;
@@ -66,112 +66,6 @@ async function getMallGoodsList(slotType = 1) {
  * slot=1 为常规商城（化肥/免费礼包）；2-8 探测未知 slot
  * 由 NeedNotify（商城需求通知）触发，只记录有商品的 slot
  */
-async function probeMallSlots() {
-    // slot=1 常规商城；2-30 探测未知 slot（神秘商人/活动商店）
-    for (let slot = 2; slot <= 30; slot++) {
-        try {
-            const goods = await getMallGoodsList(slot);
-            if (!goods.length) continue;
-            const names = goods.map((g) => `#${toNum(g && g.goods_id)}:${g && g.name || '?'}`).slice(0, 10).join(', ');
-            log('商城', `探测 slot=${slot} 商品(${goods.length}): ${names}`, {
-                module: 'mall',
-                event: 'mall_slot_probe',
-                slot,
-                count: goods.length,
-                dev: true,
-            });
-        } catch {
-            // slot 无效/无数据——忽略（正常）
-        }
-        await sleep(100);
-    }
-    await probeShopProfiles();
-}
-
-/**
- * 诊断：探测商店系统全部商店（shoppb.ShopService.ShopProfiles）及各商店商品
- * 用于定位神秘商人（小浣熊）/战令商店等特殊商店
- */
-async function probeShopProfiles() {
-    try {
-        const body = types.ShopProfilesRequest.encode(types.ShopProfilesRequest.create({})).finish();
-        const { body: replyBody } = await sendMsgAsync('gamepb.shoppb.ShopService', 'ShopProfiles', body);
-        const reply = types.ShopProfilesReply.decode(replyBody);
-        const profiles = Array.isArray(reply && reply.shop_profiles) ? reply.shop_profiles : [];
-        if (!profiles.length) {
-            log('商城', '商店列表探测: 无商店', { module: 'mall', event: 'shop_profiles_probe', count: 0, dev: true });
-            return;
-        }
-        const summary = profiles.map((p) => `#${toNum(p && p.shop_id)}:${p && p.shop_name || '?'}(type=${toNum(p && p.shop_type)})`).join(', ');
-        log('商城', `商店列表(${profiles.length}): ${summary}`, {
-            module: 'mall',
-            event: 'shop_profiles_probe',
-            count: profiles.length,
-            dev: true,
-        });
-        // 列表外枚举 shop_id 1-10（隐藏商店：神秘商人/活动商店可能不在列表但可直调）
-        const knownIds = new Set(profiles.map((p) => toNum(p && p.shop_id)));
-        for (let shopId = 1; shopId <= 10; shopId++) {
-            if (knownIds.has(shopId)) continue;
-            try {
-                const bodyX = types.ShopInfoRequest.encode(types.ShopInfoRequest.create({
-                    shop_id: toLong(shopId),
-                })).finish();
-                const { body: replyBodyX } = await sendMsgAsync('gamepb.shoppb.ShopService', 'ShopInfo', bodyX);
-                const infoX = types.ShopInfoReply.decode(replyBodyX);
-                const goodsX = Array.isArray(infoX && infoX.goods_list) ? infoX.goods_list : [];
-                if (!goodsX.length) continue;
-                const namesX = goodsX.map((g) => `#${toNum(g && g.id)}:item=${toNum(g && g.item_id)}×${toNum(g && g.item_count)}`).slice(0, 12).join(', ');
-                log('商城', `隐藏商店 #${shopId} 商品(${goodsX.length}): ${namesX}`, {
-                    module: 'mall',
-                    event: 'shop_hidden_probe',
-                    shopId,
-                    count: goodsX.length,
-                });
-            } catch {
-                // 商店不存在/无权限——忽略（正常）
-            }
-            await sleep(100);
-        }
-        for (const p of profiles) {
-            try {
-                const body2 = types.ShopInfoRequest.encode(types.ShopInfoRequest.create({
-                    shop_id: toLong(p && p.shop_id),
-                })).finish();
-                const { body: replyBody2 } = await sendMsgAsync('gamepb.shoppb.ShopService', 'ShopInfo', body2);
-                const info = types.ShopInfoReply.decode(replyBody2);
-                const goods = Array.isArray(info && info.goods_list) ? info.goods_list : [];
-                // 种子商店重点列出活动/特殊段种子（item_id >= 26000），其余统计数量
-                const isSeedShop = toNum(p && p.shop_type) === 2;
-                const special = goods.filter((g) => toNum(g && g.item_id) >= 26000);
-                const names = (isSeedShop && special.length > 0
-                    ? special.map((g) => `#${toNum(g && g.id)}:item=${toNum(g && g.item_id)}×${toNum(g && g.item_count)}`)
-                    : goods.map((g) => `#${toNum(g && g.id)}:item=${toNum(g && g.item_id)}×${toNum(g && g.item_count)}`)
-                ).slice(0, 12).join(', ');
-                const extra = isSeedShop && special.length > 0 ? `（活动段 ${special.length} 个）` : '';
-                log('商城', `商店 #${toNum(p && p.shop_id)}「${p && p.shop_name || '?'}」type=${toNum(p && p.shop_type)} 商品(${goods.length})${extra}: ${names}`, {
-                    module: 'mall',
-                    event: 'shop_info_probe',
-                    shopId: toNum(p && p.shop_id),
-                    shopName: p && p.shop_name || '',
-                    shopType: toNum(p && p.shop_type),
-                    count: goods.length,
-                });
-            } catch {
-                // 单个商店失败不影响整体
-            }
-            await sleep(100);
-        }
-    } catch (e) {
-        logWarn('商城', `商店列表探测失败: ${e.message}`, {
-            module: 'mall',
-            event: 'shop_profiles_probe',
-            result: 'error',
-            dev: true,
-        });
-    }
-}
-
 function parseMallPriceValue(priceField) {
     if (priceField == null) return 0;
     if (typeof priceField === 'number') return Math.max(0, Math.floor(priceField));
@@ -603,7 +497,6 @@ module.exports = {
     checkAndBuyFertilizerByThreshold,
     checkAndBuyFertilizerBoth,
     buyFreeGifts,
-    probeMallSlots,
     getFertilizerBuyDailyState: () => ({
         key: 'fertilizer_buy',
         doneToday: buyDoneDateKey === getDateKey(),
