@@ -11,6 +11,9 @@ const { types } = require('../utils/proto');
 const { toLong, toNum, log, logWarn, sleep } = require('../utils/utils');
 const { updateStatusGold } = require('./status');
 
+// 已提示缺图的物品（避免重复刷日志）
+const missingImageNotified = new Set();
+
 const SELL_BATCH_SIZE = 15;
 // 种子物品 ID 段（2xxxx）：活动种子不在本地 Plant.json 时也按种子处理
 const SEED_ID_MIN = 20000;
@@ -18,6 +21,13 @@ const SEED_ID_MAX = 30000;
 function isLikelySeedId(id) {
     const n = Number(id) || 0;
     return n >= SEED_ID_MIN && n < SEED_ID_MAX;
+}
+// 果实物品 ID 段（4xxxx）：活动种子对应果实不在本地 Plant.json 时也按果实处理
+const FRUIT_ID_MIN = 40000;
+const FRUIT_ID_MAX = 50000;
+function isLikelyFruitId(id) {
+    const n = Number(id) || 0;
+    return n >= FRUIT_ID_MIN && n < FRUIT_ID_MAX;
 }
 const FERTILIZER_RELATED_IDS = new Set([
     100003, // 化肥礼包
@@ -344,8 +354,11 @@ async function getBagDetail() {
         } else if (id === 1101) {
             name = '经验';
             category = 'exp';
-        } else if (getPlantByFruitId(id)) {
-            if (!name) name = `${getFruitName(id)}果实`;
+        } else if (getPlantByFruitId(id) || isLikelyFruitId(id)) {
+            if (!name) {
+                const fruitName = getFruitName(id);
+                name = fruitName === `果实${id}` ? `果实#${id}` : `${fruitName}果实`;
+            }
             category = 'fruit';
         } else if (getPlantBySeedId(id) || isLikelySeedId(id)) {
             const p = getPlantBySeedId(id);
@@ -358,13 +371,23 @@ async function getBagDetail() {
         const priceUnit = priceId === 1005 ? '金豆豆' : priceId === 1002 ? '点券' : '金';
 
         if (!merged.has(id)) {
+            const image = getItemImageById(id);
+            // 种子/果实段缺图时提示同步（去重，避免刷屏）
+            if (!image && (isLikelySeedId(id) || isLikelyFruitId(id)) && !missingImageNotified.has(id)) {
+                missingImageNotified.add(id);
+                logWarn('仓库', `物品 ${id} 无本地图片，可运行 scripts/sync-seed-assets.mjs（含 --mature）同步`, {
+                    module: 'warehouse',
+                    event: 'missing_image',
+                    itemId: id,
+                });
+            }
             merged.set(id, {
                 id,
                 count: 0,
                 name,
-                image: getItemImageById(id),
+                image,
                 category,
-                itemType: category === 'seed' ? 5 : (info ? (Number(info.type) || 0) : 0),
+                itemType: category === 'seed' ? 5 : (category === 'fruit' ? 6 : (info ? (Number(info.type) || 0) : 0)),
                 priceId,
                 price: info ? (Number(info.price) || 0) : 0,
                 priceUnit,
