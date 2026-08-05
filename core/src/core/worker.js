@@ -12,7 +12,7 @@ const { checkFarm, startFarmCheckLoop, stopFarmCheckLoop, refreshFarmCheckLoop, 
 const { checkFriends, startFriendCheckLoop, stopFriendCheckLoop, refreshFriendCheckLoop, runBadOnceOnStartup, isHelpExpLimitReached, getFriendsList, getFriendLandsDetail, doFriendOperation } = require('../services/friend');
 const { getInteractRecords } = require('../services/interact');
 const { processInviteCodes } = require('../services/invite');
-const { autoBuyFertilizer, checkAndBuyFertilizerBoth, buyFreeGifts, getFreeGiftDailyState, probeMallSlots } = require('../services/mall');
+const { autoBuyFertilizer, checkAndBuyFertilizerBoth, buyFreeGifts, getFreeGiftDailyState } = require('../services/mall');
 const { performDailyMonthCardGift, getMonthCardDailyState } = require('../services/monthcard');
 const { performDailyVipGift, getVipDailyState } = require('../services/qqvip');
 const { createScheduler, getSchedulerRegistrySnapshot } = require('../services/scheduler');
@@ -22,7 +22,7 @@ const { initStatusBar, setStatusPlatform, statusData } = require('../services/st
 const { setRecordGoldExpHook } = require('../services/status');
 const { cleanupTaskSystem, checkAndClaimTasks, getTaskClaimDailyState, getTaskDailyStateLikeApp, getGrowthTaskStateLikeApp } = require('../services/task');
 const { sellAllFruits, getBag, getBagItems, openFertilizerGiftPacksSilently } = require('../services/warehouse');
-const { connect, cleanup, getWs, getUserState, networkEvents } = require('../utils/network');
+const { connect, reconnect, cleanup, getWs, getUserState, networkEvents } = require('../utils/network');
 const { setClientVersionPrefix } = require('../config/config');
 const { loadProto } = require('../utils/proto');
 const { setLogHook, log, toNum } = require('../utils/utils');
@@ -476,8 +476,37 @@ async function startBot(config) {
     };
     networkEvents.on('ws_error', onWsError);
     networkEvents.on('mallNeedNotify', () => {
-        // 商城需求通知：探测各 slot 定位神秘商人/活动商店
-        probeMallSlots().catch(() => {});
+        // 神秘商人/活动商店已由活动中心（activitypb 星砂商店）覆盖，mallpb 探测冗余，已停用
+        // probeMallSlots().catch(() => {});
+    });
+    networkEvents.on('ws_code_rejected', async () => {
+        // 连接被拒（400，登录 code 过期）：刷新微信 code 后重连，避免旧 code 死循环
+        try {
+            const { getAccounts, addOrUpdateAccount } = require('../models/store');
+            const accountId = String(process.env.FARM_ACCOUNT_ID || '');
+            const accounts = typeof getAccounts === 'function' ? getAccounts() : { accounts: [] };
+            const acc = (accounts.accounts || []).find((a) => String(a.id) === accountId);
+            if (!acc || !acc.wxid) {
+                log('系统', '刷新 code 失败：找不到当前账号 wxid，5 秒后用旧 code 重连');
+                workerScheduler.setTimeoutTask('season_ws_retry_old_code', 5000, () => reconnect(null));
+                return;
+            }
+            const { getFarmCode } = require('../services/yyb-proxy');
+            const refresh = await getFarmCode(acc.wxid);
+            if (refresh.Success && refresh.Data && refresh.Data.code) {
+                if (typeof addOrUpdateAccount === 'function') {
+                    addOrUpdateAccount({ id: acc.id, code: refresh.Data.code });
+                }
+                log('系统', `账号 ${acc.name} 登录 code 已刷新，重新连接`, { accountId: String(accountId) });
+                reconnect(refresh.Data.code);
+            } else {
+                log('系统', `账号 ${acc.name} 刷新 code 失败: ${refresh.Message || '未知'}，5 秒后用旧 code 重连`, { accountId: String(accountId) });
+                workerScheduler.setTimeoutTask('season_ws_retry_old_code', 5000, () => reconnect(null));
+            }
+        } catch (e) {
+            log('系统', `刷新 code 异常: ${e.message}，5 秒后用旧 code 重连`, { accountId: String(process.env.FARM_ACCOUNT_ID || '') });
+            workerScheduler.setTimeoutTask('season_ws_retry_old_code', 5000, () => reconnect(null));
+        }
     });
 
     networkEvents.on('kickout', onKickout);
@@ -687,6 +716,31 @@ async function handleApiCall(msg) {
                 break;
             case 'getSchedulers':
                 result = getSchedulerRegistrySnapshot();
+                break;
+            // 活动中心（千星游记/观星/星砂商店/节令）
+            case 'getActivityCenterSnapshot':
+                result = await require('../services/activity').getActivityCenterSnapshot();
+                break;
+            case 'getCurrentSeasonEvent':
+                result = await require('../services/activity').getCurrentSeasonEvent();
+                break;
+            case 'getCurrentStarSandShop':
+                result = await require('../services/activity').getCurrentStarSandShop();
+                break;
+            case 'getCurrentSolarTerms':
+                result = await require('../services/activity').getCurrentSolarTerms();
+                break;
+            case 'claimBattlePassRewards':
+                result = await require('../services/activity').claimBattlePassRewards();
+                break;
+            case 'exchangeStarSandGoods':
+                result = await require('../services/activity').exchangeStarSandGoods(args[0], args[1]);
+                break;
+            case 'lightConstellation':
+                result = await require('../services/activity').lightConstellation();
+                break;
+            case 'claimSolarTerm':
+                result = await require('../services/activity').claimSolarTerm(args[0]);
                 break;
             default:
                 error = 'Unknown method';
