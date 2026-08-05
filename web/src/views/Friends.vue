@@ -44,6 +44,8 @@ const knownFriendGidCount = computed(() => knownFriendGids.value.length)
 const knownFriendGidSet = computed(() => new Set(knownFriendGids.value.map(Number)))
 const friendGidSet = computed(() => new Set(friends.value.map(f => Number(f.gid))))
 const blacklistGidSet = computed(() => new Set(blacklist.value.map(item => Number(item.gid))))
+const showGidListModal = ref(false)
+const gidSearchKeyword = ref('')
 
 const filteredKnownFriendGids = computed(() => {
   const keyword = gidSearchKeyword.value.trim().toLowerCase()
@@ -104,8 +106,6 @@ const localKnownFriendGidSyncCooldownSec = ref(300)
 const localFriendsListCacheTtlSec = ref(60)
 const showBatchAddGidModal = ref(false)
 const batchGidInput = ref('')
-const showGidListModal = ref(false)
-const gidSearchKeyword = ref('')
 
 const interactFilter = ref('all')
 const interactFilters = [
@@ -677,7 +677,7 @@ async function handleBatchAddKnownFriendGids() {
             </div>
           </div>
 
-          <div class="mt-4 grid gap-3 lg:grid-cols-2">
+          <div class="grid mt-4 gap-3 lg:grid-cols-2">
             <div>
               <label class="mb-1 block text-xs text-gray-500 dark:text-gray-400">访客检测入库冷却(秒)</label>
               <input

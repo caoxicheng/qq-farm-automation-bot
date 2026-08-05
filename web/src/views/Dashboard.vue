@@ -6,6 +6,7 @@ import api from '@/api'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
 import BaseSelect from '@/components/ui/BaseSelect.vue'
+import BaseSwitch from '@/components/ui/BaseSwitch.vue'
 import { useAccountStore } from '@/stores/account'
 import { useBagStore } from '@/stores/bag'
 import { useStatusStore } from '@/stores/status'
@@ -28,6 +29,15 @@ const autoScroll = ref(true)
 const lastBagFetchAt = ref(0)
 const clearingLogs = ref(false)
 
+const filter = reactive({
+  module: '',
+  event: '',
+  keyword: '',
+  isWarn: '',
+  // 开发日志（调试/探测类）：默认关闭（不显示），调试时打开
+  showDev: false,
+})
+
 const allLogs = computed(() => {
   const sLogs = statusLogs.value || []
   const aLogs = (statusAccountLogs.value || []).map((l: any) => ({
@@ -38,14 +48,7 @@ const allLogs = computed(() => {
     isAccountLog: true,
   }))
 
-  return [...sLogs, ...aLogs].sort((a: any, b: any) => a.ts - b.ts).filter((l: any) => !l.isAccountLog)
-})
-
-const filter = reactive({
-  module: '',
-  event: '',
-  keyword: '',
-  isWarn: '',
+  return [...sLogs, ...aLogs].sort((a: any, b: any) => a.ts - b.ts).filter((l: any) => !l.isAccountLog && (!(l.meta && l.meta.dev) || filter.showDev))
 })
 
 const hasActiveLogFilter = computed(() =>
@@ -361,6 +364,7 @@ async function refresh(forceReloadLogs = false) {
         event: filter.event || undefined,
         keyword: filter.keyword || undefined,
         isWarn: filter.isWarn === 'warn' ? true : filter.isWarn === 'info' ? false : undefined,
+        hideDev: !filter.showDev,
       })
     }
 
@@ -653,6 +657,12 @@ useIntervalFn(updateCountdowns, 1000)
                 clearable
                 @keyup.enter="onLogSearchTrigger"
                 @clear="onLogSearchTrigger"
+              />
+
+              <BaseSwitch
+                v-model="filter.showDev"
+                label="开发日志"
+                @change="onLogFilterChange"
               />
 
               <BaseButton

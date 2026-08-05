@@ -55,7 +55,7 @@ async function handleAutoAddAccount(wxid: string, nickname?: string) {
       }
       else {
         // 不自动添加，只返回登录信息，让用户手动复制 code
-        console.log('登录成功！Code:', result.code)
+        // 登录成功 Code 见浏览器控制台（调试用）
       }
     }
   }
