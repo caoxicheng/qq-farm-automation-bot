@@ -1,0 +1,105 @@
+syntax = "proto3";
+
+package gamepb.activitypb;
+
+message ActivityContent {
+    int64 activity_id = 1;
+    int64 group_id = 2;
+    int64 type = 3;
+    string name = 4;
+    bytes extra = 5;
+    int64 begin_time = 6;
+    int64 end_time = 7;
+    int64 sort_order = 8;
+    int64 field_20 = 20;
+    int64 field_23 = 23;
+}
+
+message ActivityItem {
+    int64 item_id = 1;
+    int64 count = 2;
+}
+
+message StarSandGoods {
+    int64 goods_id = 1;
+    ActivityItem item = 2;
+    ActivityItem cost = 3;
+    int64 status = 4; // Previously decoded as field_4.
+    bool owned = 5;
+    int64 sort_order = 6;
+    bytes name = 7;
+    bytes resource_json = 8;
+    int64 field_10 = 10;
+    int64 field_11 = 11;
+    bytes category = 12;
+}
+
+message StarSandGoodsList {
+    repeated StarSandGoods goods = 1;
+}
+
+message ConstellationNode {
+    int64 node_id = 1;
+    bool field_2 = 2;
+    bool field_3 = 3;
+    bool field_4 = 4;
+    repeated ActivityItem rewards = 5;
+}
+
+message ConstellationGroup {
+    int64 group_id = 1;
+    bool field_2 = 2;
+    string name = 3;
+    string links = 4;
+    string config_json = 5;
+}
+
+message ConstellationData {
+    int64 field_1 = 1;
+    int64 field_2 = 2;
+    int64 field_3 = 3;
+    repeated ConstellationNode nodes = 4;
+    repeated ConstellationGroup groups = 5;
+}
+
+message ActivityData {
+    ActivityContent activity = 1;
+    StarSandGoodsList catalog = 102;
+    ConstellationData constellation = 110;
+}
+
+// ActivityService.Operate selectors are fixed by the callers below. No generic
+// operate_type is exposed by the HTTP API.
+message QueryActivityRequest {
+    int64 activity_id = 1;
+    int64 operate_type = 2;
+}
+
+message ExchangeShopOperateParams {
+    int64 goods_id = 1;
+    int64 count = 2;
+}
+
+message ExchangeShopRequest {
+    int64 activity_id = 1;
+    int64 operate_type = 2;
+    ExchangeShopOperateParams exchange_shop_operate = 101;
+}
+
+message OperateConstellationRequest {
+    message Empty {}
+
+    int64 activity_id = 1;
+    int64 operate_type = 2;
+    Empty field_119 = 119;
+}
+
+message ActivityOperateReply {
+    int64 activity_id = 1;
+    int64 operate_type = 2;
+    ActivityData data = 3;
+}
+
+message ActiviesChangeNotify {
+    repeated ActivityContent activities = 1;
+}

@@ -23,6 +23,13 @@ export const menuRoutes: MenuItem[] = [
     component: () => import('@/views/Personal.vue'),
   },
   {
+    path: 'activity-center',
+    name: 'activity-center',
+    label: '活动',
+    icon: '✨',
+    component: () => import('@/views/ActivityCenter.vue'),
+  },
+  {
     path: 'friends',
     name: 'friends',
     label: '好友',

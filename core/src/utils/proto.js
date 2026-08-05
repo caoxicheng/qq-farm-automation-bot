@@ -31,6 +31,10 @@ async function loadProto() {
         getResourcePath('proto', 'sharepb.proto'),
         getResourcePath('proto', 'illustratedpb.proto'),
         getResourcePath('proto', 'interactpb.proto'),
+        getResourcePath('proto', 'seasonpb.proto'),
+        getResourcePath('proto', 'acepb.proto'),
+        getResourcePath('proto', 'activitypb.proto'),
+        getResourcePath('proto', 'solartermspb.proto'),
     ], { keepCase: true });
 
     // 网关
@@ -165,6 +169,28 @@ async function loadProto() {
     types.ItemNotify = root.lookupType('gamepb.itempb.ItemNotify');
     types.GoodsUnlockNotify = root.lookupType('gamepb.shoppb.GoodsUnlockNotify');
     types.TaskInfoNotify = root.lookupType('gamepb.taskpb.TaskInfoNotify');
+
+    // 赛季/战令（千星游记·令节小礼）
+    types.GetSeasonInfoRequest = root.lookupType('gamepb.seasonpb.GetSeasonInfoRequest');
+    types.GetSeasonInfoReply = root.lookupType('gamepb.seasonpb.GetSeasonInfoReply');
+    types.ClaimBattlePassRewardsRequest = root.lookupType('gamepb.seasonpb.ClaimBattlePassRewardsRequest');
+    types.ClaimBattlePassRewardsReply = root.lookupType('gamepb.seasonpb.ClaimBattlePassRewardsReply');
+    types.BattlePassChangeNotify = root.lookupType('gamepb.seasonpb.BattlePassChangeNotify');
+
+    // ACE 反作弊
+    types.AntiDataRequest = root.lookupType('gamepb.acepb.AntiDataRequest');
+    types.AntiDataReply = root.lookupType('gamepb.acepb.AntiDataReply');
+
+    // 活动中心（星砂商店/观星/节令）
+    types.QueryActivityRequest = root.lookupType('gamepb.activitypb.QueryActivityRequest');
+    types.ExchangeShopRequest = root.lookupType('gamepb.activitypb.ExchangeShopRequest');
+    types.OperateConstellationRequest = root.lookupType('gamepb.activitypb.OperateConstellationRequest');
+    types.ActivityOperateReply = root.lookupType('gamepb.activitypb.ActivityOperateReply');
+    types.ActiviesChangeNotify = root.lookupType('gamepb.activitypb.ActiviesChangeNotify');
+    types.GetSolarTermsRequest = root.lookupType('gamepb.solartermspb.GetSolarTermsRequest');
+    types.GetSolarTermsReply = root.lookupType('gamepb.solartermspb.GetSolarTermsReply');
+    types.ClaimSolarTermsRequest = root.lookupType('gamepb.solartermspb.ClaimSolarTermsRequest');
+    types.ClaimSolarTermsReply = root.lookupType('gamepb.solartermspb.ClaimSolarTermsReply');
 
     // Proto 加载完成
     log('系统', 'Protobuf 定义加载完成');

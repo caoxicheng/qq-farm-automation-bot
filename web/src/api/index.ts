@@ -27,6 +27,10 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use((response) => {
   return response
 }, (error) => {
+  // 调用方显式跳过全局错误 toast（如活动中心轮询/并发请求）
+  if (error.config && error.config.skipErrorToast) {
+    return Promise.reject(error)
+  }
   const toast = useToastStore()
 
   if (error.response) {
