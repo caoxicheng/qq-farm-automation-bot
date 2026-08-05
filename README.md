@@ -1,43 +1,120 @@
 # QQ 农场多账号挂机 + Web 面板
 
-## 作者QQ：1503938233 -- 付费版请咨询
-- 基于 Node.js 的 QQ 农场自动化工具，支持多账号管理、Web 控制面板、实时日志与数据分析。
-- 更新优化日志详见 update.log，感谢支持，喜欢的点一个 star⭐吧！
-- 默认账号密码都是 `admin/admin`，端口 `3007`，**请部署登录后尽快修改密码！**
-- 重构版 V2.5.1 完整更新日志详见：[更新日志](https://gitee.com/xlzcandy/qq-classic-farm-update-log/blob/master/README.md)
-- 请不要贩卖开源版本，免费项目，禁止倒卖！所有功能都是正常使用的。
-- 目前官方已关闭三分钟风控，开源版正常偷菜。内置 yyb_go 开源应用宝协议，供微信玩家使用。
+基于 Node.js 的 QQ 农场自动化工具，支持多账号管理、Web 控制面板、实时日志、数据分析与活动支持（千星游记/战令）。
+
+> 📖 喜欢的点一个 star ⭐ 吧！
+>
+> 🔐 默认面板管理员账号/密码都是 `admin`，端口 `3007`，请部署登录后尽快修改密码！
+>
+> ⚠️ 开源免费，禁止倒卖，请勿用于商业用途。
 
 ---
 
 ## 功能特性
 
-- **农场自动化**：收获、种植（含背包优先策略）、浇水、除草除虫、铲除、施肥、土地自动升级
-- **仓库**：收获后自动出售果实
-- **好友**：自动偷菜 / 帮忙 / 捣乱（放虫放草）、好友黑名单
-- **任务**：每日任务与活跃度自动领取、图鉴一键领奖、邮件、月卡、会员/免费礼包
-- **微信登录**：yyb-go 应用宝协议扫码登录（免费、无第三方 API），启动自动刷新 code
-- **自动重登**：被踢下线后延迟自动重登（防循环，面板可配，默认关闭）
-- **版本号自动校准**：客户端版本日期自动更新 + 服务端版本前缀自动同步，**无需手动维护**
-- **活动种子支持**：活动种子自动识别种植、面板图标显示
-- **多账号**：账号管理、实时日志筛选、暗色/亮色主题、分析页（经验/利润效率排序）
+### 🌾 核心功能
+
+- **农场自动化** — 收获、种植（含背包优先策略、2x2 主格种植）、浇水、除草除虫、铲除、施肥、土地自动升级
+- **仓库管理** — 收获后自动出售果实、活动果实分类与图片显示
+- **好友互动** — 自动偷菜 / 帮忙 / 捣乱（放虫放草）、好友黑名单、访客自动同步
+- **任务系统** — 每日任务与活跃度自动领取、图鉴一键领奖、邮件、月卡、会员/免费礼包
+- **微信登录** — yyb-go 应用宝协议扫码登录（免费、无第三方 API），启动自动刷新 code，微信头像显示
+- **自动重登** — 被踢下线后延迟自动重登（防循环，面板可配，默认关闭）
+- **版本自动校准** — 客户端版本日期自动更新 + 服务端版本前缀自动同步，无需手动维护
+- **多账号管理** — 账号独立配置、实时日志筛选、暗色/亮色主题、分析页（经验/利润效率排序）
+
+### 🎮 活动支持
+
+- **千星游记/战令** — 赛季协议支持，进度奖励自动领取（先查后领 + 推送驱动，面板开关，默认关闭）
+- **ACE 反作弊模拟** — TSDK wasm 定时 AntiData 上报，避免服务端挂起连接
+
+### 🖼️ 资源与展示
+
+- **活动种子** — 活动种子自动识别种植、面板图标显示
+- **果实图片同步** — 成熟果实图片自动同步（本地卷挂载 + crontab 定时）
+
+---
+
+## 特别感谢
+
+- **[XyhTender/qq-farm-automation-bot](https://github.com/XyhTender/qq-farm-automation-bot)** — 本项目 fork 来源
+- **[Penty-d/qq-farm-bot-ui](https://github.com/Penty-d/qq-farm-bot-ui)** — 上游二改基础
+- **[linguo2625469/qq-farm-bot](https://github.com/linguo2625469/qq-farm-bot)** — 核心功能
+- **[QianChenJun/qq-farm-bot](https://github.com/QianChenJun/qq-farm-bot)** — 部分功能
+- **[liyangpengs/qq-farm-bot](https://github.com/liyangpengs/qq-farm-bot)** — 赛季/活动协议结构与 ACE 反作弊 TSDK wasm 模拟上报
+- **[Aoluis1005/yyb-go](https://github.com/Aoluis1005/yyb-go)** — 微信登录应用宝协议
+
+在此向以上项目作者表示感谢 🙏
+
+---
+
+## 免责声明
+
+本项目仅供学习与研究用途。使用本工具可能违反游戏服务条款，由此产生的一切后果由使用者自行承担。请勿用于商业用途或倒卖。
 
 ---
 
 ## 技术栈
 
-**后端**：[Node.js 20+](https://nodejs.org/) · [Express 4](https://expressjs.com/) · [Socket.io 4](https://socket.io/)
+**后端**
 
-**前端**：[Vue 3](https://vuejs.org/) · [Vite](https://vitejs.dev/) · [TypeScript](https://www.typescriptlang.org/) · [Pinia](https://pinia.vuejs.org/) · [UnoCSS](https://unocss.dev/)
+[<img src="https://skillicons.dev/icons?i=nodejs" height="48" title="Node.js 20+" />](https://nodejs.org/)
+[<img src="https://skillicons.dev/icons?i=express" height="48" title="Express 4" />](https://expressjs.com/)
+[<img src="https://skillicons.dev/icons?i=socketio" height="48" title="Socket.io 4" />](https://socket.io/)
 
-**部署**：[pnpm 10](https://pnpm.io/) · [Docker Compose](https://docs.docker.com/compose/)
+**前端**
+
+[<img src="https://skillicons.dev/icons?i=vue" height="48" title="Vue 3" />](https://vuejs.org/)
+[<img src="https://skillicons.dev/icons?i=vite" height="48" title="Vite" />](https://vitejs.dev/)
+[<img src="https://skillicons.dev/icons?i=ts" height="48" title="TypeScript" />](https://www.typescriptlang.org/)
+[<img src="https://cdn.simpleicons.org/pinia/FFD859" height="48" title="Pinia" />](https://pinia.vuejs.org/)
+[<img src="https://skillicons.dev/icons?i=unocss" height="48" title="UnoCSS" />](https://unocss.dev/)
+
+**部署**
+
+[<img src="https://skillicons.dev/icons?i=pnpm" height="48" title="pnpm" />](https://pnpm.io/)
+[<img src="https://skillicons.dev/icons?i=docker" height="48" title="Docker Compose" />](https://docs.docker.com/compose/)
+[<img src="https://skillicons.dev/icons?i=github" height="48" title="GitHub" />](https://github.com/)
+
+---
+
+## 项目结构
+
+```
+qq-farm-automation-bot/
+├── core/                          # 后端（Node.js 机器人引擎）
+│   ├── src/
+│   │   ├── config/                # 配置管理 & 游戏配置（版本号/图片映射）
+│   │   ├── controllers/           # HTTP API 路由（账号、农场、好友、认证等）
+│   │   ├── core/                  # Worker 进程管理
+│   │   ├── gameConfig/            # 游戏静态数据
+│   │   │   └── seed_images_named/ # 种子/果实图片资源（本地卷挂载，crontab 自动同步）
+│   │   ├── models/                # 全局配置与账号持久化
+│   │   ├── proto/                 # Protobuf 协议定义（19 个 .proto）
+│   │   ├── runtime/               # 运行时引擎、状态管理、Worker 调度
+│   │   ├── services/              # 业务逻辑（farm/warehouse/friend/task/mall/season/ace 等）
+│   │   └── utils/                 # 工具（网络、Proto 解析、ACE 反作弊 TSDK WASM）
+│   └── data/                      # 运行时数据（账号、用户、日志等）
+├── web/                           # 前端（Vue 3 + Vite + TypeScript）
+│   └── src/
+│       ├── api/                   # API 客户端 & Socket.io 连接
+│       ├── components/            # 通用组件（BaseSwitch/BaseInput/LandCard/BagPanel 等）
+│       ├── layouts/               # 页面布局
+│       ├── stores/                # Pinia 状态管理
+│       └── views/                 # 页面（概览/个人/好友/分析/设置/后台）
+├── scripts/                       # 工具脚本（sync-seed-assets 图片同步等）
+├── docker-compose.yml             # 一键部署（qq-farm-bot + yyb-go 微信登录）
+└── README.md
+```
 
 ---
 
 ## 环境要求
 
-- Docker 部署：安装 Docker（含 Docker Compose 插件）
-- 源码运行：Node.js 20+、pnpm（`corepack enable` 启用）、Git
+| 部署方式 | 要求 |
+| --- | --- |
+| Docker 部署 | Docker（含 Docker Compose 插件） |
+| 源码运行 | Node.js 20+ · pnpm（`corepack enable` 启用）· Git |
 
 ---
 
@@ -48,8 +125,8 @@
 ### 1. 拉取代码（两个仓库同级）
 
 ```bash
-# 农场主程序
-git clone https://github.com/XyhTender/qq-farm-automation-bot.git
+# 农场主程序（本仓库）
+git clone https://github.com/caoxicheng/qq-farm-automation-bot.git
 
 # 微信登录服务（构建上下文在上一级目录，必须 clone 到同级）
 git clone https://github.com/Aoluis1005/yyb-go.git
@@ -221,30 +298,6 @@ docker compose up -d --build
 
 ---
 
-## 项目结构
-
-```
-qq-farm-automation-bot/
-├── core/                  # 后端（Node.js 机器人引擎）
-│   ├── src/
-│   │   ├── config/        # 配置管理
-│   │   ├── controllers/   # HTTP API
-│   │   ├── gameConfig/    # 游戏静态数据（含种子图标）
-│   │   ├── models/        # 数据模型与持久化
-│   │   ├── proto/         # Protobuf 协议定义
-│   │   ├── runtime/       # 运行时引擎与 Worker 管理
-│   │   └── services/      # 业务逻辑（农场、好友、任务等）
-│   ├── data/              # 运行时数据（accounts.json、store.json，勿提交）
-│   └── client.js          # 主进程入口
-├── scripts/               # 工具脚本（如种子图标同步 sync-seed-assets.mjs）
-├── web/                   # 前端（Vue 3 + Vite）
-│   └── src/               # api / components / stores / views
-├── docker-compose.yml     # 编排 qq-farm-bot + yyb-go
-└── package.json           # pnpm workspace
-```
-
----
-
 ## 常见问题（FAQ）
 
 **Q: 挂机需要一直开着面板网页吗？**
@@ -265,8 +318,8 @@ A: 版本号已自动校准，一般不会出现。若出现，手动更新 `con
 **Q: 为什么种子图标显示不出来？**
 A: 种子图标随游戏资源按需下载。活动新种子需先在游戏里种植/查看一次，然后运行 `node scripts/sync-seed-assets.mjs` 同步图标（详见脚本注释）。
 
-**Q: 赛季活动（战令/观星/神秘商店）能自动吗？**
-A: 不能。开源版覆盖：收获/种植/浇水/除草除虫/偷菜、每日任务与活跃度自动领取、图鉴一键领奖、邮件、月卡、化肥自动购买。活动类功能为付费版专有。
+**Q: 赛季活动（战令/千星游记）能自动吗？**
+A: 战令进度奖励支持自动领取（先查后领 + 推送驱动，面板「自动控制」可开关，默认关闭）。观星点亮、星砂商店兑换、节令小礼等更多活动功能仍在开发中。
 
 **Q: 为什么前端要保留 `apiKey` 留空？**
 A: 留空走仓库内置的 yyb-go 本地通道（免费、无第三方依赖）；填入 apiKey 才会启用外部代理模式。
@@ -275,7 +328,3 @@ A: 留空走仓库内置的 yyb-go 本地通道（免费、无第三方依赖）
 A: `docker-compose.yml` 中 yyb-go 的构建上下文是 `../yyb-go`（上一级目录），需先将 yyb-go 仓库 clone 到与主仓库同级，见「快速开始」。
 
 ---
-
-## 免责声明
-
-本项目仅供学习与研究用途。使用本工具可能违反游戏服务条款，由此产生的一切后果由使用者自行承担。
