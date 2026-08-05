@@ -112,6 +112,8 @@ useIntervalFn(() => {
 
 function openSettings(account: any) {
   accountStore.selectAccount(account.id)
+  // 切到该账号的策略设置标签，提供可见反馈（设置页内重复点击时不再"无反应"）
+  activeTab.value = 'strategy'
   router.push('/settings')
 }
 
