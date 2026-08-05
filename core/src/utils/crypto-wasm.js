@@ -1,104 +1,75 @@
-const fs = require('fs');
-const path = require('path');
-
-let memory = null;
-let encryptRaw = null;
-let decryptRaw = null;
-let generateTokenRaw = null;
-let createBufRaw = null;
-let destroyBufRaw = null;
-const encoder = new TextEncoder();
-const decoder = new TextDecoder();
-
-let initPromise = null;
-
-function initWasm() {
-    if (initPromise) return initPromise;
-
-    initPromise = new Promise((resolve, reject) => {
-        try {
-            const wasmPath = path.join(__dirname, 'tsdk.wasm');
-            const wasmBuffer = fs.readFileSync(wasmPath);
-            const importObject = {
-                a: {
-                    a: () => { }, b: () => { }, c: () => { }, d: () => { }, e: () => { },
-                    f: () => { }, g: () => { }, h: () => { }, i: () => { }, j: () => { },
-                    k: () => { }, l: () => { }, m: () => { }, n: () => { }, o: () => { },
-                    p: () => { }, q: () => { }, r: () => { }, s: () => { }, t: () => { },
-                    u: () => { }
-                }
-            };
-
-            WebAssembly.instantiate(wasmBuffer, importObject).then(({ instance }) => {
-                const exports = instance.exports;
-                try { exports.E(); } catch { }
-                memory = exports.v;
-                generateTokenRaw = exports._;
-                encryptRaw = exports.J;
-                decryptRaw = exports.K;
-                createBufRaw = exports.z;
-                destroyBufRaw = exports.A;
-                resolve();
-            }).catch(reject);
-        } catch (e) {
-            reject(e);
-        }
-    });
-    return initPromise;
+const __defProp = Object.defineProperty;
+const __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+const __getOwnPropNames = Object.getOwnPropertyNames;
+const __hasOwnProp = Object.prototype.hasOwnProperty;
+const __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (const key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+const __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+const crypto_wasm_exports = {};
+module.exports = __toCommonJS(crypto_wasm_exports);
+const { TsdkRuntime } = require("./tsdk-runtime");
+let runtime = null;
+function getRuntime() {
+  if (!runtime) runtime = new TsdkRuntime();
+  return runtime;
 }
-
-async function generateToken(str) {
-    if (!memory) await initWasm();
-
-    const data = encoder.encode(str);
-    const ptr = createBufRaw ? createBufRaw(data.length + 1) : 1024;
-    const memView = new Uint8Array(memory.buffer);
-    memView.set(data, ptr);
-    memView[ptr + data.length] = 0;
-
-    const resPtr = generateTokenRaw(ptr, data.length);
-    let end = resPtr;
-    while (memView[end] !== 0 && end - resPtr < 1000) end++;
-
-    const outputBytes = memView.slice(resPtr, end);
-    if (createBufRaw) destroyBufRaw(ptr);
-    return decoder.decode(outputBytes);
+async function initWasm() {
+  await getRuntime().init();
 }
-
 async function encryptBuffer(buffer) {
-    if (!memory) await initWasm();
-
-    const ptr = createBufRaw(buffer.length);
-    const memView = new Uint8Array(memory.buffer);
-    memView.set(buffer, ptr);
-
-    encryptRaw(ptr, buffer.length);
-
-    const output = Buffer.from(memory.buffer, ptr, buffer.length);
-    const result = Buffer.from(output);
-    destroyBufRaw(ptr);
-    return result;
+  await initWasm();
+  return getRuntime().transform(buffer, false);
 }
-
 async function decryptBuffer(buffer) {
-    if (!memory) await initWasm();
-
-    const ptr = createBufRaw(buffer.length);
-    const memView = new Uint8Array(memory.buffer);
-    memView.set(buffer, ptr);
-
-    decryptRaw(ptr, buffer.length);
-
-    const output = Buffer.from(memory.buffer, ptr, buffer.length);
-    const result = Buffer.from(output);
-    destroyBufRaw(ptr);
-    return result;
+  await initWasm();
+  return getRuntime().transform(buffer, true);
 }
-
+async function bindUser(openId) {
+  await initWasm();
+  getRuntime().bindUser(openId);
+}
+function getEncryptedInitInfo() {
+  return getRuntime().getEncryptedInitInfo();
+}
+function getDataToServer() {
+  return getRuntime().getDataToServer();
+}
+function sendDataFromServer(data) {
+  getRuntime().sendDataFromServer(data);
+}
+function heartbeatTick() {
+  getRuntime().heartbeatTick();
+}
+function processReceivedData() {
+  getRuntime().processReceivedData();
+}
+function sendStatus() {
+  getRuntime().sendStatus();
+}
+function detectSpeedHack(elapsedMs) {
+  getRuntime().detectSpeedHack(elapsedMs);
+}
+function destroyWasm() {
+  if (runtime) runtime.destroy();
+  runtime = null;
+}
 module.exports = {
-    initWasm,
-    generateToken,
-    encryptBuffer,
-    decryptBuffer,
-    encryptData: generateToken
+  initWasm,
+  encryptBuffer,
+  decryptBuffer,
+  bindUser,
+  getEncryptedInitInfo,
+  getDataToServer,
+  sendDataFromServer,
+  heartbeatTick,
+  processReceivedData,
+  sendStatus,
+  detectSpeedHack,
+  destroyWasm
 };
