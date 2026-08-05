@@ -12,8 +12,8 @@ const { toLong, toNum, getServerTimeSec, toTimeSec, log, logWarn, sleep, randomD
 const { getPlantRankings } = require('./analytics');
 const { createScheduler } = require('./scheduler');
 const { recordOperation } = require('./stats');
-const { getBagSeeds, getBag, getBagItems, getContainerHoursFromBagItems } = require('./warehouse');
-const { autoBuyFertilizer, checkAndBuyFertilizerBoth } = require('./mall');
+const { getBagSeeds } = require('./warehouse');
+const { checkAndBuyFertilizerBoth } = require('./mall');
 
 // ============ 内部状态 ============
 let isCheckingFarm = false;
@@ -21,7 +21,6 @@ let isFirstFarmCheck = true;
 let farmLoopRunning = false;
 let externalSchedulerMode = false;
 let fertilizerBuyCheckTimer = null;
-let lastFertilizerBuyCheckAt = 0;
 const farmScheduler = createScheduler('farm');
 
 // ============ 农场 API ============
@@ -207,6 +206,22 @@ function getSlaveLandIds(land) {
     return [...new Set(ids.map(id => toNum(id)).filter(Boolean))];
 }
 
+/**
+ * 从全农场地块中筛选空的 2x2 主格（land_size >= 2）
+ * 2x2 作物必须种在主格（左下角），服务端自动占用从属格
+ */
+function findEmptyMasterLands(allLands, emptyLandIds) {
+    const emptySet = new Set((emptyLandIds || []).map(Number));
+    const masters = [];
+    for (const land of (Array.isArray(allLands) ? allLands : [])) {
+        if (!land) continue;
+        const id = toNum(land.id);
+        if (!emptySet.has(id)) continue;
+        if (toNum(land.land_size) >= 2) masters.push(id);
+    }
+    return masters;
+}
+
 function hasPlantData(land) {
     const plant = land && land.plant;
     return !!(plant && Array.isArray(plant.phases) && plant.phases.length > 0);
@@ -265,12 +280,6 @@ function buildSlaveToMasterMap(lands) {
         }
     }
     return map;
-}
-
-function isOccupiedSlaveLandWithMap(land, landsMap, slaveToMasterMap) {
-    const landId = toNum(land && land.id);
-    if (!landId) return false;
-    return slaveToMasterMap.has(landId);
 }
 
 function summarizeLandDetails(lands) {
@@ -557,6 +566,7 @@ async function plantSeeds(seedId, landIds, options = {}) {
     // for (const landId of landIds) {
     const plantedLandIds = [];
     const occupiedLandIds = new Set();
+    const failedErrorCodes = new Set();
     const maxPlantCount = Math.max(0, toNum(options.maxPlantCount) || 0) || Number.POSITIVE_INFINITY;
     const pendingLandIds = new Set((Array.isArray(landIds) ? landIds : []).map(id => toNum(id)).filter(Boolean));
 
@@ -583,7 +593,10 @@ async function plantSeeds(seedId, landIds, options = {}) {
                 pendingLandIds.delete(occupiedId);
             }
         } catch (e) {
-            logWarn('种植', `土地#${landId} 失败: ${e.message}`);
+            const msg = String((e && e.message) || '');
+            const codeMatch = msg.match(/code=(\d+)/);
+            if (codeMatch && codeMatch[1]) failedErrorCodes.add(codeMatch[1]);
+            logWarn('种植', `土地#${landId} 失败: ${msg}`);
         }
         if (landIds.length > 1) await sleep(50);  // 50ms 间隔
     }
@@ -591,6 +604,7 @@ async function plantSeeds(seedId, landIds, options = {}) {
         planted: successCount,
         plantedLandIds,
         occupiedLandIds: [...occupiedLandIds],
+        failedErrorCodes: [...failedErrorCodes],
     };
 }
 
@@ -607,6 +621,11 @@ const PLANTING_STRATEGY_LABELS = {
 function getPlantingStrategyLabel(strategy) {
     return PLANTING_STRATEGY_LABELS[strategy] || strategy;
 }
+
+// 种植失败学习缓存：seedId -> { reason, at }（本 worker 内存，重启清空）
+// 用于跳过"地块不匹配"的种子（如 2x2 作物种到 1x1 地块），避免每轮反复失败
+const unplantableSeeds = new Map();
+const UNPLANTABLE_LEARN_TTL = 60 * 60 * 1000; // 1 小时后允许重试（地块可能升级）
 
 function sortBagSeedsForPlanting(bagSeeds, priorityList) {
     const indexMap = new Map();
@@ -638,7 +657,8 @@ async function plantFromBagSeeds(landsToPlant) {
     const bagSeeds = await getBagSeeds();
     const allBagSeeds = Array.isArray(bagSeeds) ? bagSeeds : [];
     const usableSeeds = sortBagSeedsForPlanting(
-        allBagSeeds.filter(seed => Number(seed && seed.count) > 0 && Number(seed && seed.plantSize) === 1),
+        // 1x1 与 2x2 种子都进候选（2x2 由 is2x2 分支选主格种植）
+        allBagSeeds.filter(seed => Number(seed && seed.count) > 0 && Number(seed && seed.plantSize) >= 1),
         getBagSeedPriority(),
     );
 
@@ -665,10 +685,40 @@ async function plantFromBagSeeds(landsToPlant) {
     for (const seed of usableSeeds) {
         if (remainingLandIds.length === 0) break;
 
+        // 失败学习：此前整轮种植失败（如 2x2 作物种到 1x1 地块）的种子，改为按 2x2 主格重试或跳过
+        const learned = unplantableSeeds.get(seed.seedId);
+        const is2x2 = toNum(seed.plantSize) > 1 || (learned && learned.codes && learned.codes.includes('1001052'));
+        if (learned && !is2x2 && Date.now() - learned.at < UNPLANTABLE_LEARN_TTL) {
+            log('种植', `种子 ${seed.name} 已学习跳过（${learned.reason}），本轮不尝试`, {
+                module: 'farm', event: '种植种子', result: 'learned_skip', seedId: seed.seedId,
+            });
+            continue;
+        }
+        if (learned && !is2x2) unplantableSeeds.delete(seed.seedId); // TTL 过期，允许重试
+
         const maxPlantCount = Math.min(Number(seed.count || 0), remainingLandIds.length);
         if (maxPlantCount <= 0) continue;
 
-        const result = await plantSeeds(seed.seedId, remainingLandIds, { maxPlantCount });
+        // 2x2 作物：只种主格（land_size >= 2 的空格）；无主格则跳过，不阻断回退
+        let targetLands = remainingLandIds;
+        if (is2x2) {
+            try {
+                const allReply = await getAllLands();
+                const masterIds = findEmptyMasterLands(allReply && allReply.lands, remainingLandIds);
+                if (masterIds.length === 0) {
+                    log('种植', `种子 ${seed.name} 为多格作物，当前无可用 2x2 主格，本轮跳过`, {
+                        module: 'farm', event: '种植种子', result: 'no_2x2_master', seedId: seed.seedId,
+                    });
+                    continue;
+                }
+                targetLands = masterIds;
+            } catch (e) {
+                logWarn('种植', `获取 2x2 主格失败，跳过该种子: ${e.message}`);
+                continue;
+            }
+        }
+
+        const result = await plantSeeds(seed.seedId, targetLands, { maxPlantCount });
         const currentOccupied = (Array.isArray(result.occupiedLandIds) ? result.occupiedLandIds : []).map(Number).filter(id => id > 0);
         const currentPlantedLandIds = (Array.isArray(result.plantedLandIds) ? result.plantedLandIds : []).map(Number).filter(id => id > 0);
         if (result.planted > 0) {
@@ -677,6 +727,22 @@ async function plantFromBagSeeds(landsToPlant) {
             plantedLandIds.push(...currentPlantedLandIds);
             remainingLandIds = remainingLandIds.filter(id => !currentOccupied.includes(id));
             usedSeedLogs.push(`${seed.name}x${result.planted}`);
+        }
+
+        if (result.planted === 0 && result.failedErrorCodes.length > 0) {
+            // 整轮全部失败：记入失败学习（地块不匹配/多格作物等），不阻断第二优先策略回退
+            const reason = result.failedErrorCodes.includes('1001052')
+                ? '地块不匹配（可能为多格作物，需 2x2 主格）'
+                : `种植失败(${result.failedErrorCodes.join(',')})`;
+            unplantableSeeds.set(seed.seedId, { reason, at: Date.now(), codes: result.failedErrorCodes });
+            logWarn('种植', `种子 ${seed.name} 全部种植失败（${reason}），已学习跳过，允许第二优先策略补种`, {
+                module: 'farm',
+                event: '种植种子',
+                result: 'all_failed_learned',
+                seedId: seed.seedId,
+                codes: result.failedErrorCodes,
+            });
+            continue;
         }
 
         if (result.planted < maxPlantCount && remainingLandIds.length > 0) {
