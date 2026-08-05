@@ -12,7 +12,7 @@ const { checkFarm, startFarmCheckLoop, stopFarmCheckLoop, refreshFarmCheckLoop, 
 const { checkFriends, startFriendCheckLoop, stopFriendCheckLoop, refreshFriendCheckLoop, runBadOnceOnStartup, isHelpExpLimitReached, getFriendsList, getFriendLandsDetail, doFriendOperation } = require('../services/friend');
 const { getInteractRecords } = require('../services/interact');
 const { processInviteCodes } = require('../services/invite');
-const { autoBuyFertilizer, checkAndBuyFertilizerBoth, buyFreeGifts, getFreeGiftDailyState } = require('../services/mall');
+const { autoBuyFertilizer, checkAndBuyFertilizerBoth, buyFreeGifts, getFreeGiftDailyState, probeMallSlots } = require('../services/mall');
 const { performDailyMonthCardGift, getMonthCardDailyState } = require('../services/monthcard');
 const { performDailyVipGift, getVipDailyState } = require('../services/qqvip');
 const { createScheduler, getSchedulerRegistrySnapshot } = require('../services/scheduler');
@@ -475,6 +475,10 @@ async function startBot(config) {
         }
     };
     networkEvents.on('ws_error', onWsError);
+    networkEvents.on('mallNeedNotify', () => {
+        // 商城需求通知：探测各 slot 定位神秘商人/活动商店
+        probeMallSlots().catch(() => {});
+    });
 
     networkEvents.on('kickout', onKickout);
 

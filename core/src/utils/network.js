@@ -402,13 +402,17 @@ function handleNotify(msg) {
         }
 
         // 其他未处理的推送类型 (调试用，观察神秘商人/活动等新推送)
-        // NeedNotify（商城需求通知）额外打印原始字节，用于反推协议结构
+        const gid = toNum((getUserState() || {}).gid) || '';
         if (type.includes('NeedNotify')) {
+            // 商城需求通知：空信号（无数据），触发主动探测商城各 slot 定位神秘商人/活动商店
+            networkEvents.emit('mallNeedNotify');
+            log('推送', `未处理类型: ${type}（触发商城 slot 探测）`, { module: 'push', event: 'unhandled_push', type, gid });
+        } else if (type.includes('InteractNewRecordNotify')) {
+            // 互动（访客）新记录通知：打印原始字节反推结构（访客/宠物守护记录线索）
             const raw = Buffer.isBuffer(eventBody) ? eventBody : (eventBody && eventBody.buffer ? Buffer.from(eventBody.buffer) : Buffer.from([]));
-            const hex = raw.toString('hex').slice(0, 400);
-            log('推送', `未处理类型: ${type} 原始数据: ${hex}`, { module: 'push', event: 'unhandled_push', type, hex });
+            log('推送', `未处理类型: ${type} 原始数据: ${raw.toString('hex').slice(0, 400)}`, { module: 'push', event: 'unhandled_push', type, gid });
         } else {
-            log('推送', `未处理类型: ${type}`, { module: 'push', event: 'unhandled_push', type });
+            log('推送', `未处理类型: ${type}`, { module: 'push', event: 'unhandled_push', type, gid });
         }
     } catch (e) {
         logWarn('推送', `解码失败: ${e.message}`);
