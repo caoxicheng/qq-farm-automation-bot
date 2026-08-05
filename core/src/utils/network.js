@@ -82,7 +82,7 @@ async function fetchGoldBeanFromBag() {
                 break;
             }
         }
-    } catch (e) {
+    } catch {
         // 忽略获取失败
     }
 }
@@ -401,8 +401,15 @@ function handleNotify(msg) {
             
         }
 
-        // 其他未处理的推送类型 (调试用)
-        // log('推送', `未处理类型: ${type}`);
+        // 其他未处理的推送类型 (调试用，观察神秘商人/活动等新推送)
+        // NeedNotify（商城需求通知）额外打印原始字节，用于反推协议结构
+        if (type.includes('NeedNotify')) {
+            const raw = Buffer.isBuffer(eventBody) ? eventBody : (eventBody && eventBody.buffer ? Buffer.from(eventBody.buffer) : Buffer.from([]));
+            const hex = raw.toString('hex').slice(0, 400);
+            log('推送', `未处理类型: ${type} 原始数据: ${hex}`, { module: 'push', event: 'unhandled_push', type, hex });
+        } else {
+            log('推送', `未处理类型: ${type}`, { module: 'push', event: 'unhandled_push', type });
+        }
     } catch (e) {
         logWarn('推送', `解码失败: ${e.message}`);
     }
