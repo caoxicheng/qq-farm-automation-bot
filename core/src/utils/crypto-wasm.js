@@ -31,7 +31,7 @@ function initWasm() {
 
             WebAssembly.instantiate(wasmBuffer, importObject).then(({ instance }) => {
                 const exports = instance.exports;
-                try { exports.E(); } catch (e) { }
+                try { exports.E(); } catch { }
                 memory = exports.v;
                 generateTokenRaw = exports._;
                 encryptRaw = exports.J;
