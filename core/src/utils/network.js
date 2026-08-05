@@ -13,6 +13,7 @@ const { recordOperation } = require('../services/stats');
 const { types } = require('./proto');
 const { toLong, toNum, syncServerTime, log, logWarn } = require('./utils');
 const cryptoWasm = require('./crypto-wasm');
+const { startAceRuntime } = require('../services/ace');
 
 // 延迟加载 warehouse 模块避免循环依赖
 let warehouseModule = null;
@@ -54,6 +55,7 @@ const userState = {
     level: 0,
     gold: 0,
     exp: 0,
+    openid: '',
     coupon: 0, // 点券(ID:1002)
     goldBean: 0, // 金豆豆(ID:1005)
 };
@@ -135,8 +137,29 @@ async function sendMsg(serviceName, methodName, bodyBytes, callback) {
     return true;
 }
 
-/** Promise 版发送 */
-function sendMsgAsync(serviceName, methodName, bodyBytes, timeout = 20000) {
+/** 网关错误（含服务端错误码） */
+class GatewayError extends Error {
+    constructor(meta) {
+        const code = toNum(meta && meta.error_code);
+        const serviceName = String((meta && meta.service_name) || '');
+        const methodName = String((meta && meta.method_name) || '');
+        const errorMessage = String((meta && meta.error_message) || '');
+        super(`${serviceName}.${methodName} 错误: code=${code} ${errorMessage}`.trim());
+        this.name = 'GatewayError';
+        this.code = code;
+        this.serviceName = serviceName;
+        this.methodName = methodName;
+        this.errorMessage = errorMessage;
+        this.clientSeq = toNum(meta && meta.client_seq);
+    }
+}
+
+/** Promise 版发送（timeoutOrOptions 支持数字超时或 { timeoutMs, expectedErrorCodes } 选项对象） */
+function sendMsgAsync(serviceName, methodName, bodyBytes, timeoutOrOptions = 20000) {
+    const options = typeof timeoutOrOptions === 'number'
+        ? { timeoutMs: timeoutOrOptions }
+        : (timeoutOrOptions || {});
+    const timeout = Math.max(1, Number(options.timeoutMs) || 20000);
     return new Promise((resolve, reject) => {
         // 检查连接状态
         if (!ws || ws.readyState !== WebSocket.OPEN) {
@@ -202,7 +225,7 @@ function handleMessage(data) {
             if (cb) {
                 pendingCallbacks.delete(clientSeqVal);
                 if (errorCode !== 0) {
-                    cb(new Error(`${meta.service_name}.${meta.method_name} 错误: code=${errorCode} ${meta.error_message || ''}`));
+                    cb(new GatewayError(meta));
                 } else {
                     cb(null, msg.body, meta);
                 }
@@ -398,22 +421,37 @@ function handleNotify(msg) {
                     networkEvents.emit('taskInfoNotify', notify.task_info);
                 }
             } catch { }
-            
+            return;
         }
 
-        // 其他未处理的推送类型 (调试用，观察神秘商人/活动等新推送)
-        const gid = toNum((getUserState() || {}).gid) || '';
-        if (type.includes('NeedNotify')) {
-            // 商城需求通知：空信号（无数据），触发主动探测商城各 slot 定位神秘商人/活动商店
-            networkEvents.emit('mallNeedNotify');
-            log('推送', `未处理类型: ${type}（触发商城 slot 探测）`, { module: 'push', event: 'unhandled_push', type, gid });
-        } else if (type.includes('InteractNewRecordNotify')) {
-            // 互动（访客）新记录通知：打印原始字节反推结构（访客/宠物守护记录线索）
-            const raw = Buffer.isBuffer(eventBody) ? eventBody : (eventBody && eventBody.buffer ? Buffer.from(eventBody.buffer) : Buffer.from([]));
-            log('推送', `未处理类型: ${type} 原始数据: ${raw.toString('hex').slice(0, 400)}`, { module: 'push', event: 'unhandled_push', type, gid });
-        } else {
-            log('推送', `未处理类型: ${type}`, { module: 'push', event: 'unhandled_push', type, gid });
+        // 战令变更通知（保留事件发射：活动中心千星游记后续可作推送驱动刷新面板数据）
+        if (type.includes('BattlePassChangeNotify')) {
+            try {
+                const notify = types.BattlePassChangeNotify.decode(eventBody);
+                networkEvents.emit('battlePassChangeNotify', notify);
+            } catch { }
+            return;
         }
+
+        // 红点类通知（图鉴/头像框/成就等）：界面状态提示，bot 无需响应，静默识别避免刷"未处理"日志
+        if (type.includes('RedDotNotify')) {
+            return;
+        }
+
+        // 商城需求通知：空信号（无数据），触发主动探测商城各 slot 定位神秘商人/活动商店
+        if (type.includes('NeedNotify')) {
+            networkEvents.emit('mallNeedNotify');
+            return;
+        }
+
+        // 互动（访客）新记录通知：访客功能已有每日同步，无需即时响应
+        if (type.includes('InteractNewRecordNotify')) {
+            return;
+        }
+
+        // 其他未处理的推送类型（新协议信号，开发调试用，默认被日志页过滤）
+        const gid = toNum((getUserState() || {}).gid) || '';
+        log('推送', `未处理类型: ${type}`, { module: 'push', event: 'unhandled_push', type, gid, dev: true });
     } catch (e) {
         logWarn('推送', `解码失败: ${e.message}`);
     }
@@ -485,6 +523,13 @@ async function sendLogin(onLoginSuccess) {
 
                 // 登录后主动获取背包中的金豆豆数量
                 fetchGoldBeanFromBag();
+
+                // ACE 反作弊：绑定用户并启动定时 AntiData 上报（模拟真实客户端，避免服务端挂起）
+                userState.openid = String(reply.basic && reply.basic.open_id || '').trim();
+                if (userState.openid) {
+                    cryptoWasm.bindUser(userState.openid).catch(() => {});
+                }
+                startAceRuntime(sendMsgAsync);
 
             }
 
@@ -574,6 +619,11 @@ function connect(code, onLoginSuccess) {
     ws.on('close', (code, _reason) => {
         console.warn(`[WS] 连接关闭 (code=${code})`);
         cleanup();
+        // 连接被拒（400，code 过期）：跳过自动重连，等 worker 刷新 code 后手动重连
+        if (skipAutoReconnect) {
+            skipAutoReconnect = false;
+            return;
+        }
         // 自动重连：延迟 2s 后重试，复用已保存的登录回调
         if (savedLoginCallback) {
             networkScheduler.setTimeoutTask('auto_reconnect', 2000, () => {
@@ -592,10 +642,18 @@ function connect(code, onLoginSuccess) {
             if (code) {
                 setWsErrorState(code, message);
                 networkEvents.emit('ws_error', { code, message });
+                // 400 = 登录 code 过期：通知 worker 刷新 code，跳过自动重连（旧 code 重连会死循环）
+                if (code === 400) {
+                    skipAutoReconnect = true;
+                    networkEvents.emit('ws_code_rejected');
+                }
             }
         }
     });
 }
+
+// 连接被拒（code 过期）时跳过自动重连，等待 worker 刷新 code 后手动重连
+let skipAutoReconnect = false;
 
 function cleanup(reason = '网络清理') {
     rejectAllPendingRequests(`请求已中断: ${reason}`);
@@ -621,5 +679,6 @@ module.exports = {
     sendMsg, sendMsgAsync,
     getUserState,
     getWsErrorState,
+    GatewayError,
     networkEvents,
 };
