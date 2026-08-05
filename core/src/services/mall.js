@@ -67,8 +67,8 @@ async function getMallGoodsList(slotType = 1) {
  * 由 NeedNotify（商城需求通知）触发，只记录有商品的 slot
  */
 async function probeMallSlots() {
-    // slot=1 常规商城；2-20 探测未知 slot（神秘商人/活动商店）
-    for (let slot = 2; slot <= 20; slot++) {
+    // slot=1 常规商城；2-30 探测未知 slot（神秘商人/活动商店）
+    for (let slot = 2; slot <= 30; slot++) {
         try {
             const goods = await getMallGoodsList(slot);
             if (!goods.length) continue;
@@ -78,6 +78,7 @@ async function probeMallSlots() {
                 event: 'mall_slot_probe',
                 slot,
                 count: goods.length,
+                dev: true,
             });
         } catch {
             // slot 无效/无数据——忽略（正常）
@@ -98,7 +99,7 @@ async function probeShopProfiles() {
         const reply = types.ShopProfilesReply.decode(replyBody);
         const profiles = Array.isArray(reply && reply.shop_profiles) ? reply.shop_profiles : [];
         if (!profiles.length) {
-            log('商城', '商店列表探测: 无商店', { module: 'mall', event: 'shop_profiles_probe', count: 0 });
+            log('商城', '商店列表探测: 无商店', { module: 'mall', event: 'shop_profiles_probe', count: 0, dev: true });
             return;
         }
         const summary = profiles.map((p) => `#${toNum(p && p.shop_id)}:${p && p.shop_name || '?'}(type=${toNum(p && p.shop_type)})`).join(', ');
@@ -106,7 +107,32 @@ async function probeShopProfiles() {
             module: 'mall',
             event: 'shop_profiles_probe',
             count: profiles.length,
+            dev: true,
         });
+        // 列表外枚举 shop_id 1-10（隐藏商店：神秘商人/活动商店可能不在列表但可直调）
+        const knownIds = new Set(profiles.map((p) => toNum(p && p.shop_id)));
+        for (let shopId = 1; shopId <= 10; shopId++) {
+            if (knownIds.has(shopId)) continue;
+            try {
+                const bodyX = types.ShopInfoRequest.encode(types.ShopInfoRequest.create({
+                    shop_id: toLong(shopId),
+                })).finish();
+                const { body: replyBodyX } = await sendMsgAsync('gamepb.shoppb.ShopService', 'ShopInfo', bodyX);
+                const infoX = types.ShopInfoReply.decode(replyBodyX);
+                const goodsX = Array.isArray(infoX && infoX.goods_list) ? infoX.goods_list : [];
+                if (!goodsX.length) continue;
+                const namesX = goodsX.map((g) => `#${toNum(g && g.id)}:item=${toNum(g && g.item_id)}×${toNum(g && g.item_count)}`).slice(0, 12).join(', ');
+                log('商城', `隐藏商店 #${shopId} 商品(${goodsX.length}): ${namesX}`, {
+                    module: 'mall',
+                    event: 'shop_hidden_probe',
+                    shopId,
+                    count: goodsX.length,
+                });
+            } catch {
+                // 商店不存在/无权限——忽略（正常）
+            }
+            await sleep(100);
+        }
         for (const p of profiles) {
             try {
                 const body2 = types.ShopInfoRequest.encode(types.ShopInfoRequest.create({
@@ -141,6 +167,7 @@ async function probeShopProfiles() {
             module: 'mall',
             event: 'shop_profiles_probe',
             result: 'error',
+            dev: true,
         });
     }
 }

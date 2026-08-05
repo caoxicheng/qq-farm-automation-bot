@@ -179,6 +179,8 @@ function createRuntimeState(options) {
                 }
             }
             if (eventName && String((l.meta || {}).event || '') !== eventName) return false;
+            // 过滤开发模式日志（调试/探测类，meta.dev=true），默认开启
+            if (f.hideDev && !!((l.meta || {}).dev)) return false;
             if (isWarn !== undefined && isWarn !== null && String(isWarn) !== '') {
                 const expected = String(isWarn) === '1' || String(isWarn).toLowerCase() === 'true';
                 if (!!l.isWarn !== expected) return false;
