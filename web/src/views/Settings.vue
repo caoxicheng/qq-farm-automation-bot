@@ -546,6 +546,8 @@ const localAutomationSettings = ref({
     fertilizer_buy_normal: false,
     fertilizer: 'normal',
     skip_own_weed_bug: false,
+    trick_enabled: false,
+    trick_daily_limit: 100,
     fertilizer_multi_season: false,
     fertilizer_land_types: [...allFertilizerLandTypes],
     fertilizer_smart_seconds: 300,
@@ -585,6 +587,8 @@ function syncLocalAutomationSettings() {
         fertilizer_buy_normal: false,
         fertilizer: 'none',
         skip_own_weed_bug: false,
+        trick_enabled: false,
+        trick_daily_limit: 100,
         fertilizer_multi_season: false,
         fertilizer_land_types: [...allFertilizerLandTypes],
         fertilizer_smart_seconds: 300,
@@ -607,6 +611,8 @@ function syncLocalAutomationSettings() {
         fertilizer_buy_normal: false,
         fertilizer: 'none',
         skip_own_weed_bug: false,
+        trick_enabled: false,
+        trick_daily_limit: 100,
         fertilizer_multi_season: false,
         fertilizer_land_types: [...allFertilizerLandTypes],
         fertilizer_smart_seconds: 300,
@@ -1329,7 +1335,26 @@ async function handleTestOffline() {
               <BaseSwitch v-model="localAutomationSettings.automation.fertilizer_buy_organic" label="自动购买有机化肥" />
               <BaseSwitch v-model="localAutomationSettings.automation.fertilizer_buy_normal" label="自动购买无机化肥" />
               <BaseSwitch v-model="localAutomationSettings.automation.skip_own_weed_bug" label="不除自己草虫" />
+              <BaseSwitch v-model="localAutomationSettings.automation.trick_enabled" label="自动捣蛋（放虫/放草）" />
               <BaseSwitch v-model="localAutomationSettings.autoRelogin.enabled" label="启用自动重登" />
+            </div>
+
+            <div v-if="localAutomationSettings.automation.trick_enabled" class="rounded bg-amber-50 p-3 text-sm space-y-3 dark:bg-amber-900/20">
+              <div class="space-y-2">
+                <div class="text-amber-700 font-medium dark:text-amber-400">
+                  自动捣蛋设置（每日放虫+放草合计，服务端上限 100 次）
+                </div>
+                <div class="flex flex-wrap gap-4">
+                  <BaseInput
+                    v-model.number="localAutomationSettings.automation.trick_daily_limit"
+                    label="每日次数（≤100）"
+                    type="number"
+                    min="1"
+                    max="100"
+                    class="w-40"
+                  />
+                </div>
+              </div>
             </div>
 
             <div v-if="localAutomationSettings.automation.fertilizer_buy_organic || localAutomationSettings.automation.fertilizer_buy_normal" class="rounded bg-green-50 p-3 text-sm space-y-3 dark:bg-green-900/20">

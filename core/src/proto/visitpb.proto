@@ -6,10 +6,10 @@ import "plantpb.proto";
 import "userpb.proto";
 
 // ============ 访问好友农场服务 ============
-// service VisitService {
-//     rpc Enter(EnterRequest) returns (EnterReply);
-//     rpc Leave(LeaveRequest) returns (LeaveReply);
-// }
+service VisitService {
+    rpc Enter(EnterRequest) returns (EnterReply);
+    rpc Leave(LeaveRequest) returns (LeaveReply);
+}
 
 // ============ 进入原因枚举 ============
 enum EnterReason {
@@ -23,6 +23,8 @@ enum EnterReason {
 message EnterRequest {
     int64 host_gid = 1;      // 好友的GID
     int32 reason = 2;        // EnterReason 进入原因
+    int32 field_3 = 3;  // 抓包确认 field 3 varint（0）
+    bytes field_7 = 7;  // 抓包确认 field 7 bytes（空）
 }
 
 message EnterReply {
@@ -35,6 +37,7 @@ message EnterReply {
 // ============ 离开好友农场 ============
 message LeaveRequest {
     int64 host_gid = 1;      // 好友的GID
+    int32 field_2 = 2;  // 抓包确认 field 2 varint（0）
 }
 
 message LeaveReply {
