@@ -35,6 +35,7 @@ async function loadProto() {
         getResourcePath('proto', 'acepb.proto'),
         getResourcePath('proto', 'activitypb.proto'),
         getResourcePath('proto', 'solartermspb.proto'),
+        getResourcePath('proto', 'mysteryshoppb.proto'),
     ], { keepCase: true });
 
     // 网关
@@ -139,6 +140,10 @@ async function loadProto() {
     types.VisitEnterReply = root.lookupType('gamepb.visitpb.EnterReply');
     types.VisitLeaveRequest = root.lookupType('gamepb.visitpb.LeaveRequest');
     types.VisitLeaveReply = root.lookupType('gamepb.visitpb.LeaveReply');
+    types.GetActiveNPCRequest = root.lookupType('gamepb.mysteryshoppb.GetActiveNPCRequest');
+    types.GetActiveNPCReply = root.lookupType('gamepb.mysteryshoppb.GetActiveNPCReply');
+    types.BuyRequest = root.lookupType('gamepb.mysteryshoppb.BuyRequest');
+    types.BuyReply = root.lookupType('gamepb.mysteryshoppb.BuyReply');
 
     // 任务
     types.TaskInfoRequest = root.lookupType('gamepb.taskpb.TaskInfoRequest');

@@ -108,6 +108,8 @@ function createDataProvider(options) {
 
         // 活动中心（千星游记/观星/星砂商店/节令）
         getActivityCenterSnapshot: (accountRef) => callWorkerApi(resolveAccountRefId(accountRef), 'getActivityCenterSnapshot'),
+        getMysteryShop: (accountRef) => callWorkerApi(resolveAccountRefId(accountRef), 'getMysteryShop'),
+        buyMysteryGoods: (accountRef, npcId, count) => callWorkerApi(resolveAccountRefId(accountRef), 'buyMysteryGoods', npcId, count),
         getCurrentSeasonEvent: (accountRef) => callWorkerApi(resolveAccountRefId(accountRef), 'getCurrentSeasonEvent'),
         getCurrentStarSandShop: (accountRef) => callWorkerApi(resolveAccountRefId(accountRef), 'getCurrentStarSandShop'),
         getCurrentSolarTerms: (accountRef) => callWorkerApi(resolveAccountRefId(accountRef), 'getCurrentSolarTerms'),

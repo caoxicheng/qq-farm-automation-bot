@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package gamepb.mysteryshoppb;
+
+service MysteryShopService {
+  rpc GetActiveNPC(GetActiveNPCRequest) returns (GetActiveNPCReply);
+  rpc Buy(BuyRequest) returns (BuyReply);
+}
+
+message GetActiveNPCRequest {}
+
+// The active merchant offer embedded in GetActiveNPCReply.
+message ActiveNPC {
+  int64 npc_id = 1;
+  int64 reward_item_id = 2;
+  int32 reward_count = 3;
+  int32 stock_count = 4;
+  int64 currency_item_id = 5;
+  int64 price = 6;
+  int32 discount_percent = 7;
+  int32 field_8 = 8;  // 抓包确认：响应携带 varint（1），请求侧勿发送
+  int64 original_price = 9;
+}
+
+message GetActiveNPCReply {
+  bool is_active = 1;
+  ActiveNPC npc = 2;
+  int64 active_time = 3;
+  int64 expire_time = 4;
+}
+
+// 购买神秘商人商品（抓包确认：npc_id 为 ActiveNPC.npc_id，count 为购买数量）
+message BuyRequest {
+  int64 npc_id = 1;
+  int32 count = 2;
+}
+
+message BuyReply {
+  repeated corepb.Item rewards = 1;
+  ActiveNPC npc = 2;
+}

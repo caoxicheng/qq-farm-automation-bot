@@ -723,6 +723,13 @@ async function handleApiCall(msg) {
             case 'getActivityCenterSnapshot':
                 result = await require('../services/activity').getActivityCenterSnapshot();
                 break;
+            // 神秘商人
+            case 'getMysteryShop':
+                result = await require('../services/mystery-shop').getMysteryShopSnapshot();
+                break;
+            case 'buyMysteryGoods':
+                result = await require('../services/mystery-shop').buyMysteryGoods(args[0], args[1]);
+                break;
             case 'getCurrentSeasonEvent':
                 result = await require('../services/activity').getCurrentSeasonEvent();
                 break;

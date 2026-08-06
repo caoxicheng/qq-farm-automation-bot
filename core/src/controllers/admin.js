@@ -2665,6 +2665,19 @@ function startAdminServer(dataProvider) {
     mountActivityGet('/api/activity-center/season', 'getCurrentSeasonEvent');
     mountActivityGet('/api/activity-center/shop', 'getCurrentStarSandShop');
     mountActivityGet('/api/activity-center/solar-terms', 'getCurrentSolarTerms');
+    // 神秘商人（独立协议 mysteryshoppb）
+    mountActivityGet('/api/mystery-shop', 'getMysteryShop');
+    app.post('/api/mystery-shop/buy', withActivityAccount((accountId, req) => {
+        const npcId = String(req.body && req.body.npcId || '');
+        let count = Number(req.body && req.body.count) || 1;
+        count = Math.max(1, Math.min(Math.floor(count), 999));  // 防滥用上限
+        if (!/^[1-9]\d*$/.test(npcId)) {
+            const err = new Error('npcId 必须是正整数');
+            err.code = 'INVALID_PARAM';
+            throw err;
+        }
+        return provider.buyMysteryGoods(accountId, npcId, count);
+    }));
     app.post('/api/activity-center/pass/claim', withActivityAccount((accountId) => provider.claimBattlePassRewards(accountId)));
     app.post('/api/activity-center/constellation/light', withActivityAccount((accountId) => provider.lightConstellation(accountId)));
     app.post('/api/activity-center/shop/exchange', withActivityAccount((accountId, req) => provider.exchangeStarSandGoods(accountId, req.body && req.body.goodsId, req.body && req.body.count)));
