@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package gamepb.plantpb;
 
+import "corepb.proto";
+
 // ============ 生长阶段枚举 ============
 enum PlantPhase {
     PHASE_UNKNOWN = 0;
@@ -32,12 +34,14 @@ message LandInfo {
     repeated int64 slave_land_ids = 14;
     int64 land_size = 15;
     int64 lands_level = 16;
+    int64 field_17 = 17;  // 抓包确认 field 17（与作者仓库一致）
 
     // 土地buff
     message Buff {
         int64 plant_yield_bonus = 1;
         int64 planting_time_reduction = 2;
         int64 plant_exp_bonus = 3;
+        int64 field_5 = 5;  // 抓包确认 field 5 varint（3000）
     }
 }
 
@@ -52,6 +56,7 @@ message LandUnlockCondition {
 message LandUpgradeCondition {
     int64 need_level = 1;
     int64 need_gold = 2;
+    repeated corepb.Item need_price = 3;  // 抓包确认 field 3：升级费用（金币/金豆豆）
     // ... 其他条件字段
 }
 
@@ -69,7 +74,7 @@ message PlantInfo {
     int64 fruit_num = 11;                      // 果实数量
     repeated int64 weed_owners = 12;           // 放草的人 (非空=有草)
     repeated int64 insect_owners = 13;         // 放虫的人 (非空=有虫)
-    repeated int64 stealers = 14;              // 偷菜的人
+    bytes stealers = 14;              // 偷菜的人 (服务端格式不一致，需手动解析)
     int64 grow_sec = 15;                       // 生长秒数
     bool stealable = 16;                       // 是否可偷
     int64 left_inorc_fert_times = 17;          // 剩余施肥次数
@@ -77,6 +82,7 @@ message PlantInfo {
     int64 steal_intimacy_level = 19;           // 偷菜亲密度等级
     repeated int64 mutant_config_ids = 20;     // 变异配置ID
     bool is_nudged = 21;                       // 是否被催熟
+    int64 field_22 = 22;  // 抓包确认 field 22 varint（4263，剩余时间？）
 }
 
 // ============ 生长阶段详情 ============
@@ -135,6 +141,8 @@ message HarvestRequest {
     repeated int64 land_ids = 1;    // 要收获的土地ID列表
     int64 host_gid = 2;            // 农场主GID
     bool is_all = 3;               // 是否全部收获
+    int32 field_4 = 4;  // 抓包确认 field 4 varint（0）
+    int32 field_5 = 5;  // 抓包确认 field 5 varint（0）
 }
 
 message HarvestReply {
@@ -220,6 +228,8 @@ message FertilizeReply {
 message PutInsectsRequest {
     int64 host_gid = 1;
     repeated int64 land_ids = 2;
+    int32 field_3 = 3;  // 抓包确认 field 3 varint（0）
+    int32 field_4 = 4;  // 抓包确认 field 4 varint（2，可能为操作类型）
 }
 
 message PutInsectsReply {
@@ -231,6 +241,8 @@ message PutInsectsReply {
 message PutWeedsRequest {
     int64 host_gid = 1;
     repeated int64 land_ids = 2;
+    int32 field_3 = 3;  // 抓包确认 field 3 varint（0）
+    int32 field_4 = 4;  // 抓包确认 field 4 varint（2，可能为操作类型）
 }
 
 message PutWeedsReply {

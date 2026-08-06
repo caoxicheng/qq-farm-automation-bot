@@ -15,6 +15,7 @@ service MallService {
 // 获取商场列表请求
 message GetMallListBySlotTypeRequest {
   int32 slot_type = 1;  // 商场类型
+  int32 sub_slot_type = 2;  // 子槽位（抓包确认：1,0）
 }
 
 // 获取商场列表响应

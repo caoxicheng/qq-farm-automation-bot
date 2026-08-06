@@ -50,7 +50,9 @@ message SeasonInfo {
     SeasonPass pass = 10;
 }
 
-message GetSeasonInfoRequest {}
+message GetSeasonInfoRequest {
+    int32 season_id = 1;  // 抓包确认 field 1 varint（1）
+}
 
 message GetSeasonInfoReply {
     SeasonInfo season_info = 1;

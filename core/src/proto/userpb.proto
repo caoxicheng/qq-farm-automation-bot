@@ -11,6 +11,7 @@ message LoginRequest {
     int64 share_cfg_id = 6;
     string scene_id = 7;
     ReportData report_data = 8;
+    bytes field_9 = 9;  // 抓包确认 field 9 bytes（空）
 }
 
 // 设备信息
@@ -95,6 +96,7 @@ message VersionInfo {
 message HeartbeatRequest {
     int64 gid = 1;
     string client_version = 2;
+    int32 field_3 = 3;  // 抓包确认 field 3 varint（0）
 }
 
 message HeartbeatReply {
