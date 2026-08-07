@@ -55,8 +55,8 @@ body {
  * 触发方式：data-theme="neo"（app.ts applyTheme 设置）
  * ============================================================ */
 
-/* 全局清零圆角：结构即装饰，无例外 */
-[data-theme='neo'] * {
+/* 全局清零圆角：结构即装饰，无例外（活动页 data-theme-exempt 除外） */
+[data-theme='neo'] *:not([data-theme-exempt] *) {
   border-radius: 0 !important;
 }
 
@@ -76,8 +76,8 @@ body {
 }
 [data-theme='neo'] .app-sidebar a:hover,
 [data-theme='neo'] .app-sidebar button:hover {
-  color: #000;
-  background: rgba(0, 0, 0, 0.1);
+  color: #000 !important;
+  background: rgba(0, 0, 0, 0.15) !important;
 }
 [data-theme='neo'] .app-sidebar .router-link-active,
 html[data-theme='neo'] .app-sidebar .router-link-active,
@@ -87,20 +87,20 @@ html[data-theme='neo'] .app-sidebar .router-link-exact-active {
 }
 
 /* 硬阴影：把 Tailwind 软阴影替换为纯黑硬偏移（3px 3px 0） */
-[data-theme='neo'] .shadow-sm { box-shadow: 2px 2px 0 #000 !important; }
-[data-theme='neo'] .shadow,
-[data-theme='neo'] .shadow-md { box-shadow: 3px 3px 0 #000 !important; }
-[data-theme='neo'] .shadow-lg,
-[data-theme='neo'] .shadow-xl,
-[data-theme='neo'] .shadow-2xl { box-shadow: 4px 4px 0 #000 !important; }
+[data-theme='neo'] .shadow-sm:not([data-theme-exempt] *) { box-shadow: 2px 2px 0 #000 !important; }
+[data-theme='neo'] .shadow:not([data-theme-exempt] *),
+[data-theme='neo'] .shadow-md:not([data-theme-exempt] *) { box-shadow: 3px 3px 0 #000 !important; }
+[data-theme='neo'] .shadow-lg:not([data-theme-exempt] *),
+[data-theme='neo'] .shadow-xl:not([data-theme-exempt] *),
+[data-theme='neo'] .shadow-2xl:not([data-theme-exempt] *) { box-shadow: 4px 4px 0 #000 !important; }
 
 /* 边框统一纯黑 2px（边框是结构线，不是状态指示器） */
-[data-theme='neo'] .border,
-[data-theme='neo'] .border-2,
-[data-theme='neo'] .border-t,
-[data-theme='neo'] .border-b,
-[data-theme='neo'] .border-l,
-[data-theme='neo'] .border-r {
+[data-theme='neo'] .border:not([data-theme-exempt] *),
+[data-theme='neo'] .border-2:not([data-theme-exempt] *),
+[data-theme='neo'] .border-t:not([data-theme-exempt] *),
+[data-theme='neo'] .border-b:not([data-theme-exempt] *),
+[data-theme='neo'] .border-l:not([data-theme-exempt] *),
+[data-theme='neo'] .border-r:not([data-theme-exempt] *) {
   border-color: #000 !important;
 }
 
@@ -166,61 +166,61 @@ html[data-theme='neo'] a[style*='var(--theme-primary)']:hover {
 }
 
 /* ===== Neo · main 区域线条（结构分割线 2px #333）===== */
-html[data-theme='neo'] main .border-t,
-html[data-theme='neo'] main .border-b,
-html[data-theme='neo'] main .border-l,
-html[data-theme='neo'] main .border-r,
-html[data-theme='neo'] main hr {
+html[data-theme='neo'] main .border-t:not([data-theme-exempt] *),
+html[data-theme='neo'] main .border-b:not([data-theme-exempt] *),
+html[data-theme='neo'] main .border-l:not([data-theme-exempt] *),
+html[data-theme='neo'] main .border-r:not([data-theme-exempt] *),
+html[data-theme='neo'] main hr:not([data-theme-exempt] *) {
   border-color: #333 !important;
 }
-html[data-theme='neo'] main hr {
+html[data-theme='neo'] main hr:not([data-theme-exempt] *) {
   border-top-width: 2px !important;
 }
 
 /* main 分割线加粗到 2px（DesignNeo: 结构线 2px） */
-html[data-theme='neo'] main .border-t { border-top-width: 2px !important; }
-html[data-theme='neo'] main .border-b { border-bottom-width: 2px !important; }
-html[data-theme='neo'] main .border-l { border-left-width: 2px !important; }
-html[data-theme='neo'] main .border-r { border-right-width: 2px !important; }
+html[data-theme='neo'] main .border-t:not([data-theme-exempt] *) { border-top-width: 2px !important; }
+html[data-theme='neo'] main .border-b:not([data-theme-exempt] *) { border-bottom-width: 2px !important; }
+html[data-theme='neo'] main .border-l:not([data-theme-exempt] *) { border-left-width: 2px !important; }
+html[data-theme='neo'] main .border-r:not([data-theme-exempt] *) { border-right-width: 2px !important; }
 
 /* 非主题色操作按钮（蓝/青/绿/靛等 positive 操作）→ 品牌黄；危险操作（红）保留 */
-html[data-theme='neo'] [class*='bg-blue-600'],
-html[data-theme='neo'] [class*='bg-teal-600'],
-html[data-theme='neo'] [class*='bg-green-600'],
-html[data-theme='neo'] [class*='bg-indigo-600'],
-html[data-theme='neo'] [class*='bg-emerald-600'],
-html[data-theme='neo'] [class*='bg-cyan-600'],
-html[data-theme='neo'] [class*='bg-violet-600'],
-html[data-theme='neo'] [class*='bg-sky-600'] {
+html[data-theme='neo'] [class*='bg-blue-600']:not([data-theme-exempt] *),
+html[data-theme='neo'] [class*='bg-teal-600']:not([data-theme-exempt] *),
+html[data-theme='neo'] [class*='bg-green-600']:not([data-theme-exempt] *),
+html[data-theme='neo'] [class*='bg-indigo-600']:not([data-theme-exempt] *),
+html[data-theme='neo'] [class*='bg-emerald-600']:not([data-theme-exempt] *),
+html[data-theme='neo'] [class*='bg-cyan-600']:not([data-theme-exempt] *),
+html[data-theme='neo'] [class*='bg-violet-600']:not([data-theme-exempt] *),
+html[data-theme='neo'] [class*='bg-sky-600']:not([data-theme-exempt] *) {
   background: #eab308 !important;
   color: #111111 !important;
   border: 2px solid #000 !important;
   box-shadow: 3px 3px 0 #000 !important;
 }
-html[data-theme='neo'] [class*='bg-blue-600']:hover,
-html[data-theme='neo'] [class*='bg-teal-600']:hover,
-html[data-theme='neo'] [class*='bg-green-600']:hover,
-html[data-theme='neo'] [class*='bg-indigo-600']:hover,
-html[data-theme='neo'] [class*='bg-emerald-600']:hover,
-html[data-theme='neo'] [class*='bg-cyan-600']:hover,
-html[data-theme='neo'] [class*='bg-violet-600']:hover,
-html[data-theme='neo'] [class*='bg-sky-600']:hover {
+html[data-theme='neo'] [class*='bg-blue-600']:not([data-theme-exempt] *):hover,
+html[data-theme='neo'] [class*='bg-teal-600']:not([data-theme-exempt] *):hover,
+html[data-theme='neo'] [class*='bg-green-600']:not([data-theme-exempt] *):hover,
+html[data-theme='neo'] [class*='bg-indigo-600']:not([data-theme-exempt] *):hover,
+html[data-theme='neo'] [class*='bg-emerald-600']:not([data-theme-exempt] *):hover,
+html[data-theme='neo'] [class*='bg-cyan-600']:not([data-theme-exempt] *):hover,
+html[data-theme='neo'] [class*='bg-violet-600']:not([data-theme-exempt] *):hover,
+html[data-theme='neo'] [class*='bg-sky-600']:not([data-theme-exempt] *):hover {
   box-shadow: none !important;
   transform: translate(3px, 3px);
 }
 
 /* 其他固定色操作按钮（紫/橙/深棕）→ 品牌黄 */
-html[data-theme='neo'] [class*='bg-purple-600'],
-html[data-theme='neo'] [class*='bg-orange-600'],
-html[data-theme='neo'] [class*='bg-stone-800'] {
+html[data-theme='neo'] [class*='bg-purple-600']:not([data-theme-exempt] *),
+html[data-theme='neo'] [class*='bg-orange-600']:not([data-theme-exempt] *),
+html[data-theme='neo'] [class*='bg-stone-800']:not([data-theme-exempt] *) {
   background: #eab308 !important;
   color: #111111 !important;
   border: 2px solid #000 !important;
   box-shadow: 3px 3px 0 #000 !important;
 }
-html[data-theme='neo'] [class*='bg-purple-600']:hover,
-html[data-theme='neo'] [class*='bg-orange-600']:hover,
-html[data-theme='neo'] [class*='bg-stone-800']:hover {
+html[data-theme='neo'] [class*='bg-purple-600']:not([data-theme-exempt] *):hover,
+html[data-theme='neo'] [class*='bg-orange-600']:not([data-theme-exempt] *):hover,
+html[data-theme='neo'] [class*='bg-stone-800']:not([data-theme-exempt] *):hover {
   box-shadow: none !important;
   transform: translate(3px, 3px);
 }
@@ -239,14 +239,6 @@ html[data-theme='neo'] .mystery-state button:hover {
 
 /* ===== Neo · 活动页豁免 =====
  * 活动中心（ActivityShell）是固定全屏的星空独立设计，不跟随主题。
- * revert 撤销本文件里所有 !important 覆盖（圆角/阴影/边框/按钮色），
- * 让 Tailwind 类与活动页 scoped 样式重新生效。
+ * 所有宽泛覆盖（圆角/阴影/边框/按钮色）用 :not([data-theme-exempt] *)
+ * 显式排除活动页子树，活动页保留自身 scoped 样式。
  */
-html[data-theme='neo'] [data-theme-exempt],
-html[data-theme='neo'] [data-theme-exempt] * {
-  border-radius: revert !important;
-  box-shadow: revert !important;
-  border-color: revert !important;
-  background-color: revert !important;
-  color: revert !important;
-}
