@@ -236,3 +236,17 @@ html[data-theme='neo'] .mystery-state button:hover {
   box-shadow: none !important;
   transform: translate(3px, 3px);
 }
+
+/* ===== Neo · 活动页豁免 =====
+ * 活动中心（ActivityShell）是固定全屏的星空独立设计，不跟随主题。
+ * revert 撤销本文件里所有 !important 覆盖（圆角/阴影/边框/按钮色），
+ * 让 Tailwind 类与活动页 scoped 样式重新生效。
+ */
+html[data-theme='neo'] [data-theme-exempt],
+html[data-theme='neo'] [data-theme-exempt] * {
+  border-radius: revert !important;
+  box-shadow: revert !important;
+  border-color: revert !important;
+  background-color: revert !important;
+  color: revert !important;
+}

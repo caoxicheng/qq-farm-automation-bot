@@ -3,7 +3,7 @@ defineProps<{ theme?: 'night' | 'day' }>()
 </script>
 
 <template>
-  <section class="activity-shell" :class="`activity-shell--${theme || 'night'}`">
+  <section class="activity-shell" :class="`activity-shell--${theme || 'night'}`" data-theme-exempt>
     <div class="activity-shell__stars" aria-hidden="true" />
     <div class="activity-shell__frame">
       <slot />
