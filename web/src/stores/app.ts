@@ -4,7 +4,7 @@ import api from '@/api'
 
 const THEME_KEY = 'ui_theme'
 
-export type Theme = 'light-blue' | 'light-green' | 'light-pink' | 'dark-blue' | 'dark-purple' | 'dark-teal' | 'dark-orange' | 'dark-red'
+export type Theme = 'light-blue' | 'light-green' | 'light-pink' | 'dark-blue' | 'dark-purple' | 'dark-teal' | 'dark-orange' | 'dark-red' | 'neo'
 
 export const useAppStore = defineStore('app', () => {
   const sidebarOpen = ref(false)
@@ -109,6 +109,17 @@ export const useAppStore = defineStore('app', () => {
       gradient: 'linear-gradient(135deg, #fb7185 0%, #f43f5e 100%)',
       icon: 'i-carbon-close-filled',
     },
+    // 新野兽派（Neo-Brutalism，参照 Vaultr DesignNeo.md）
+    'neo': {
+      name: '野兽派',
+      isDark: false,
+      bg: '#ffffff',
+      text: '#111111',
+      primary: '#eab308',
+      secondary: '#ca9f07',
+      gradient: 'linear-gradient(135deg, #eab308 0%, #ca9f07 100%)',
+      icon: 'i-carbon-brick',
+    },
   }
 
   function toggleSidebar() {
@@ -154,6 +165,9 @@ export const useAppStore = defineStore('app', () => {
       document.documentElement.style.setProperty('--theme-primary', t.primary)
       document.documentElement.style.setProperty('--theme-secondary', t.secondary)
       document.documentElement.style.setProperty('--theme-gradient', t.gradient)
+
+      // 主题标识（供 [data-theme] 全局样式覆盖，如 neo 野兽派）
+      document.documentElement.dataset.theme = theme
 
       // Toggle dark class
       if (t.isDark) {

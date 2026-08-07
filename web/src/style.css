@@ -48,3 +48,82 @@ body {
     0 0 10px #10b981,
     0 0 5px #10b981 !important;
 }
+
+/* ============================================================
+ * Neo 主题（新野兽派 Neo-Brutalism）
+ * 参照 Vaultr DesignNeo.md：白底黑线 + 品牌黄 + 0 圆角 + 硬阴影
+ * 触发方式：data-theme="neo"（app.ts applyTheme 设置）
+ * ============================================================ */
+
+/* 全局清零圆角：结构即装饰，无例外 */
+[data-theme='neo'] * {
+  border-radius: 0 !important;
+}
+
+/* 品牌黄侧边栏（视觉识别度最高的元素） */
+[data-theme='neo'] .app-sidebar {
+  background: #eab308 !important;
+  color: #111111 !important;
+  border-right: 2px solid #000;
+}
+
+/* 黄底上的侧边栏文字与图标 */
+[data-theme='neo'] .app-sidebar a,
+[data-theme='neo'] .app-sidebar button,
+[data-theme='neo'] .app-sidebar span,
+[data-theme='neo'] .app-sidebar div {
+  color: rgba(0, 0, 0, 0.78);
+}
+[data-theme='neo'] .app-sidebar a:hover,
+[data-theme='neo'] .app-sidebar button:hover {
+  color: #000;
+  background: rgba(0, 0, 0, 0.1);
+}
+[data-theme='neo'] .app-sidebar .router-link-active,
+html[data-theme='neo'] .app-sidebar .router-link-active,
+html[data-theme='neo'] .app-sidebar .router-link-exact-active {
+  background: #000 !important;
+  color: #eab308 !important;
+}
+
+/* 硬阴影：把 Tailwind 软阴影替换为纯黑硬偏移（3px 3px 0） */
+[data-theme='neo'] .shadow-sm { box-shadow: 2px 2px 0 #000 !important; }
+[data-theme='neo'] .shadow,
+[data-theme='neo'] .shadow-md { box-shadow: 3px 3px 0 #000 !important; }
+[data-theme='neo'] .shadow-lg,
+[data-theme='neo'] .shadow-xl,
+[data-theme='neo'] .shadow-2xl { box-shadow: 4px 4px 0 #000 !important; }
+
+/* 边框统一纯黑 2px（边框是结构线，不是状态指示器） */
+[data-theme='neo'] .border,
+[data-theme='neo'] .border-2,
+[data-theme='neo'] .border-t,
+[data-theme='neo'] .border-b,
+[data-theme='neo'] .border-l,
+[data-theme='neo'] .border-r {
+  border-color: #000 !important;
+}
+
+/* 主操作按钮：品牌黄填充 + 黑字 + 硬阴影，hover 按下位移 */
+[data-theme='neo'] button.bg-primary,
+[data-theme='neo'] .btn-primary,
+[data-theme='neo'] [class*='bg-blue-500'],
+[data-theme='neo'] [class*='bg-indigo-500'] {
+  background: #eab308 !important;
+  color: #111111 !important;
+  box-shadow: 3px 3px 0 #000 !important;
+  transition: box-shadow 0.1s, transform 0.1s !important;
+}
+[data-theme='neo'] button.bg-primary:hover,
+[data-theme='neo'] .btn-primary:hover,
+[data-theme='neo'] [class*='bg-blue-500']:hover,
+[data-theme='neo'] [class*='bg-indigo-500']:hover {
+  box-shadow: none !important;
+  transform: translate(3px, 3px);
+}
+
+/* 滚动条：黑底黄块 */
+[data-theme='neo'] ::-webkit-scrollbar-thumb {
+  background-color: #111111;
+  border-radius: 0;
+}

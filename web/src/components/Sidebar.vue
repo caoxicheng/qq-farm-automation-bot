@@ -413,7 +413,7 @@ async function copyToken() {
 
 <template>
   <aside
-    class="fixed inset-y-0 left-0 z-50 h-full w-64 flex flex-col border-r border-gray-200/50 transition-transform duration-300 lg:static lg:translate-x-0 dark:border-gray-700/50"
+    class="app-sidebar fixed inset-y-0 left-0 z-50 h-full w-64 flex flex-col border-r border-gray-200/50 transition-transform duration-300 lg:static lg:translate-x-0 dark:border-gray-700/50"
     :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'"
     :style="{ background: 'var(--theme-bg)', color: 'var(--theme-text)' }"
   >
@@ -1117,7 +1117,17 @@ async function copyToken() {
 
 /* 自定义调整大小手柄样式 */
 .announcement-view-modal::-webkit-resizer {
-  background: linear-gradient(-45deg, transparent 50%, var(--theme-primary) 50%, var(--theme-primary) 60%, transparent 60%, transparent 70%, var(--theme-primary) 70%, var(--theme-primary) 80%, transparent 80%);
+  background: linear-gradient(
+    -45deg,
+    transparent 50%,
+    var(--theme-primary) 50%,
+    var(--theme-primary) 60%,
+    transparent 60%,
+    transparent 70%,
+    var(--theme-primary) 70%,
+    var(--theme-primary) 80%,
+    transparent 80%
+  );
   border-radius: 0 0 12px 0;
 }
 </style>
