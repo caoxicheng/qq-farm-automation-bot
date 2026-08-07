@@ -79,11 +79,13 @@ body {
   color: #000 !important;
   background: rgba(0, 0, 0, 0.15) !important;
 }
-[data-theme='neo'] .app-sidebar .router-link-active,
+/* active：深黄选中态 + 黑色左侧指示条（替代全黑方块，黄底上不突兀） */
 html[data-theme='neo'] .app-sidebar .router-link-active,
 html[data-theme='neo'] .app-sidebar .router-link-exact-active {
-  background: #000 !important;
-  color: #eab308 !important;
+  background: rgba(0, 0, 0, 0.15) !important;
+  color: #000 !important;
+  font-weight: 600 !important;
+  box-shadow: inset 3px 0 0 #000 !important;
 }
 
 /* 硬阴影：把 Tailwind 软阴影替换为纯黑硬偏移（3px 3px 0） */
