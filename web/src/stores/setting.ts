@@ -16,8 +16,6 @@ export interface AutomationConfig {
   friend_steal?: boolean
   friend_help?: boolean
   friend_bad?: boolean
-  trick_enabled?: boolean
-  trick_daily_limit?: number
 }
 
 export interface IntervalsConfig {

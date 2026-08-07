@@ -698,9 +698,11 @@ async function putPlantItems(friendGid, landIds, RequestType, ReplyType, method)
     const ids = Array.isArray(landIds) ? landIds : [];
     for (const landId of ids) {
         try {
+            // field_4=2 为抓包确认的操作类型（线上请求带 field 3=0/field 4=2）
             const body = RequestType.encode(RequestType.create({
                 land_ids: [toLong(landId)],
                 host_gid: toLong(friendGid),
+                field_4: 2,
             })).finish();
             const { body: replyBody } = await sendMsgAsync('gamepb.plantpb.PlantService', method, body);
             const reply = ReplyType.decode(replyBody);
@@ -732,6 +734,7 @@ async function putPlantItemsDetailed(friendGid, landIds, RequestType, ReplyType,
             const body = RequestType.encode(RequestType.create({
                 land_ids: [toLong(landId)],
                 host_gid: toLong(friendGid),
+                field_4: 2,
             })).finish();
             const { body: replyBody } = await sendMsgAsync('gamepb.plantpb.PlantService', method, body);
             const reply = ReplyType.decode(replyBody);

@@ -144,9 +144,6 @@ const DEFAULT_ACCOUNT_CONFIG = {
         fertilizer_land_types: [...DEFAULT_FERTILIZER_LAND_TYPES],
         fertilizer_smart_seconds: 300,
         skip_own_weed_bug: true,  // 不除自己草虫
-        // 自动捣蛋（放虫/放草）：默认关闭，每日合计上限 100 次（服务端限制）
-        trick_enabled: false,
-        trick_daily_limit: 100,
     },
     plantingStrategy: 'max_exp',
     preferredSeedId: 0,
@@ -374,9 +371,6 @@ function normalizeAccountConfig(input, fallback = accountFallbackConfig) {
                 cfg.automation[k] = normalizeFertilizerLandTypes(v, cfg.automation[k]);
             } else if (k === 'fertilizer_smart_seconds') {
                 cfg.automation[k] = Math.max(30, Math.min(3600, Number(v) || 300));
-            } else if (k === 'trick_daily_limit') {
-                const n = Number(v);
-                cfg.automation[k] = Number.isFinite(n) && n > 0 ? Math.min(Math.floor(n), 100) : 100;
             } else {
                 cfg.automation[k] = !!v;
             }
@@ -745,9 +739,6 @@ function applyConfigSnapshot(snapshot, options = {}) {
                 next.automation[k] = normalizeFertilizerLandTypes(v, next.automation[k]);
             } else if (k === 'fertilizer_smart_seconds') {
                 next.automation[k] = Math.max(30, Math.min(3600, Number(v) || 300));
-            } else if (k === 'trick_daily_limit') {
-                const n = Number(v);
-                next.automation[k] = Number.isFinite(n) && n > 0 ? Math.min(Math.floor(n), 100) : 100;
             } else {
                 next.automation[k] = !!v;
             }
