@@ -127,3 +127,112 @@ html[data-theme='neo'] .app-sidebar .router-link-exact-active {
   background-color: #111111;
   border-radius: 0;
 }
+
+/* ===== Neo · 登录页 ===== */
+html[data-theme='neo'] .login-container {
+  background: #f8f9fa !important;
+  background-image: linear-gradient(#e5e7eb 1px, transparent 1px), linear-gradient(90deg, #e5e7eb 1px, transparent 1px) !important;
+  background-size: 24px 24px !important;
+}
+html[data-theme='neo'] .login-card {
+  background: #ffffff !important;
+  border: 2px solid #000 !important;
+  box-shadow: 8px 8px 0 #000 !important;
+}
+html[data-theme='neo'] .login-card .form-label {
+  color: #111 !important;
+}
+html[data-theme='neo'] .login-card .base-input {
+  border: 2px solid #000 !important;
+  background: #fff !important;
+  box-shadow: 3px 3px 0 #000 !important;
+}
+html[data-theme='neo'] .login-card .base-input:focus {
+  border-color: #eab308 !important;
+  box-shadow: 3px 3px 0 #eab308 !important;
+}
+
+/* ===== Neo · 主操作按钮（primary = 品牌黄 + 黑字 + 硬阴影）===== */
+html[data-theme='neo'] button[style*='var(--theme-primary)'],
+html[data-theme='neo'] a[style*='var(--theme-primary)'] {
+  color: #111 !important;
+  border: 2px solid #000 !important;
+  box-shadow: 3px 3px 0 #000 !important;
+}
+html[data-theme='neo'] button[style*='var(--theme-primary)']:hover:not(:disabled),
+html[data-theme='neo'] a[style*='var(--theme-primary)']:hover {
+  box-shadow: none !important;
+  transform: translate(3px, 3px);
+}
+
+/* ===== Neo · main 区域线条（结构分割线 2px #333）===== */
+html[data-theme='neo'] main .border-t,
+html[data-theme='neo'] main .border-b,
+html[data-theme='neo'] main .border-l,
+html[data-theme='neo'] main .border-r,
+html[data-theme='neo'] main hr {
+  border-color: #333 !important;
+}
+html[data-theme='neo'] main hr {
+  border-top-width: 2px !important;
+}
+
+/* main 分割线加粗到 2px（DesignNeo: 结构线 2px） */
+html[data-theme='neo'] main .border-t { border-top-width: 2px !important; }
+html[data-theme='neo'] main .border-b { border-bottom-width: 2px !important; }
+html[data-theme='neo'] main .border-l { border-left-width: 2px !important; }
+html[data-theme='neo'] main .border-r { border-right-width: 2px !important; }
+
+/* 非主题色操作按钮（蓝/青/绿/靛等 positive 操作）→ 品牌黄；危险操作（红）保留 */
+html[data-theme='neo'] [class*='bg-blue-600'],
+html[data-theme='neo'] [class*='bg-teal-600'],
+html[data-theme='neo'] [class*='bg-green-600'],
+html[data-theme='neo'] [class*='bg-indigo-600'],
+html[data-theme='neo'] [class*='bg-emerald-600'],
+html[data-theme='neo'] [class*='bg-cyan-600'],
+html[data-theme='neo'] [class*='bg-violet-600'],
+html[data-theme='neo'] [class*='bg-sky-600'] {
+  background: #eab308 !important;
+  color: #111111 !important;
+  border: 2px solid #000 !important;
+  box-shadow: 3px 3px 0 #000 !important;
+}
+html[data-theme='neo'] [class*='bg-blue-600']:hover,
+html[data-theme='neo'] [class*='bg-teal-600']:hover,
+html[data-theme='neo'] [class*='bg-green-600']:hover,
+html[data-theme='neo'] [class*='bg-indigo-600']:hover,
+html[data-theme='neo'] [class*='bg-emerald-600']:hover,
+html[data-theme='neo'] [class*='bg-cyan-600']:hover,
+html[data-theme='neo'] [class*='bg-violet-600']:hover,
+html[data-theme='neo'] [class*='bg-sky-600']:hover {
+  box-shadow: none !important;
+  transform: translate(3px, 3px);
+}
+
+/* 其他固定色操作按钮（紫/橙/深棕）→ 品牌黄 */
+html[data-theme='neo'] [class*='bg-purple-600'],
+html[data-theme='neo'] [class*='bg-orange-600'],
+html[data-theme='neo'] [class*='bg-stone-800'] {
+  background: #eab308 !important;
+  color: #111111 !important;
+  border: 2px solid #000 !important;
+  box-shadow: 3px 3px 0 #000 !important;
+}
+html[data-theme='neo'] [class*='bg-purple-600']:hover,
+html[data-theme='neo'] [class*='bg-orange-600']:hover,
+html[data-theme='neo'] [class*='bg-stone-800']:hover {
+  box-shadow: none !important;
+  transform: translate(3px, 3px);
+}
+
+/* 神秘商人空态按钮（scoped 手写样式覆盖） */
+html[data-theme='neo'] .mystery-state button {
+  background: #eab308 !important;
+  color: #111111 !important;
+  border: 2px solid #000 !important;
+  box-shadow: 3px 3px 0 #000 !important;
+}
+html[data-theme='neo'] .mystery-state button:hover {
+  box-shadow: none !important;
+  transform: translate(3px, 3px);
+}
