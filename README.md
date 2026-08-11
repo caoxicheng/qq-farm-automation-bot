@@ -18,7 +18,7 @@
 - **仓库管理** — 收获后自动出售果实、活动果实分类与图片显示
 - **好友互动** — 自动偷菜 / 帮忙 / 捣乱（放虫放草，面板开关）、好友黑名单、访客自动同步
 - **任务系统** — 每日任务与活跃度自动领取、图鉴一键领奖、邮件、月卡、会员/免费礼包
-- **微信登录** — yyb-go 应用宝协议扫码登录（免费、无第三方 API），启动自动刷新 code，微信头像显示
+- **微信登录** — 内置原生应用宝协议扫码登录（进程内 MMTLS，无需外部服务），启动自动刷新 code，微信头像/昵称显示
 - **自动重登** — 被踢下线后延迟自动重登（防循环，面板可配，默认关闭）
 - **版本自动校准** — 客户端版本日期自动更新 + 服务端版本前缀自动同步，无需手动维护
 - **多账号管理** — 账号独立配置、实时日志筛选、暗色/亮色主题、分析页（经验/利润效率排序）
@@ -104,7 +104,7 @@ qq-farm-automation-bot/
 │       ├── stores/                # Pinia 状态管理
 │       └── views/                 # 页面（概览/个人/好友/分析/设置/后台）
 ├── scripts/                       # 工具脚本（sync-seed-assets 图片同步等）
-├── docker-compose.yml             # 一键部署（qq-farm-bot + yyb-go 微信登录）
+├── docker-compose.yml             # 一键部署（qq-farm-bot + 可选 yyb-go 兼容服务）
 └── README.md
 ```
 
@@ -121,7 +121,7 @@ qq-farm-automation-bot/
 
 ## 快速开始（Docker 部署，推荐）
 
-> 仓库编排了两个服务：`qq-farm-bot`（农场自动化）与 `yyb-go`（微信扫码登录）。一条命令完成部署。
+> 仓库编排了 `qq-farm-bot`（农场自动化）与可选的 `yyb-go`（旧账号头像兼容）。微信扫码登录已**内置**（进程内应用宝协议），无需外部服务；yyb-go 仅用于旧微信账号的头像回退，可保留可移除。
 
 ### 1. 拉取代码（两个仓库同级）
 
@@ -129,13 +129,13 @@ qq-farm-automation-bot/
 # 农场主程序（本仓库）
 git clone https://github.com/caoxicheng/qq-farm-automation-bot.git
 
-# 微信登录服务（构建上下文在上一级目录，必须 clone 到同级）
+# （可选）yyb-go：旧微信账号头像兼容服务，构建上下文在上一级目录，必须 clone 到同级
 git clone https://github.com/Aoluis1005/yyb-go.git
 
 # 目录结构应为：
 #   your-dir/
 #   ├── qq-farm-automation-bot/
-#   └── yyb-go/
+#   └── yyb-go/            # 可选
 ```
 
 ### 2. 构建并启动
@@ -151,7 +151,7 @@ docker compose up -d --build
 # 查看状态
 docker ps                              # qq-farm-bot / yyb-go 均为 Up
 docker compose logs -f qq-farm-bot     # 农场服务日志
-docker compose logs -f yyb-go          # 微信登录服务日志
+docker compose logs -f yyb-go          # （可选）兼容服务日志
 ```
 
 ### 3. 访问面板
