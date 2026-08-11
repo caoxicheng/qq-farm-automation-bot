@@ -1,0 +1,187 @@
+const __create = Object.create;
+const __defProp = Object.defineProperty;
+const __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+const __getOwnPropNames = Object.getOwnPropertyNames;
+const __getProtoOf = Object.getPrototypeOf;
+const __hasOwnProp = Object.prototype.hasOwnProperty;
+const __export = (target, all) => {
+  for (const name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+const __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (const key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+const __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps( // eslint-disable-line no-sequences
+  // If the importer is in node compatibility mode or this is not an ESM
+  // file that has been converted to a CommonJS file using a Babel-
+  // compatible transform (i.e. "__esModule" has not been set), then set
+  // "default" to the CommonJS "module.exports" for node compatibility.
+  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+  mod
+));
+const __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+const service_exports = {};
+__export(service_exports, {
+  WxLoginService: () => WxLoginService
+});
+module.exports = __toCommonJS(service_exports);
+const import_node_crypto = __toESM(require("node:crypto"));
+const import_native_protocol = require("./native-protocol");
+const QR_CONNECT_URL = "https://open.weixin.qq.com/connect/qrconnect";
+const QR_IMAGE_BASE = "https://open.weixin.qq.com/connect/qrcode/";
+const QR_POLL_URL = "https://long.open.weixin.qq.com/connect/l/qrconnect";
+const CALLBACK_URL = "https://yybadaccess.3g.qq.com/pc_yyb/pcyyb_oauth";
+const LOGIN_BUFFER_URL = "https://yybadaccess.3g.qq.com/pc_yyb_auth/pcyyb_get_wx_login_buffer_auth";
+const USER_INFO_URL = "https://yybadaccess.3g.qq.com/pc_yyb/pcyyb_get_user_info";
+const OAUTH_APP_ID = "wxd44977328b36e647";
+const USER_AGENT = "Mozilla/5.0";
+const LOGIN_BUFFER_ACCESS_KEY = "wgrdg373hy26ww2";
+function cookieHeader(cookies) {
+  return [...cookies].map(([name, value]) => `${name}=${value}`).join("; ");
+}
+function storeCookies(cookies, headers) {
+  const headerValue = headers.get("set-cookie");
+  const values = typeof headers.getSetCookie === "function" ? headers.getSetCookie() : headerValue ? [headerValue] : [];
+  for (const value of values) {
+    const pair = value.split(";", 1)[0].trim();
+    const separator = pair.indexOf("=");
+    if (separator > 0) cookies.set(pair.slice(0, separator), pair.slice(separator + 1));
+  }
+}
+async function request(url, cookies, init = {}, timeout = 35e3) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeout);
+  try {
+    let currentUrl = url;
+    let method = init.method || "GET";
+    let body = init.body;
+    for (let redirects = 0; redirects <= 5; redirects++) {
+      const headers = new Headers(init.headers);
+      headers.set("User-Agent", USER_AGENT);
+      if (cookies.size) headers.set("Cookie", cookieHeader(cookies));
+      const response = await fetch(currentUrl, { ...init, method, body, headers, redirect: "manual", signal: controller.signal });
+      storeCookies(cookies, response.headers);
+      const location = response.headers.get("location");
+      if (response.status < 300 || response.status >= 400 || !location) {
+        return { status: response.status, body: Buffer.from(await response.arrayBuffer()), headers: response.headers };
+      }
+      currentUrl = new URL(location, currentUrl).toString();
+      if (response.status === 303 || (response.status === 301 || response.status === 302) && method === "POST") {
+        method = "GET";
+        body = void 0;
+      }
+    }
+    throw new Error("Too many redirects while contacting WeChat");
+  } finally {
+    clearTimeout(timer);
+  }
+}
+function requiredCookie(cookies, name) {
+  const value = cookies.get(name);
+  if (!value) throw new Error(`WeChat OAuth callback did not provide ${name}`);
+  return value;
+}
+class WxLoginService {
+  async createQrSession() {
+    const cookies = /* @__PURE__ */ new Map();
+    const params = new URLSearchParams({
+      appid: OAUTH_APP_ID,
+      redirect_uri: `${CALLBACK_URL}?login_type=WX`,
+      response_type: "code",
+      scope: "snsapi_login,snsapi_runtime_pcsdk",
+      state: "web",
+      fast_login: "1",
+      self_redirect: "true"
+    });
+    const page = await request(`${QR_CONNECT_URL}?${params}`, cookies);
+    if (page.status < 200 || page.status >= 300) throw new Error(`Unable to create WeChat QR session (HTTP ${page.status})`);
+    const uuid = /\/connect\/qrcode\/([^"'>\s]+)/.exec(page.body.toString("utf8"))?.[1];
+    if (!uuid) throw new Error("Unable to parse the WeChat QR session");
+    const qr = await request(`${QR_IMAGE_BASE}${encodeURIComponent(uuid)}`, cookies);
+    if (qr.status < 200 || qr.status >= 300) throw new Error(`Unable to download WeChat QR image (HTTP ${qr.status})`);
+    return { session: { cookies, uuid }, qr: qr.body };
+  }
+  async poll(session) {
+    if (session.oauthCode) return "authorized";
+    const params = new URLSearchParams({ uuid: session.uuid, _: String(Date.now()) });
+    const response = await request(`${QR_POLL_URL}?${params}`, session.cookies, {}, 35e3);
+    if (response.status < 200 || response.status >= 300) throw new Error(`WeChat QR polling failed (HTTP ${response.status})`);
+    const body = response.body.toString("utf8");
+    const errcode = /wx_errcode\s*=\s*(\d+)/.exec(body)?.[1];
+    if (errcode === "408") return "waiting";
+    if (errcode === "404") return "scanned";
+    if (errcode === "403") return "cancelled";
+    if (errcode === "402") return "expired";
+    if (errcode === "405") {
+      const code = /wx_code\s*=\s*'([^']+)'/.exec(body)?.[1];
+      if (!code) throw new Error("WeChat authorization response did not include a code");
+      session.oauthCode = code;
+      return "authorized";
+    }
+    throw new Error("Unrecognized WeChat QR polling response");
+  }
+  async confirm(session) {
+    if (!session.oauthCode) throw new Error("Waiting for scan authorization");
+    const params = new URLSearchParams({ login_type: "WX", code: session.oauthCode, state: "web" });
+    const callback = await request(`${CALLBACK_URL}?${params}`, session.cookies);
+    if (callback.status < 200 || callback.status >= 400) throw new Error(`WeChat authorization callback failed (HTTP ${callback.status})`);
+    const openid = requiredCookie(session.cookies, "openid");
+    const accessToken = requiredCookie(session.cookies, "accesstoken");
+    const payload = JSON.stringify({ extInfo: { listS: { unionid: { value: [openid] }, user_id: { value: [openid] }, access_token: { value: [accessToken] } }, listI: { user_type: { value: [0] } } } });
+    const timestamp = String(Date.now());
+    const nonce = String(import_node_crypto.default.randomInt(1e3, 1e4));
+    const signature = import_node_crypto.default.createHash("md5").update(`${payload}${timestamp}${LOGIN_BUFFER_ACCESS_KEY}${nonce}`).digest("hex");
+    const response = await request(LOGIN_BUFFER_URL, session.cookies, {
+      method: "POST",
+      body: payload,
+      headers: { "Content-Type": "application/json", "Ual-Access-Businessid": "pc_yyb_auth", "Ual-Access-Timestamp": timestamp, "Ual-Access-Nonce": nonce, "Ual-Access-Signature": signature }
+    });
+    if (response.status < 200 || response.status >= 300) throw new Error(`Unable to obtain WeChat login buffer (HTTP ${response.status})`);
+    const data = JSON.parse(response.body.toString("utf8"));
+    const loginBuffer = data?.code === 0 ? data?.ext_info?.list_s?.login_buffer?.value?.[0] : "";
+    if (typeof loginBuffer !== "string" || !loginBuffer) throw new Error("WeChat login buffer response is invalid");
+    session.cookies.clear();
+    session.openid = openid;
+    session.accesstoken = accessToken;
+    session.loginBuffer = loginBuffer;
+    return { openid, loginBuffer };
+  }
+  async fetchUserInfo(session) {
+    if (!session || !session.openid || !session.accesstoken) throw new Error("登录会话未确认，无法获取用户信息");
+    const timestamp = String(Date.now());
+    const nonce = String(import_node_crypto.default.randomInt(1e3, 1e4));
+    // pcyyb_get_user_info 的签名 key 为空串：md5(ts + "" + nonce)
+    const signature = import_node_crypto.default.createHash("md5").update(`${timestamp}${nonce}`).digest("hex");
+    const response = await request(USER_INFO_URL, session.cookies, {
+      headers: {
+        "Ual-Access-Access-Token": session.accesstoken,
+        "Ual-Access-Login-Type": "2",
+        "Ual-Access-Openid": session.openid,
+        "Ual-Access-Businessid": "pc_yyb",
+        "Ual-Access-Guid": "web",
+        "Ual-Access-Nonce": nonce,
+        "Ual-Access-Requestid": String(import_node_crypto.default.randomInt(1e3, 1e4)),
+        "Ual-Access-Signature": signature,
+        "Ual-Access-Timestamp": timestamp
+      }
+    });
+    if (response.status < 200 || response.status >= 300) throw new Error(`Unable to fetch WeChat user info (HTTP ${response.status})`);
+    return JSON.parse(response.body.toString("utf8"));
+  }
+  async issueCode(session, appId) {
+    if (!session.loginBuffer) throw new Error("WeChat login session has not been confirmed");
+    return (0, import_native_protocol.getNativeWxLoginCode)(session.loginBuffer, appId);
+  }
+  destroy(session) {
+    session.cookies.clear();
+    session.oauthCode = void 0;
+    session.openid = void 0;
+    session.accesstoken = void 0;
+    session.loginBuffer = void 0;
+  }
+}

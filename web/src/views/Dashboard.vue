@@ -489,7 +489,13 @@ useIntervalFn(updateCountdowns, 1000)
       <div class="flex flex-col rounded-lg bg-white p-4 shadow dark:bg-gray-800">
         <div class="mb-2 flex items-start justify-between">
           <div class="flex items-center gap-1.5 text-sm text-gray-500">
-            <div class="i-fas-user-circle" />
+            <img
+              v-if="currentAccount?.platform === 'wx'"
+              :src="`/api/accounts/${currentAccount?.id}/avatar`"
+              class="h-5 w-5 rounded-full object-cover"
+              @error="(e) => (e.target as HTMLImageElement).style.display = 'none'"
+            >
+            <div v-else class="i-fas-user-circle" />
             账号
           </div>
           <div class="rounded bg-blue-100 px-2 py-0.5 text-xs text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">

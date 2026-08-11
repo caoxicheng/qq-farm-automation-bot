@@ -1439,17 +1439,24 @@ function startAdminServer(dataProvider) {
                 return res.status(403).json({ ok: false, error: '无权访问此账号' });
             }
 
-            // 微信账号：启动前自动刷新登录 code（wx.login code 短时效，避免过期 400 需重新扫码）
+            // 微信账号：启动前自动刷新登录 code（wx.login code 短时效）——不阻塞启动响应：
+            // MMTLS 握手可能耗时 6s+（微信服务器目标逐个超时），await 会让前端"点击登录"卡住；
+            // 即使刷新失败/未完成，worker 用旧 code 启动后由 ws_code_rejected 自动刷新链路兜底（loginBuffer 已持久化）
             try {
                 const account = provider.getAccounts().accounts.find(a => String(a.id) === String(accountId));
                 if (account && account.platform === 'wx' && account.wxid) {
-                    const refresh = await yybProxy.getFarmCode(account.wxid);
-                    if (refresh.Success && refresh.Data && refresh.Data.code) {
-                        addOrUpdateAccount({ id: accountId, code: refresh.Data.code });
-                        adminLogger.info('startAccount', { accountId, note: 'wx code refreshed automatically' });
-                    } else {
-                        adminLogger.warn('startAccount', { accountId, note: 'wx code refresh failed, fallback to stored code', msg: refresh.Message });
-                    }
+                    yybProxy.getFarmCode(account.wxid)
+                        .then((refresh) => {
+                            if (refresh.Success && refresh.Data && refresh.Data.code) {
+                                addOrUpdateAccount({ id: accountId, code: refresh.Data.code });
+                                adminLogger.info('startAccount', { accountId, note: 'wx code refreshed automatically' });
+                            } else {
+                                adminLogger.warn('startAccount', { accountId, note: 'wx code refresh failed, fallback to stored code', msg: refresh.Message });
+                            }
+                        })
+                        .catch((refreshErr) => {
+                            adminLogger.warn('startAccount', { accountId, note: 'wx code refresh error, fallback to stored code', err: refreshErr.message });
+                        });
                 }
             } catch (refreshErr) {
                 adminLogger.warn('startAccount', { accountId, note: 'wx code refresh error, fallback to stored code', err: refreshErr.message });
@@ -2234,6 +2241,18 @@ function startAdminServer(dataProvider) {
             // 如果是新增账号，自动关联当前用户
             if (!isUpdate && currentUser) {
                 payload.username = currentUser.username;
+            }
+
+            // 微信账号：补充扫码会话里的 loginBuffer/头像
+            // （扫码流程 JSLogin/getFarmCode 在账号创建前调用，loginBuffer 此时无法按账号持久化；
+            //  loginBuffer 只允许来自扫码会话，body 传入的一律不信任）
+            if (!isUpdate && body.platform === 'wx' && body.wxid) {
+                delete payload.loginBuffer;
+                const pending = yybProxy.takePendingWxInfo(String(body.wxid));
+                if (pending) {
+                    if (pending.loginBuffer) payload.loginBuffer = pending.loginBuffer;
+                    if (!payload.avatar && pending.avatar) payload.avatar = pending.avatar;
+                }
             }
 
             const data = addOrUpdateAccount(payload);

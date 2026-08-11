@@ -1199,6 +1199,7 @@ function addOrUpdateAccount(acc) {
             uin: acc.uin ? String(acc.uin) : '',
             qq: acc.qq ? String(acc.qq) : (acc.uin ? String(acc.uin) : ''),
             wxid: acc.wxid ? String(acc.wxid) : '',
+            loginBuffer: acc.loginBuffer || '', // 微信登录凭证（扫码 confirm 时保存，用于自动刷新 code）
             avatar: acc.avatar || acc.avatarUrl || '',
             username: acc.username || '', // 保存用户名字段
             createdAt: Date.now(),
