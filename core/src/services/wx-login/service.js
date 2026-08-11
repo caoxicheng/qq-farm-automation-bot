@@ -37,6 +37,7 @@ const QR_IMAGE_BASE = "https://open.weixin.qq.com/connect/qrcode/";
 const QR_POLL_URL = "https://long.open.weixin.qq.com/connect/l/qrconnect";
 const CALLBACK_URL = "https://yybadaccess.3g.qq.com/pc_yyb/pcyyb_oauth";
 const LOGIN_BUFFER_URL = "https://yybadaccess.3g.qq.com/pc_yyb_auth/pcyyb_get_wx_login_buffer_auth";
+const REFRESH_TOKEN_URL = "https://yybadaccess.3g.qq.com/pc_yyb_auth/pcyyb_refresh_token_auth";
 const USER_INFO_URL = "https://yybadaccess.3g.qq.com/pc_yyb/pcyyb_get_user_info";
 const OAUTH_APP_ID = "wxd44977328b36e647";
 const USER_AGENT = "Mozilla/5.0";
@@ -132,6 +133,8 @@ class WxLoginService {
     if (callback.status < 200 || callback.status >= 400) throw new Error(`WeChat authorization callback failed (HTTP ${callback.status})`);
     const openid = requiredCookie(session.cookies, "openid");
     const accessToken = requiredCookie(session.cookies, "accesstoken");
+    // refreshtoken 可选（部分环境不回传）；存在则用于 loginBuffer 保活刷新
+    const refreshToken = session.cookies.get("refreshtoken") || "";
     const payload = JSON.stringify({ extInfo: { listS: { unionid: { value: [openid] }, user_id: { value: [openid] }, access_token: { value: [accessToken] } }, listI: { user_type: { value: [0] } } } });
     const timestamp = String(Date.now());
     const nonce = String(import_node_crypto.default.randomInt(1e3, 1e4));
@@ -148,6 +151,7 @@ class WxLoginService {
     session.cookies.clear();
     session.openid = openid;
     session.accesstoken = accessToken;
+    session.refreshtoken = refreshToken;
     session.loginBuffer = loginBuffer;
     return { openid, loginBuffer };
   }
@@ -177,11 +181,49 @@ class WxLoginService {
     if (!session.loginBuffer) throw new Error("WeChat login session has not been confirmed");
     return (0, import_native_protocol.getNativeWxLoginCode)(session.loginBuffer, appId);
   }
+  async refreshLoginBuffer(session) {
+    if (!session || !session.openid || !session.refreshtoken) throw new Error("缺少刷新凭证（refreshtoken），请重新扫码登录");
+    const payload = JSON.stringify({ user_info: { openid: session.openid, refreshtoken: session.refreshtoken, accesstoken: session.accesstoken || "", logintype: "WX" } });
+    const timestamp = String(Date.now());
+    const nonce = String(import_node_crypto.default.randomInt(1e3, 1e4));
+    const signature = import_node_crypto.default.createHash("md5").update(`${payload}${timestamp}${LOGIN_BUFFER_ACCESS_KEY}${nonce}`).digest("hex");
+    const response = await request(REFRESH_TOKEN_URL, session.cookies, {
+      method: "POST",
+      body: payload,
+      headers: { "Content-Type": "application/json", "Ual-Access-Businessid": "pc_yyb_auth", "Ual-Access-Timestamp": timestamp, "Ual-Access-Nonce": nonce, "Ual-Access-Signature": signature }
+    });
+    if (response.status < 200 || response.status >= 300) throw new Error(`Unable to refresh WeChat token (HTTP ${response.status})`);
+    const data = JSON.parse(response.body.toString("utf8"));
+    if (data?.code !== 0) throw new Error(`WeChat token refresh failed: code=${data?.code} msg=${data?.msg}`);
+    const info = data?.user_info || {};
+    const accessToken = info.access_token || "";
+    const refreshToken = info.refresh_token || session.refreshtoken;
+    if (!accessToken) throw new Error("WeChat token refresh response missing access_token");
+    // 用新凭证换新 loginBuffer
+    const lbPayload = JSON.stringify({ extInfo: { listS: { unionid: { value: [session.openid] }, user_id: { value: [session.openid] }, access_token: { value: [accessToken] } }, listI: { user_type: { value: [0] } } } });
+    const ts2 = String(Date.now());
+    const nonce2 = String(import_node_crypto.default.randomInt(1e3, 1e4));
+    const sig2 = import_node_crypto.default.createHash("md5").update(`${lbPayload}${ts2}${LOGIN_BUFFER_ACCESS_KEY}${nonce2}`).digest("hex");
+    const lbResp = await request(LOGIN_BUFFER_URL, session.cookies, {
+      method: "POST",
+      body: lbPayload,
+      headers: { "Content-Type": "application/json", "Ual-Access-Businessid": "pc_yyb_auth", "Ual-Access-Timestamp": ts2, "Ual-Access-Nonce": nonce2, "Ual-Access-Signature": sig2 }
+    });
+    if (lbResp.status < 200 || lbResp.status >= 300) throw new Error(`Unable to obtain WeChat login buffer (HTTP ${lbResp.status})`);
+    const lbData = JSON.parse(lbResp.body.toString("utf8"));
+    const loginBuffer = lbData?.code === 0 ? lbData?.ext_info?.list_s?.login_buffer?.value?.[0] : "";
+    if (typeof loginBuffer !== "string" || !loginBuffer) throw new Error("WeChat login buffer refresh response is invalid");
+    session.accesstoken = accessToken;
+    session.refreshtoken = refreshToken;
+    session.loginBuffer = loginBuffer;
+    return { loginBuffer, refreshtoken: refreshToken, accesstoken: accessToken };
+  }
   destroy(session) {
     session.cookies.clear();
     session.oauthCode = void 0;
     session.openid = void 0;
     session.accesstoken = void 0;
+    session.refreshtoken = void 0;
     session.loginBuffer = void 0;
   }
 }

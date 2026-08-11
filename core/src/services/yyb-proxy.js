@@ -83,6 +83,7 @@ function takePendingWxInfo(openid) {
         if (entry.openid === String(openid) && entry.loginBuffer) {
             return {
                 loginBuffer: String(entry.loginBuffer),
+                refreshtoken: entry.refreshtoken || '',
                 avatar: entry.avatar || '',
                 nickname: entry.nickname || '',
             };
@@ -150,6 +151,7 @@ async function checkQR(uuid) {
                     const { openid } = await wxLogin.confirm(entry.session);
                     entry.openid = openid;
                     entry.loginBuffer = entry.session.loginBuffer;
+                    entry.refreshtoken = entry.session.refreshtoken || '';
                     entry.confirmed = true;
                     // 拉取应用宝用户信息（真实昵称 + 头像 URL），失败不阻断登录
                     try {
@@ -193,32 +195,56 @@ async function getFarmCode(openid) {
         return { Success: false, Message: '缺少 openid' };
     }
     try {
-        // 1. 优先用账号持久化的 loginBuffer
+        // 1. 优先用账号持久化的 loginBuffer / refreshtoken
         let loginBuffer = '';
+        let refreshtoken = '';
         let entryAvatar = '';
         const account = findAccountByWxid(openid);
         if (account && account.loginBuffer) loginBuffer = String(account.loginBuffer);
-        // 2. 兜底：刚扫码会话里的 loginBuffer / 头像
-        if (!loginBuffer || !account || !account.avatar) {
+        if (account && account.refreshtoken) refreshtoken = String(account.refreshtoken);
+        // 2. 兜底：刚扫码会话里的 loginBuffer / refreshtoken / 头像
+        if (!loginBuffer || !refreshtoken || !account || !account.avatar) {
             for (const entry of wxSessions.values()) {
                 if (entry.openid === String(openid)) {
                     if (!loginBuffer && entry.loginBuffer) loginBuffer = String(entry.loginBuffer);
+                    if (!refreshtoken && entry.refreshtoken) refreshtoken = String(entry.refreshtoken);
                     if (entry.avatar) entryAvatar = String(entry.avatar);
-                    if (loginBuffer && entryAvatar) break;
+                    if (loginBuffer && refreshtoken && entryAvatar) break;
                 }
             }
         }
         if (!loginBuffer) {
             return { Success: false, Message: '缺少登录凭证（loginBuffer），请重新扫码登录' };
         }
-        const code = await wxLogin.issueCode({ loginBuffer }, TARGET_APP_ID);
+        // 3. 换 code；loginBuffer 失效（ManualAuth rejected）时用 refreshtoken 自动续期重试
+        let code;
+        try {
+            code = await wxLogin.issueCode({ loginBuffer }, TARGET_APP_ID);
+        } catch (issueErr) {
+            const msg = String(issueErr.message || '');
+            if (refreshtoken && msg.includes('ManualAuth rejected')) {
+                try {
+                    // 传空 cookie jar（refresh 请求不依赖 OAuth 回调 cookie，Ual-Access 头鉴权）
+                    const refreshed = await wxLogin.refreshLoginBuffer({ openid: String(openid), refreshtoken, accesstoken: '', cookies: new Map() });
+                    loginBuffer = refreshed.loginBuffer;
+                    refreshtoken = refreshed.refreshtoken;
+                    code = await wxLogin.issueCode({ loginBuffer }, TARGET_APP_ID);
+                } catch (refreshErr) {
+                    return { Success: false, Message: `获取 Code 失败: ${humanizeWxCodeError(refreshErr.message)}（自动续期失败，请重新扫码登录）` };
+                }
+            } else {
+                return { Success: false, Message: `获取 Code 失败: ${humanizeWxCodeError(msg)}` };
+            }
+        }
         if (!code) {
             return { Success: false, Message: '获取 Code 失败（服务端未返回 code）' };
         }
-        // 3. 成功后将 loginBuffer / 头像持久化到账号（供自动重登/手动启动刷新 code）
+        // 4. 成功后将 loginBuffer / refreshtoken / 头像持久化到账号（供自动重登/手动启动刷新 code）
+        //    注意：refreshtoken 是滚动续期的（每次刷新返回新值），必须总是更新，否则旧 token 过期后续期断裂
         if (account) {
             const updates = {};
-            if (!account.loginBuffer) updates.loginBuffer = loginBuffer;
+            if (loginBuffer && loginBuffer !== account.loginBuffer) updates.loginBuffer = loginBuffer;
+            if (refreshtoken && refreshtoken !== account.refreshtoken) updates.refreshtoken = refreshtoken;
             if (!account.avatar && entryAvatar) updates.avatar = entryAvatar;
             if (Object.keys(updates).length > 0) {
                 try {

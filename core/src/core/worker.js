@@ -598,6 +598,28 @@ async function startBot(config) {
             }
         });
         
+        // 微信凭证定时保活：每 30 分钟刷新 loginBuffer（loginBuffer 约 1 小时过期，
+        // 挂机账号不掉线也要续期，掉线/重启随时可重连，无需重新扫码）
+        workerScheduler.setIntervalTask('wx_login_keepalive', 30 * 60 * 1000, async () => {
+            if (!isRunning) return;
+            try {
+                const accountId = String(process.env.FARM_ACCOUNT_ID || '');
+                const { getAccounts, addOrUpdateAccount } = require('../models/store');
+                const accounts = typeof getAccounts === 'function' ? getAccounts() : { accounts: [] };
+                const acc = (accounts.accounts || []).find((a) => String(a.id) === accountId);
+                if (!acc || !acc.wxid) return;
+                const { getFarmCode } = require('../services/yyb-proxy');
+                const refresh = await getFarmCode(acc.wxid);
+                if (refresh.Success && refresh.Data && refresh.Data.code && typeof addOrUpdateAccount === 'function') {
+                    addOrUpdateAccount({ id: acc.id, code: refresh.Data.code });
+                    log('系统', '微信凭证保活成功（loginBuffer 已续期）', { accountId });
+                }
+                // 失败静默：掉线时 ws_code_rejected 链路兜底刷新，保活下轮再试
+            } catch (e) {
+                log('系统', `微信凭证保活刷新失败: ${e.message}`, { accountId: String(process.env.FARM_ACCOUNT_ID || '') });
+            }
+        }, { preventOverlap: true });
+        
         startFarmCheckLoop({ externalScheduler: true });
         startFriendCheckLoop({ externalScheduler: true });
         startUnifiedScheduler();

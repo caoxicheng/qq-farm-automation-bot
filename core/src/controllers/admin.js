@@ -2243,15 +2243,27 @@ function startAdminServer(dataProvider) {
                 payload.username = currentUser.username;
             }
 
-            // 微信账号：补充扫码会话里的 loginBuffer/头像
-            // （扫码流程 JSLogin/getFarmCode 在账号创建前调用，loginBuffer 此时无法按账号持久化；
-            //  loginBuffer 只允许来自扫码会话，body 传入的一律不信任）
-            if (!isUpdate && body.platform === 'wx' && body.wxid) {
+            // 微信账号：loginBuffer/refreshtoken 只允许来自扫码会话——创建/更新都禁止 body 直接传（防凭证覆盖 DoS），
+            // 创建时从扫码会话（takePendingWxInfo）补充
+            if (body.platform === 'wx' && body.wxid) {
                 delete payload.loginBuffer;
-                const pending = yybProxy.takePendingWxInfo(String(body.wxid));
-                if (pending) {
-                    if (pending.loginBuffer) payload.loginBuffer = pending.loginBuffer;
-                    if (!payload.avatar && pending.avatar) payload.avatar = pending.avatar;
+                delete payload.refreshtoken;
+                if (isUpdate) {
+                    // 微信账号变更 wxid（换绑）时清除旧凭证，避免新 wxid 继承上一用户的 loginBuffer/refreshtoken
+                    const oldAccounts = provider.getAccounts();
+                    const oldWxAccount = (oldAccounts.accounts || []).find(a => a.id === payload.id);
+                    if (oldWxAccount && oldWxAccount.wxid && String(oldWxAccount.wxid) !== String(body.wxid)) {
+                        payload.loginBuffer = '';
+                        payload.refreshtoken = '';
+                    }
+                }
+                if (!isUpdate) {
+                    const pending = yybProxy.takePendingWxInfo(String(body.wxid));
+                    if (pending) {
+                        if (pending.loginBuffer) payload.loginBuffer = pending.loginBuffer;
+                        if (pending.refreshtoken) payload.refreshtoken = pending.refreshtoken;
+                        if (!payload.avatar && pending.avatar) payload.avatar = pending.avatar;
+                    }
                 }
             }
 
