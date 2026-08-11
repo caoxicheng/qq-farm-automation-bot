@@ -35,6 +35,9 @@ if (parentPort && workerData && workerData.accountId && !process.env.FARM_ACCOUN
 if (process.env.FARM_VERSION_PREFIX) setClientVersionPrefix(process.env.FARM_VERSION_PREFIX);
 if (workerData && workerData.versionPrefix) setClientVersionPrefix(workerData.versionPrefix);
 
+// 微信 code 刷新连续失败计数（登录 code 一次性，旧 code 重连会 400 死循环，限次后停止等用户重新扫码）
+let codeRefreshFailCount = 0;
+
 function sendToMaster(payload) {
     if (process.send) {
         process.send(payload);
@@ -494,18 +497,31 @@ async function startBot(config) {
             const { getFarmCode } = require('../services/yyb-proxy');
             const refresh = await getFarmCode(acc.wxid);
             if (refresh.Success && refresh.Data && refresh.Data.code) {
+                codeRefreshFailCount = 0;
                 if (typeof addOrUpdateAccount === 'function') {
                     addOrUpdateAccount({ id: acc.id, code: refresh.Data.code });
                 }
                 log('系统', `账号 ${acc.name} 登录 code 已刷新，重新连接`, { accountId: String(accountId) });
                 reconnect(refresh.Data.code);
             } else {
-                log('系统', `账号 ${acc.name} 刷新 code 失败: ${refresh.Message || '未知'}，5 秒后用旧 code 重连`, { accountId: String(accountId) });
-                workerScheduler.setTimeoutTask('season_ws_retry_old_code', 5000, () => reconnect(null));
+                codeRefreshFailCount += 1;
+                if (codeRefreshFailCount >= 3) {
+                    log('系统', `账号 ${acc.name} 刷新 code 连续失败 ${codeRefreshFailCount} 次（${refresh.Message || '未知'}），停止重连，请重新扫码登录后手动启动`, { accountId: String(accountId) });
+                    exitWorker(0);
+                    return;
+                }
+                log('系统', `账号 ${acc.name} 刷新 code 失败: ${refresh.Message || '未知'}（第 ${codeRefreshFailCount}/3 次），30 秒后用旧 code 重连`, { accountId: String(accountId) });
+                workerScheduler.setTimeoutTask('season_ws_retry_old_code', 30000, () => reconnect(null));
             }
         } catch (e) {
-            log('系统', `刷新 code 异常: ${e.message}，5 秒后用旧 code 重连`, { accountId: String(process.env.FARM_ACCOUNT_ID || '') });
-            workerScheduler.setTimeoutTask('season_ws_retry_old_code', 5000, () => reconnect(null));
+            codeRefreshFailCount += 1;
+            if (codeRefreshFailCount >= 3) {
+                log('系统', `刷新 code 异常连续 ${codeRefreshFailCount} 次（${e.message}），停止重连，请重新扫码登录后手动启动`, { accountId: String(process.env.FARM_ACCOUNT_ID || '') });
+                exitWorker(0);
+                return;
+            }
+            log('系统', `刷新 code 异常: ${e.message}（第 ${codeRefreshFailCount}/3 次），30 秒后用旧 code 重连`, { accountId: String(process.env.FARM_ACCOUNT_ID || '') });
+            workerScheduler.setTimeoutTask('season_ws_retry_old_code', 30000, () => reconnect(null));
         }
     });
 

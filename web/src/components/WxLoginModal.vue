@@ -17,19 +17,30 @@ const accountStore = useAccountStore()
 
 const accountName = ref('')
 
-// 轮询检查登录状态
+// 轮询检查登录状态（串行：上一次完成才发下一次；微信扫码接口是长轮询 ~15s 响应，
+// 2s 间隔若并发堆积会拖慢页面，加锁防重叠）
+let pollingLock = false
 const { pause: stopCheck, resume: startCheck } = useIntervalFn(async () => {
+  if (pollingLock) {
+    return
+  }
   if (wxLoginStore.status !== 'qr_ready' && wxLoginStore.status !== 'confirming') {
     return
   }
 
-  const result = await wxLoginStore.checkLogin()
+  pollingLock = true
+  try {
+    const result = await wxLoginStore.checkLogin()
 
-  if (result.success && result.wxid) {
-    stopCheck()
+    if (result.success && result.wxid) {
+      stopCheck()
 
-    // 自动添加账号
-    await handleAutoAddAccount(result.wxid, result.nickname)
+      // 自动添加账号
+      await handleAutoAddAccount(result.wxid, result.nickname)
+    }
+  }
+  finally {
+    pollingLock = false
   }
 }, 2000, { immediate: false })
 

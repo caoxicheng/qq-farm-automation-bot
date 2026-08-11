@@ -219,11 +219,19 @@ export const useWxLoginStore = defineStore('wx-login', () => {
         }
       }
       else {
-        // 使用本地 API 模式（原有逻辑）
-        const response = await fetch(`${config.value.apiBase}/Login/LoginCheckQR?uuid=${uuid.value}`, {
-          method: 'POST',
-        })
-        data = await response.json()
+        // 使用本地 API 模式（原有逻辑）；微信扫码接口是长轮询（~15s），超时给 25s 兜底
+        const controller = new AbortController()
+        const timer = setTimeout(() => controller.abort(), 25000)
+        try {
+          const response = await fetch(`${config.value.apiBase}/Login/LoginCheckQR?uuid=${uuid.value}`, {
+            method: 'POST',
+            signal: controller.signal,
+          })
+          data = await response.json()
+        }
+        finally {
+          clearTimeout(timer)
+        }
       }
 
       const acctResp = data?.Data?.acctSectResp || data?.Data?.AcctSectResp

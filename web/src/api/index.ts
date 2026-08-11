@@ -7,7 +7,7 @@ const accountIdRef = useStorage('current_account_id', '')
 
 const api = axios.create({
   baseURL: '/',
-  timeout: 10000,
+  timeout: 30000, // 30s：微信登录 MMTLS 握手/换 code 可能耗时 8s+（多目标重试更久），10s 太紧会误报"网络错误"
 })
 
 api.interceptors.request.use((config) => {
