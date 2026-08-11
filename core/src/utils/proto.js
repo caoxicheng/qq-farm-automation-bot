@@ -36,6 +36,7 @@ async function loadProto() {
         getResourcePath('proto', 'activitypb.proto'),
         getResourcePath('proto', 'solartermspb.proto'),
         getResourcePath('proto', 'mysteryshoppb.proto'),
+        getResourcePath('proto', 'paypb.proto'),
     ], { keepCase: true });
 
     // 网关
@@ -109,6 +110,11 @@ async function loadProto() {
     types.MallGoods = root.lookupType('gamepb.mallpb.MallGoods');
     types.PurchaseRequest = root.lookupType('gamepb.mallpb.PurchaseRequest');
     types.PurchaseResponse = root.lookupType('gamepb.mallpb.PurchaseResponse');
+    // 充值/钻石
+    types.GetRechargeInfoRequest = root.lookupType('gamepb.paypb.GetRechargeInfoRequest');
+    types.GetRechargeInfoReply = root.lookupType('gamepb.paypb.GetRechargeInfoReply');
+    types.RechargeInfo = root.lookupType('gamepb.paypb.RechargeInfo');
+    types.RechargeInfoNotify = root.lookupType('gamepb.paypb.RechargeInfoNotify');
     types.GetDailyGiftStatusRequest = root.lookupType('gamepb.qqvippb.GetDailyGiftStatusRequest');
     types.GetDailyGiftStatusReply = root.lookupType('gamepb.qqvippb.GetDailyGiftStatusReply');
     types.ClaimDailyGiftRequest = root.lookupType('gamepb.qqvippb.ClaimDailyGiftRequest');

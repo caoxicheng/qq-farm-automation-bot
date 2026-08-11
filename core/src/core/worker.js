@@ -673,6 +673,9 @@ async function handleApiCall(msg) {
             case 'getBagSeeds':
                 result = await require('../services/warehouse').getBagSeeds();
                 break;
+            case 'getDiamondBalance':
+                result = await require('../services/pay').getDiamondBalance();
+                break;
             case 'useItem': {
                 const { useItem: _useItem } = require('../services/warehouse');
                 const itemId = Number(args[0]) || 0;

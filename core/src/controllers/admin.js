@@ -698,6 +698,24 @@ function startAdminServer(dataProvider) {
         }
     });
 
+    // API: 钻石余额（充值信息协议 PayService.GetRechargeInfo）
+    app.get('/api/diamond', async (req, res) => {
+        const id = getAccId(req);
+        if (!id) return res.status(400).json({ ok: false, error: 'Missing x-account-id' });
+
+        // 检查权限
+        if (!checkAccountAccess(req, id)) {
+            return res.status(403).json({ ok: false, error: '无权访问此账号' });
+        }
+
+        try {
+            const diamond = await provider.getDiamondBalance(id);
+            res.json({ ok: true, data: { diamond: Math.max(0, Number(diamond) || 0) } });
+        } catch (e) {
+            handleApiError(res, e);
+        }
+    });
+
     app.post('/api/automation', async (req, res) => {
         const id = getAccId(req);
         if (!id) {

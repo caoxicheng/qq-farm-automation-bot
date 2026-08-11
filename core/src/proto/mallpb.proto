@@ -47,7 +47,7 @@ message PurchaseRequest {
 message PurchaseResponse {
   int32 goods_id = 1;     // 商品ID
   int32 count = 2;        // 购买数量
-  bytes reward_info = 3;  // 奖励信息
+  corepb.Item reward_info = 3; // 购买返回的商品（服务端回传的结构化物品）
   bytes result = 5;       // 购买结果
 }
 

@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package gamepb.paypb;
+
+// 充值服务（钻石余额查询）
+service PayService {
+  rpc GetRechargeInfo(GetRechargeInfoRequest) returns (GetRechargeInfoReply);
+}
+
+// 充值信息请求
+message GetRechargeInfoRequest {
+  string source = 1; // 实测值: "MallUI"
+}
+
+// 充值信息条目
+message RechargeInfo {
+  int64 balance = 1;  // 余额（钻石）
+  int64 field_3 = 3;  // 实测值: 10；语义未知
+}
+
+// 充值信息响应
+message GetRechargeInfoReply {
+  repeated RechargeInfo recharge_infos = 1;
+}
+
+// 充值状态通知
+message RechargeInfoNotify {
+  int64 status = 1; // 充值状态
+}

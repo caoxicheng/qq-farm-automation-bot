@@ -18,6 +18,7 @@ const bagStore = useBagStore()
 const toastStore = useToastStore()
 const {
   status,
+  diamondBalance,
   logs: statusLogs,
   accountLogs: statusAccountLogs,
   realtimeConnected,
@@ -346,6 +347,19 @@ async function refreshBag(force = false) {
   await bagStore.fetchBag(currentAccountId.value)
 }
 
+function formatAssetAmount(value: unknown) {
+  const amount = Number(value)
+  return Number.isFinite(amount) ? Math.max(0, Math.trunc(amount)).toLocaleString('zh-CN') : '0'
+}
+
+async function refreshDiamond() {
+  if (!currentAccountId.value || !currentAccount.value?.running)
+    return
+  if (!status.value?.connection?.connected)
+    return
+  await statusStore.fetchDiamond(currentAccountId.value)
+}
+
 async function refresh(forceReloadLogs = false) {
   if (currentAccountId.value) {
     const acc = currentAccount.value
@@ -382,13 +396,17 @@ function onLogSearchTrigger() {
 }
 
 watch(currentAccountId, async () => {
+  diamondBalance.value = 0
   await refresh()
+  await refreshDiamond()
   scrollToBottom()
 })
 
 watch(() => status.value?.connection?.connected, (connected) => {
-  if (connected)
+  if (connected) {
     refreshBag(true)
+    refreshDiamond()
+  }
 })
 
 watch(() => JSON.stringify(status.value?.operations || {}), (next, prev) => {
@@ -453,6 +471,7 @@ function scrollToBottom() {
 onMounted(async () => {
   statusStore.setRealtimeLogsEnabled(!hasActiveLogFilter.value)
   await refresh()
+  await refreshDiamond()
   scrollToBottom()
 })
 
@@ -505,14 +524,14 @@ useIntervalFn(updateCountdowns, 1000)
 
       <!-- Assets & Status -->
       <div class="flex flex-col justify-between rounded-lg bg-white p-4 shadow dark:bg-gray-800">
-        <div class="flex justify-between">
-          <div>
+        <div class="grid grid-cols-2 gap-x-4 gap-y-3">
+          <div class="border-b border-r border-gray-100 pb-3 pr-3 dark:border-gray-700">
             <div class="flex items-center gap-1.5 text-xs text-gray-500">
               <div class="i-fas-coins text-yellow-500" />
               金币
             </div>
-            <div class="text-2xl text-yellow-600 font-bold dark:text-yellow-500">
-              {{ status?.status?.gold || 0 }}
+            <div class="text-2xl text-yellow-600 font-bold tabular-nums dark:text-yellow-500">
+              {{ formatAssetAmount(status?.status?.gold) }}
             </div>
             <div
               v-if="(status?.sessionGoldGained || 0) !== 0"
@@ -522,13 +541,13 @@ useIntervalFn(updateCountdowns, 1000)
               {{ (status?.sessionGoldGained || 0) > 0 ? '+' : '' }}{{ status?.sessionGoldGained || 0 }}
             </div>
           </div>
-          <div class="text-right">
+          <div class="border-b border-gray-100 pb-3 pl-3 text-right dark:border-gray-700">
             <div class="flex items-center justify-end gap-1.5 text-xs text-gray-500">
               <div class="i-fas-ticket-alt text-emerald-400" />
               点券
             </div>
-            <div class="text-2xl text-emerald-500 font-bold dark:text-emerald-400">
-              {{ status?.status?.coupon || 0 }}
+            <div class="text-2xl text-emerald-500 font-bold tabular-nums dark:text-emerald-400">
+              {{ formatAssetAmount(status?.status?.coupon) }}
             </div>
             <div
               v-if="(status?.sessionCouponGained || 0) !== 0"
@@ -538,13 +557,22 @@ useIntervalFn(updateCountdowns, 1000)
               {{ (status?.sessionCouponGained || 0) > 0 ? '+' : '' }}{{ status?.sessionCouponGained || 0 }}
             </div>
           </div>
-          <div class="text-right">
-            <div class="flex items-center justify-end gap-1.5 text-xs text-gray-500">
-              <div class="i-carbon-circle text-amber-500" />
+          <div class="border-r border-gray-100 pr-3 pt-3 dark:border-gray-700">
+            <div class="flex items-center gap-1.5 text-xs text-gray-500">
+              <div class="i-fas-seedling text-amber-500" />
               金豆豆
             </div>
-            <div class="text-2xl text-amber-500 font-bold dark:text-amber-400">
-              {{ status?.status?.goldBean || 0 }}
+            <div class="text-2xl text-amber-500 font-bold tabular-nums dark:text-amber-400">
+              {{ formatAssetAmount(status?.status?.goldBean) }}
+            </div>
+          </div>
+          <div class="pl-3 pt-3 text-right">
+            <div class="flex items-center justify-end gap-1.5 text-xs text-gray-500">
+              <div class="i-fas-gem text-cyan-500" />
+              钻石
+            </div>
+            <div class="text-2xl text-cyan-600 font-bold tabular-nums dark:text-cyan-400">
+              {{ formatAssetAmount(diamondBalance) }}
             </div>
           </div>
         </div>
