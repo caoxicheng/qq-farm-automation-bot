@@ -1173,6 +1173,15 @@ async function plantFromShop(landsToPlant, state, overrideStrategy) {
     const growTime = getPlantGrowTime(1020000 + (bestSeed.seedId - 20000));  // 转换为植物ID
     const growTimeStr = growTime > 0 ? ` 生长${formatGrowTime(growTime)}` : '';
     const plantSize = getPlantSizeBySeedId(bestSeed.seedId);
+
+    // 失败学习：该种子此前整轮种植失败（如 2x2 种子配置缺失被种到 1x1 地块），TTL 内跳过，避免反复购买浪费金币
+    const learned = unplantableSeeds.get(bestSeed.seedId);
+    if (learned && Date.now() - learned.at < UNPLANTABLE_LEARN_TTL) {
+        log('商店', `种子 ${seedName} 种植失败过（${learned.reason}），本轮跳过`, {
+            module: 'farm', event: '购买种子跳过', result: 'learned_skip', seedId: bestSeed.seedId,
+        });
+        return { plantedLands: [] };
+    }
     const landFootprint = plantSize * plantSize;
     log('商店', `最佳种子: ${seedName} (${bestSeed.seedId}) 价格=${bestSeed.price}金币${growTimeStr}`, {
         module: 'warehouse', event: '选择种子', seedId: bestSeed.seedId, price: bestSeed.price
@@ -1180,8 +1189,29 @@ async function plantFromShop(landsToPlant, state, overrideStrategy) {
 
     // 3. 购买
     let needCount = landsToPlant.length;
+    let targetLands = landsToPlant;
     if (landFootprint > 1) {
-        needCount = Math.floor(landsToPlant.length / landFootprint);
+        // 2x2 作物：筛主格（land_size >= 2 的空格），避免种到 1x1 地块全失败（1001052）
+        // 与背包路径（plantFromBagSeeds）的主格分支保持一致
+        try {
+            const allReply = await getAllLands();
+            const masterIds = findEmptyMasterLands(allReply && allReply.lands, landsToPlant);
+            if (masterIds.length === 0) {
+                log('种植', `${seedName} 为 ${plantSize}x${plantSize} 作物，当前无可用 2x2 主格，本轮跳过`, {
+                    module: 'farm',
+                    event: '种植种子',
+                    result: 'no_2x2_master',
+                    seedId: bestSeed.seedId,
+                    landFootprint,
+                });
+                return { plantedLands: [] };
+            }
+            targetLands = masterIds;
+            needCount = Math.min(Math.floor(landsToPlant.length / landFootprint), masterIds.length);
+        } catch (e) {
+            logWarn('种植', `获取 2x2 主格失败，跳过该种子: ${e.message}`);
+            return { plantedLands: [] };
+        }
         if (needCount <= 0) {
             log('种植', `${seedName} 需要至少 ${landFootprint} 块空地才能合并种植，当前仅 ${landsToPlant.length} 块可用，已跳过`, {
                 module: 'farm',
@@ -1203,8 +1233,9 @@ async function plantFromShop(landsToPlant, state, overrideStrategy) {
         if (canBuy <= 0) return { plantedLands: [] };
         // landsToPlant = landsToPlant.slice(0, canBuy);
         // log('商店', `金币有限，只种 ${canBuy} 块地`);
-        needCount = canBuy;
-        log('商店', plantSize > 1 ? `金币有限，只尝试种植 ${canBuy} 组 ${plantSize}x${plantSize} 作物` : `金币有限，只种 ${canBuy} 块地`);
+        // 2x2 时 targetLands 已筛为主格，canBuy 需 clamp 主格数（避免买超种不上浪费种子）
+        needCount = Math.min(canBuy, targetLands.length);
+        log('商店', plantSize > 1 ? `金币有限，只尝试种植 ${needCount} 组 ${plantSize}x${plantSize} 作物` : `金币有限，只种 ${needCount} 块地`);
     }
 
 
@@ -1238,10 +1269,15 @@ async function plantFromShop(landsToPlant, state, overrideStrategy) {
         return { plantedLands: [] };
     }
 
-    // 4. 种植（逐块拖动，间隔50ms）
+    // 4. 种植（逐块拖动，间隔50ms；2x2 作物 targetLands 已筛为主格）
     let plantedLands = [];
     try {
-        const { planted, plantedLandIds, occupiedLandIds } = await plantSeeds(actualSeedId, landsToPlant, { maxPlantCount: needCount });
+        const { planted, plantedLandIds, occupiedLandIds, failedErrorCodes } = await plantSeeds(actualSeedId, targetLands, { maxPlantCount: needCount });
+        // 失败学习：1001052（地块不匹配，可能为 2x2 种子配置缺失）→ 记录，与背包路径共享 unplantableSeeds，
+        // 后续轮次按 2x2 主格处理/跳过，避免反复购买浪费金币
+        if (Array.isArray(failedErrorCodes) && failedErrorCodes.includes('1001052')) {
+            unplantableSeeds.set(actualSeedId, { reason: '地块不匹配（可能为多格作物，需 2x2 主格）', at: Date.now(), codes: failedErrorCodes });
+        }
         const occupiedCount = occupiedLandIds.length > 0 ? occupiedLandIds.length : planted;
         log('种植', plantSize > 1
             ? `已种植 ${planted} 组 ${plantSize}x${plantSize} 作物，占用 ${occupiedCount} 块地 (${occupiedLandIds.join(',')})`
