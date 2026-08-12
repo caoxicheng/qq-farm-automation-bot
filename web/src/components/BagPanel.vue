@@ -168,6 +168,7 @@ async function handleConfirm() {
       }
       else {
         toastStore.error(`出售失败: ${res.error || '未知错误'}`)
+        await loadBag() // 刷新真实数量（多批卖出可能部分成功，避免重试重复卖）
       }
     }
     else if (action === 'batchSell' && selectedItems) {

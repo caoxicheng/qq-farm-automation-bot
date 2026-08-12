@@ -5,6 +5,31 @@
 
 const protobuf = require('protobufjs');
 const { getFruitName, getPlantByFruitId, getPlantBySeedId, getItemById, getItemImageById, getSeedImageBySeedId } = require('../config/gameConfig');
+
+// 活动/特殊物品名映射（本地 ItemInfo/植物配置缺失，名字实测确认：
+// 梅酒=观星/返场活动作物 29003 种子 + 49003 果实；1023=星砂（活动商店货币）；
+// 20xxxx=星砂商店装饰（activity-center shop.goods 名称））
+const EXTRA_ITEM_NAMES = {
+    29003: '梅酒种子',
+    49003: '梅酒果实',
+    1023: '星砂',
+    201008: '萤火星房小屋',
+    207008: '萤火星房街道',
+    205007: '萤火星房狗屋',
+    202007: '萤火星房木牌',
+    206007: '萤火星房仓库',
+    203008: '萤火星房栅栏',
+    208008: '萤火星房围栏',
+    201009: '月光营地小屋',
+    207009: '月光营地街道',
+    205008: '月光营地狗屋',
+    202008: '月光营地木牌',
+    206008: '月光营地仓库',
+    203009: '月光营地栅栏',
+    208009: '月光营地围栏',
+    2156: '萤火星房头像框',
+    2157: '月光营地头像框',
+};
 const { isAutomationOn } = require('../models/store');
 const { sendMsgAsync, networkEvents, getUserState } = require('../utils/network');
 const { types } = require('../utils/proto');
@@ -355,7 +380,7 @@ async function getBagDetail() {
         const count = toNum(it.count);
         if (id <= 0 || count <= 0) continue;
         const info = getItemById(id) || null;
-        let name = info && info.name ? String(info.name) : '';
+        let name = info && info.name ? String(info.name) : (EXTRA_ITEM_NAMES[id] || '');
         let category = 'item';
         if (id === 1 || id === 1001) {
             name = '金币';

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 
 const props = defineProps<{
   land: any
@@ -24,11 +24,11 @@ onUnmounted(() => {
 const growProgress = computed(() => {
   const matureInSec = land.value.matureInSec || 0
   const totalGrowTime = land.value.totalGrowTime || 0
-  
+
   if (totalGrowTime <= 0 || matureInSec <= 0) {
     return 0
   }
-  
+
   const progress = Math.min(100, Math.max(0, (matureInSec / totalGrowTime) * 100))
   return progress
 })
@@ -39,6 +39,10 @@ function getLandStatusClass(land: any) {
 
   if (status === 'locked')
     return 'bg-gray-100 dark:bg-gray-800 opacity-60 border-dashed'
+
+  // 2x2 从属格：显示占用态（半透明 + 蓝色虚线），不显示为空
+  if (land.occupiedByMaster)
+    return 'bg-blue-50/60 dark:bg-blue-900/10 opacity-75 border-dashed border-blue-300 dark:border-blue-800'
 
   let baseClass = 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'
 
@@ -118,7 +122,13 @@ function getPlantSizeText(land: any) {
       #{{ land.id }}
     </div>
     <div
-      v-if="land.plantSize > 1"
+      v-if="land.occupiedByMaster"
+      class="absolute right-1 top-1 rounded bg-blue-100 px-1 py-0.5 text-[10px] text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+    >
+      从属
+    </div>
+    <div
+      v-else-if="land.plantSize > 1"
       class="absolute right-1 top-1 rounded bg-pink-100 px-1 py-0.5 text-[10px] text-pink-700 dark:bg-pink-900/30 dark:text-pink-300"
     >
       合种 {{ getPlantSizeText(land) }}
@@ -149,7 +159,7 @@ function getPlantSizeText(land: any) {
 
     <div v-if="land.matureInSec > 0 && land.totalGrowTime > 0" class="w-full px-1">
       <div class="rainbow-progress-bar">
-        <div 
+        <div
           class="rainbow-progress-fill"
           :style="{ width: `${growProgress}%` }"
         />
@@ -184,7 +194,7 @@ function getPlantSizeText(land: any) {
   background: linear-gradient(145deg, #f0f0f0, #e6e6e6);
   border-radius: 10px;
   overflow: hidden;
-  box-shadow: 
+  box-shadow:
     inset 3px 3px 6px rgba(0, 0, 0, 0.1),
     inset -3px -3px 6px rgba(255, 255, 255, 0.9),
     2px 2px 4px rgba(0, 0, 0, 0.05);
@@ -198,26 +208,18 @@ function getPlantSizeText(land: any) {
   left: 2px;
   right: 2px;
   height: 3px;
-  background: linear-gradient(90deg, rgba(255,255,255,0.8), rgba(255,255,255,0.2));
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.2));
   border-radius: 10px 10px 0 0;
   pointer-events: none;
 }
 
 .rainbow-progress-fill {
   height: 100%;
-  background: linear-gradient(
-    90deg,
-    #ff6b9d 0%,
-    #ff9f43 20%,
-    #ffd32a 40%,
-    #26de81 60%,
-    #45aaf2 80%,
-    #a55eea 100%
-  );
+  background: linear-gradient(90deg, #ff6b9d 0%, #ff9f43 20%, #ffd32a 40%, #26de81 60%, #45aaf2 80%, #a55eea 100%);
   border-radius: 10px;
   transition: width 1s linear;
   position: relative;
-  box-shadow: 
+  box-shadow:
     inset 0 2px 4px rgba(255, 255, 255, 0.6),
     inset 0 -1px 2px rgba(0, 0, 0, 0.1);
   animation: cute-pulse 2s ease-in-out infinite;
@@ -230,18 +232,14 @@ function getPlantSizeText(land: any) {
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.4) 50%,
-    transparent 100%
-  );
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.4) 50%, transparent 100%);
   animation: shimmer 2s infinite;
   border-radius: 10px;
 }
 
 @keyframes cute-pulse {
-  0%, 100% {
+  0%,
+  100% {
     filter: brightness(1) saturate(1);
   }
   50% {
@@ -261,18 +259,18 @@ function getPlantSizeText(land: any) {
 @media (prefers-color-scheme: dark) {
   .rainbow-progress-bar {
     background: linear-gradient(145deg, #2a2a2a, #1e1e1e);
-    box-shadow: 
+    box-shadow:
       inset 3px 3px 6px rgba(0, 0, 0, 0.3),
       inset -3px -3px 6px rgba(60, 60, 60, 0.3),
       2px 2px 4px rgba(0, 0, 0, 0.2);
   }
 
   .rainbow-progress-bar::before {
-    background: linear-gradient(90deg, rgba(255,255,255,0.1), rgba(255,255,255,0.02));
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.02));
   }
 
   .rainbow-progress-fill {
-    box-shadow: 
+    box-shadow:
       inset 0 2px 4px rgba(255, 255, 255, 0.2),
       inset 0 -1px 2px rgba(0, 0, 0, 0.2);
   }
