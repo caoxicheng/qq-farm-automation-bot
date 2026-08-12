@@ -163,6 +163,20 @@ async function checkQR(uuid) {
                     } catch (e) {
                         logger.warn('fetch wx user info failed', { error: e.message });
                     }
+                    // 头像立即持久化：同 openid 重新扫码时 getFarmCode 的兜底 gate 不会进入
+                    // （账号已有凭证+头像），头像更新依赖这里，否则前端 ?v= cache-bust 不变、面板一直显示旧头像
+                    if (entry.avatar) {
+                        try {
+                            const existing = findAccountByWxid(String(openid));
+                            if (existing && typeof addOrUpdateAccount === 'function'
+                                && String(existing.avatar || '') !== String(entry.avatar)) {
+                                addOrUpdateAccount({ id: existing.id, avatar: entry.avatar });
+                                logger.info('wx avatar updated for account', { accountId: existing.id, openid });
+                            }
+                        } catch (e) {
+                            logger.warn('persist avatar failed', { openid, error: e.message });
+                        }
+                    }
                 }
                 return {
                     Success: true,
@@ -251,7 +265,9 @@ async function getFarmCode(openid) {
             const updates = {};
             if (loginBuffer && loginBuffer !== account.loginBuffer) updates.loginBuffer = loginBuffer;
             if (refreshtoken && refreshtoken !== account.refreshtoken) updates.refreshtoken = refreshtoken;
-            if (!account.avatar && entryAvatar) updates.avatar = entryAvatar;
+            if (accesstoken && accesstoken !== account.accesstoken) updates.accesstoken = accesstoken;
+            // 头像也总是更新（重新扫码后头像可能变化，否则前端 cache-bust 的 ?v= 不变，面板一直显示旧头像）
+            if (entryAvatar && entryAvatar !== account.avatar) updates.avatar = entryAvatar;
             if (Object.keys(updates).length > 0) {
                 try {
                     if (typeof addOrUpdateAccount === 'function') {

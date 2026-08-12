@@ -540,7 +540,7 @@ async function copyToken() {
             <div class="h-8 w-8 flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-200 ring-2 ring-white dark:bg-gray-600 dark:ring-gray-700">
               <img
                 v-if="currentAccount?.platform === 'wx'"
-                :src="`/api/accounts/${currentAccount?.id}/avatar`"
+                :src="`/api/accounts/${currentAccount?.id}/avatar?v=${encodeURIComponent(currentAccount?.avatar || '')}`"
                 class="h-full w-full object-cover"
                 @error="(e) => (e.target as HTMLImageElement).style.display = 'none'"
               >

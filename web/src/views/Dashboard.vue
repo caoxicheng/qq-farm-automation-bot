@@ -491,7 +491,7 @@ useIntervalFn(updateCountdowns, 1000)
           <div class="flex items-center gap-1.5 text-sm text-gray-500">
             <img
               v-if="currentAccount?.platform === 'wx'"
-              :src="`/api/accounts/${currentAccount?.id}/avatar`"
+              :src="`/api/accounts/${currentAccount?.id}/avatar?v=${encodeURIComponent(currentAccount?.avatar || '')}`"
               class="h-5 w-5 rounded-full object-cover"
               @error="(e) => (e.target as HTMLImageElement).style.display = 'none'"
             >

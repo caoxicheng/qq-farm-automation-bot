@@ -499,19 +499,26 @@ function startAdminServer(dataProvider) {
         try {
             const id = Number(req.params.id) || 0;
             if (id <= 0) return res.status(404).end();
-            const hit = avatarCache.get(id);
-            if (hit && Date.now() - hit.at < AVATAR_CACHE_TTL_MS) {
-                return res.set('Content-Type', hit.type).set('Cache-Control', 'public, max-age=600').send(hit.buf);
-            }
             const accList = provider.getAccounts() || {};
             const accounts = Array.isArray(accList) ? accList : (accList.accounts || []);
             const acc = accounts.find((a) => Number(a.id) === id);
             if (!acc || !acc.wxid) return res.status(404).end();
+            // 缓存 key 绑定头像 URL：头像更新（avatar 字段变化）→ 缓存自动失效，立即显示新头像
+            const cacheKey = `${id}:${acc.avatar || ''}`;
+            const hit = avatarCache.get(cacheKey);
+            if (hit && Date.now() - hit.at < AVATAR_CACHE_TTL_MS) {
+                return res.set('Content-Type', hit.type).set('Cache-Control', 'public, max-age=600').send(hit.buf);
+            }
             const resp = await yybProxy.getAccountAvatar(acc.wxid);
             if (!resp) return res.status(404).end();
             const buf = Buffer.from(await resp.arrayBuffer());
             const type = resp.headers.get('content-type') || 'image/jpeg';
-            avatarCache.set(id, { buf, type, at: Date.now() });
+            avatarCache.set(cacheKey, { buf, type, at: Date.now() });
+            // 防缓存无限增长：超过 50 条淘汰最旧
+            if (avatarCache.size > 50) {
+                const oldest = [...avatarCache.entries()].sort((a, b) => a[1].at - b[1].at)[0];
+                if (oldest) avatarCache.delete(oldest[0]);
+            }
             res.set('Content-Type', type).set('Cache-Control', 'public, max-age=600').send(buf);
         } catch {
             res.status(404).end();

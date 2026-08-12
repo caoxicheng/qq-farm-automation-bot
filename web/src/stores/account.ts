@@ -10,6 +10,7 @@ export interface Account {
   uin?: number
   platform?: string
   running?: boolean
+  avatar?: string
   // Add other fields as discovered
 }
 
