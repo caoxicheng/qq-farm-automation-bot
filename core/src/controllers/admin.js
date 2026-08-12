@@ -19,6 +19,7 @@ const { findAccountByRef, normalizeAccountRef, resolveAccountId } = require('../
 const { createModuleLogger } = require('../services/logger');
 const { MiniProgramLoginSession } = require('../services/qrlogin');
 const wxLoginAdapter = require('../services/wx-login-adapter');
+const { versionChecker } = require('../services/version-checker');
 const { getSchedulerRegistrySnapshot } = require('../services/scheduler');
 const userStore = require('../models/user-store');
 
@@ -1704,6 +1705,10 @@ function startAdminServer(dataProvider) {
         }
         next();
     };
+
+    app.get('/api/admin/update-status', authRequired, adminRequired, (req, res) => {
+        res.json({ ok: true, data: versionChecker.getStatus() });
+    });
 
     // ============ 公告管理 API ============
     // 获取公告（所有用户可访问）

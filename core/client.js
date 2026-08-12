@@ -12,6 +12,7 @@ const {
 } = require('./src/controllers/admin');
 const { createRuntimeEngine } = require('./src/runtime/runtime-engine');
 const { createModuleLogger } = require('./src/services/logger');
+const { versionChecker } = require('./src/services/version-checker');
 const mainLogger = createModuleLogger('main');
 
 // 打包后 worker 由当前可执行文件以 --worker 模式启动
@@ -19,6 +20,7 @@ const isWorkerProcess = process.env.FARM_WORKER === '1';
 if (isWorkerProcess) {
     require('./src/core/worker');
 } else {
+    versionChecker.start();
     const runtimeEngine = createRuntimeEngine({
         processRef: process,
         mainEntryPath: __filename,

@@ -1,18 +1,50 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
 import { onMounted, onUnmounted } from 'vue'
+import api from '@/api'
 import Sidebar from '@/components/Sidebar.vue'
 import { useAppStore } from '@/stores/app'
+import { useToastStore } from '@/stores/toast'
+import { useUserStore } from '@/stores/user'
 
 const appStore = useAppStore()
+const toast = useToastStore()
+const userStore = useUserStore()
 const { sidebarOpen } = storeToRefs(appStore)
+let updateStatusTimer: ReturnType<typeof setInterval> | null = null
+
+async function checkUpdateStatus() {
+  if (!userStore.isAdmin)
+    return
+  try {
+    const response = await api.get('/api/admin/update-status', { skipErrorToast: true } as any)
+    const status = response.data?.data
+    const latestTag = String(status?.latestTag || '')
+    if (!status?.updateAvailable || !latestTag)
+      return
+    const storageKey = `update-toast-shown:${latestTag}`
+    if (sessionStorage.getItem(storageKey))
+      return
+    sessionStorage.setItem(storageKey, '1')
+    toast.warning(`发现新版本 ${latestTag}，请前往 GitHub 更新`, 10000)
+  }
+  catch {
+    // 后端状态读取失败不影响页面使用，也不额外弹错误提示。
+  }
+}
 
 onMounted(() => {
-  // 移除了强制警告弹窗
+  if (userStore.isAdmin) {
+    checkUpdateStatus()
+    updateStatusTimer = setInterval(checkUpdateStatus, 30 * 60 * 1000)
+  }
 })
 
 onUnmounted(() => {
-  // 清理逻辑
+  if (updateStatusTimer) {
+    clearInterval(updateStatusTimer)
+    updateStatusTimer = null
+  }
 })
 </script>
 
