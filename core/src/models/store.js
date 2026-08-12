@@ -613,10 +613,6 @@ function loadGlobalConfig() {
             if (data.globalWxConfig && typeof data.globalWxConfig === 'object') {
                 globalConfig.globalWxConfig = {
                     enabled: data.globalWxConfig.enabled !== false,
-                    apiBase: String(data.globalWxConfig.apiBase || '/api').trim(),
-                    apiKey: String(data.globalWxConfig.apiKey || '').trim(),
-                    proxyApiUrl: String(data.globalWxConfig.proxyApiUrl || 'http://127.0.0.1:8059/api').trim(),
-                    appId: String(data.globalWxConfig.appId || 'wx5306c5978fdb76e4').trim(),
                     autoAddAccount: data.globalWxConfig.autoAddAccount !== false,
                     userIsolation: data.globalWxConfig.userIsolation !== false,
                 };
@@ -1201,7 +1197,7 @@ function addOrUpdateAccount(acc) {
             wxid: acc.wxid ? String(acc.wxid) : '',
             loginBuffer: acc.loginBuffer || '', // 微信登录凭证（扫码 confirm 时保存，用于自动刷新 code）
             refreshtoken: acc.refreshtoken || '', // 微信凭证保活刷新 token（loginBuffer 失效时自动续期）
-            accesstoken: acc.accesstoken || '', // 应用宝 access token（凭证刷新请求必需，yyb-go 同款持久化）
+            accesstoken: acc.accesstoken || '', // 应用宝 access token（凭证刷新请求必需）
             avatar: acc.avatar || acc.avatarUrl || '',
             username: acc.username || '', // 保存用户名字段
             createdAt: Date.now(),
@@ -1339,10 +1335,6 @@ function setVersionPrefix(prefix) {
 
 const DEFAULT_WX_CONFIG = {
     enabled: true,
-    apiBase: '/api',
-    apiKey: '',
-    proxyApiUrl: 'http://127.0.0.1:8059/api',
-    appId: 'wx5306c5978fdb76e4',
     autoAddAccount: true,
     userIsolation: true,
 };
@@ -1355,10 +1347,6 @@ function setGlobalWxConfig(config) {
     if (!config || typeof config !== 'object') return null;
     globalConfig.globalWxConfig = {
         enabled: config.enabled !== false,
-        apiBase: String(config.apiBase || DEFAULT_WX_CONFIG.apiBase).trim(),
-        apiKey: String(config.apiKey || '').trim(),
-        proxyApiUrl: String(config.proxyApiUrl || DEFAULT_WX_CONFIG.proxyApiUrl).trim(),
-        appId: String(config.appId || DEFAULT_WX_CONFIG.appId).trim(),
         autoAddAccount: config.autoAddAccount !== false,
         userIsolation: config.userIsolation !== false,
     };

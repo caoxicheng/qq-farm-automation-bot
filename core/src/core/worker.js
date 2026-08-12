@@ -16,6 +16,7 @@ const { autoBuyFertilizer, checkAndBuyFertilizerBoth, buyFreeGifts, getFreeGiftD
 const { performDailyMonthCardGift, getMonthCardDailyState } = require('../services/monthcard');
 const { performDailyVipGift, getVipDailyState } = require('../services/qqvip');
 const { createScheduler, getSchedulerRegistrySnapshot } = require('../services/scheduler');
+const { stopAceRuntime } = require('../services/ace');
 const { performDailyShare, getShareDailyState } = require('../services/share');
 const { resetSessionGains, recordOperation, initStatsWithPersistence, saveStats } = require('../services/stats');
 const { initStatusBar, setStatusPlatform, statusData } = require('../services/status');
@@ -37,6 +38,9 @@ if (workerData && workerData.versionPrefix) setClientVersionPrefix(workerData.ve
 
 // 微信 code 刷新连续失败计数（登录 code 一次性，旧 code 重连会 400 死循环，限次后停止等用户重新扫码）
 let codeRefreshFailCount = 0;
+let workerLifecycleRevision = 0;
+let masterCredentialRequestId = 0;
+const masterCredentialRequests = new Map();
 
 function sendToMaster(payload) {
     if (process.send) {
@@ -57,7 +61,47 @@ function onMasterMessage(handler) {
     }
 }
 
+function requestMasterCredential(action, timeoutMs = 120000) {
+    const id = ++masterCredentialRequestId;
+    return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+            masterCredentialRequests.delete(id);
+            reject(new Error('主进程微信凭证操作超时'));
+        }, timeoutMs);
+        masterCredentialRequests.set(id, { resolve, reject, timer });
+        sendToMaster({ type: 'wx_credential_request', id, action });
+    });
+}
+
+function cleanupWorkerResources() {
+    workerLifecycleRevision += 1;
+    isRunning = false;
+    loginReady = false;
+    try { saveStats(); } catch {}
+    try { stopUnifiedScheduler(); } catch {}
+    try { stopFarmCheckLoop(); } catch {}
+    try { stopFriendCheckLoop(); } catch {}
+    try { cleanupTaskSystem(); } catch {}
+    try { stopAceRuntime(true); } catch {}
+    try { cleanup('worker exit'); } catch {}
+    try { workerScheduler.clearAll(); } catch {}
+    for (const pending of masterCredentialRequests.values()) {
+        clearTimeout(pending.timer);
+        pending.reject(new Error('Worker 已停止'));
+    }
+    masterCredentialRequests.clear();
+    try {
+        const ws = getWs();
+        if (ws) {
+            ws.removeAllListeners();
+            if (typeof ws.terminate === 'function') ws.terminate();
+            else ws.close();
+        }
+    } catch {}
+}
+
 function exitWorker(code = 0) {
+    cleanupWorkerResources();
     if (parentPort) {
         try {
             parentPort.close();
@@ -429,6 +473,16 @@ onMasterMessage(async (msg) => {
             sendToMaster({ type: 'pong' });
             return;
         }
+        if (msg.type === 'wx_credential_response') {
+            const pending = masterCredentialRequests.get(msg.id);
+            if (pending) {
+                clearTimeout(pending.timer);
+                masterCredentialRequests.delete(msg.id);
+                if (msg.error) pending.reject(new Error(msg.error));
+                else pending.resolve(msg.result);
+            }
+            return;
+        }
         if (msg.type === 'start') {
             await startBot(msg.config);
         } else if (msg.type === 'stop') {
@@ -445,6 +499,8 @@ onMasterMessage(async (msg) => {
 
 async function startBot(config) {
     if (isRunning) return;
+    const lifecycleRevision = ++workerLifecycleRevision;
+    const isLifecycleActive = () => isRunning && lifecycleRevision === workerLifecycleRevision;
     isRunning = true;
 
     const { code, platform } = config;
@@ -453,6 +509,7 @@ async function startBot(config) {
     // 注意：间隔配置由 applyIntervalsToRuntime 统一处理，不要在这里覆盖
 
     await loadProto();
+    if (!isLifecycleActive()) return;
 
     log('系统', '正在连接服务器...');
 
@@ -491,7 +548,7 @@ async function startBot(config) {
     networkEvents.on('ws_code_rejected', async () => {
         // 连接被拒（400，登录 code 过期）：刷新微信 code 后重连，避免旧 code 死循环
         try {
-            const { getAccounts, addOrUpdateAccount } = require('../models/store');
+            const { getAccounts } = require('../models/store');
             const accountId = String(process.env.FARM_ACCOUNT_ID || '');
             const accounts = typeof getAccounts === 'function' ? getAccounts() : { accounts: [] };
             const acc = (accounts.accounts || []).find((a) => String(a.id) === accountId);
@@ -500,13 +557,10 @@ async function startBot(config) {
                 workerScheduler.setTimeoutTask('season_ws_retry_old_code', 5000, () => reconnect(null));
                 return;
             }
-            const { getFarmCode } = require('../services/yyb-proxy');
-            const refresh = await getFarmCode(acc.wxid);
+            const refresh = await requestMasterCredential('refresh_code');
+            if (!isRunning) return;
             if (refresh.Success && refresh.Data && refresh.Data.code) {
                 codeRefreshFailCount = 0;
-                if (typeof addOrUpdateAccount === 'function') {
-                    addOrUpdateAccount({ id: acc.id, code: refresh.Data.code });
-                }
                 log('系统', `账号 ${acc.name} 登录 code 已刷新，重新连接`, { accountId: String(accountId) });
                 reconnect(refresh.Data.code);
             } else {
@@ -520,6 +574,7 @@ async function startBot(config) {
                 workerScheduler.setTimeoutTask('season_ws_retry_old_code', 30000, () => reconnect(null));
             }
         } catch (e) {
+            if (!isRunning) return;
             codeRefreshFailCount += 1;
             if (codeRefreshFailCount >= 3) {
                 log('系统', `刷新 code 异常连续 ${codeRefreshFailCount} 次（${e.message}），停止重连，请重新扫码登录后手动启动`, { accountId: String(process.env.FARM_ACCOUNT_ID || '') });
@@ -539,6 +594,7 @@ async function startBot(config) {
     });
 
     const onLoginSuccess = async () => {
+        if (!isLifecycleActive()) return;
         loginReady = true;
         if (onSellGain) {
             networkEvents.off('sell', onSellGain);
@@ -607,6 +663,7 @@ async function startBot(config) {
         } catch {
             // ignore
         }
+        if (!isLifecycleActive()) return;
         // 登录成功后，以当前金币/经验/点券作为统计基线，并清空会话增量
         const latest = getUserState();
         const accountId = process.env.FARM_ACCOUNT_ID || '';
@@ -615,9 +672,11 @@ async function startBot(config) {
 
         // 登录成功后启动各模块
         await processInviteCodes();
+        if (!isLifecycleActive()) return;
         if (getAutomation().fertilizer_gift) {
             await openFertilizerGiftPacksSilently().catch(() => 0);
         }
+        if (!isLifecycleActive()) return;
         
         // 启动时执行一次放虫放草（只在账号启动时执行）
         workerScheduler.setTimeoutTask('bad_startup_once', 10000, async () => {
@@ -635,18 +694,13 @@ async function startBot(config) {
             if (!isRunning) return;
             try {
                 const accountId = String(process.env.FARM_ACCOUNT_ID || '');
-                const { getAccounts, addOrUpdateAccount } = require('../models/store');
+                const { getAccounts } = require('../models/store');
                 const accounts = typeof getAccounts === 'function' ? getAccounts() : { accounts: [] };
                 const acc = (accounts.accounts || []).find((a) => String(a.id) === accountId);
                 if (!acc || !acc.wxid) return;
-                const { keepWxCredentialAlive, getFarmCode } = require('../services/yyb-proxy');
-                const alive = await keepWxCredentialAlive(acc);
+                const alive = await requestMasterCredential('keepalive');
+                if (!isRunning) return;
                 if (alive.Success) {
-                    // 凭证续期成功后刷新 code（loginBuffer 已更新到账号，getFarmCode 直接用新凭证）
-                    const refresh = await getFarmCode(acc.wxid);
-                    if (refresh.Success && refresh.Data && refresh.Data.code && typeof addOrUpdateAccount === 'function') {
-                        addOrUpdateAccount({ id: acc.id, code: refresh.Data.code });
-                    }
                     log('系统', '微信凭证保活成功（loginBuffer/refreshtoken/code 已续期）', { accountId });
                 }
                 // 失败静默：下轮再试；真实掉线时 ws_code_rejected 链路兜底刷新
@@ -695,10 +749,6 @@ async function startBot(config) {
 
 async function stopBot() {
     if (!isRunning) return exitWorker(0);
-    saveStats();
-    isRunning = false;
-    loginReady = false;
-    stopUnifiedScheduler();
     networkEvents.off('kickout', onKickout);
     if (onWsError) {
         networkEvents.off('ws_error', onWsError);
@@ -712,14 +762,6 @@ async function stopBot() {
         networkEvents.off('farmHarvested', onFarmHarvested);
         onFarmHarvested = null;
     }
-    stopFarmCheckLoop();
-    stopFriendCheckLoop();
-    stopDailyRoutineTimer();
-    cleanupTaskSystem();
-    workerScheduler.clearAll();
-    cleanup();
-    const ws = getWs();
-    if (ws) ws.close();
     exitWorker(0);
 }
 

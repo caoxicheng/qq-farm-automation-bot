@@ -2,10 +2,10 @@
 import type { Card, UserCard } from '@/stores/user'
 import { computed, onMounted, ref, watch } from 'vue'
 import api from '@/api'
+import ConfirmModal from '@/components/ConfirmModal.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
 import BaseSwitch from '@/components/ui/BaseSwitch.vue'
-import ConfirmModal from '@/components/ConfirmModal.vue'
 import { useToastStore } from '@/stores/toast'
 import { useUserStore } from '@/stores/user'
 
@@ -13,7 +13,7 @@ const userStore = useUserStore()
 const toast = useToastStore()
 
 const activeTab = ref<'card' | 'user' | 'log' | 'system'>(
-  (localStorage.getItem('admin-active-tab') as 'card' | 'user' | 'log' | 'system') || 'card'
+  (localStorage.getItem('admin-active-tab') as 'card' | 'user' | 'log' | 'system') || 'card',
 )
 
 watch(activeTab, (newTab) => {
@@ -142,7 +142,8 @@ async function fetchCardClaimStatus() {
 }
 
 async function toggleCardClaimStatus(enabled: boolean | undefined) {
-  if (enabled === undefined) return
+  if (enabled === undefined)
+    return
   cardClaimLoading.value = true
   try {
     const res = await api.post('/api/admin/card-claim/status', { enabled })
@@ -287,8 +288,9 @@ async function copyCode(code: string) {
 
 async function copySelectedCards() {
   const codes = Array.from(selectedCards.value)
-  if (codes.length === 0) return
-  
+  if (codes.length === 0)
+    return
+
   try {
     const text = codes.join('\n')
     if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -625,24 +627,26 @@ function getEventLabel(event: string): string {
 }
 
 function getEventClass(event: string): string {
-  return event === 'login_success' 
-    ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
+  return event === 'login_success'
+    ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
     : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
 }
 
 function getErrorTypeLabel(errorType: string | null): string {
-  if (!errorType) return '-'
+  if (!errorType)
+    return '-'
   const labels: Record<string, string> = {
-    'rate_limit': '速率限制',
-    'locked': '账户锁定',
-    'invalid_credentials': '凭证错误',
+    rate_limit: '速率限制',
+    locked: '账户锁定',
+    invalid_credentials: '凭证错误',
   }
   return labels[errorType] || errorType
 }
 
 function parseBrowser(userAgent: string): string {
-  if (!userAgent || userAgent === 'unknown') return '未知'
-  
+  if (!userAgent || userAgent === 'unknown')
+    return '未知'
+
   if (userAgent.includes('Edg/')) {
     const match = userAgent.match(/Edg\/([\d.]+)/)
     return `Edge ${match ? match[1] : ''}`
@@ -662,7 +666,7 @@ function parseBrowser(userAgent: string): string {
   if (userAgent.includes('MSIE') || userAgent.includes('Trident/')) {
     return 'IE'
   }
-  
+
   return '其他'
 }
 
@@ -688,10 +692,6 @@ const wxConfigSaving = ref(false)
 
 const localWxConfig = ref({
   enabled: true,
-  apiBase: '/api',
-  apiKey: '',
-  proxyApiUrl: 'http://127.0.0.1:8059/api',
-  appId: 'wx5306c5978fdb76e4',
   autoAddAccount: true,
   userIsolation: true,
 })
@@ -740,10 +740,6 @@ async function handleSaveWxConfig() {
 async function handleResetWxConfig() {
   localWxConfig.value = {
     enabled: true,
-    apiBase: '/api',
-    apiKey: '',
-    proxyApiUrl: 'http://127.0.0.1:8059/api',
-    appId: 'wx5306c5978fdb76e4',
     autoAddAccount: true,
     userIsolation: true,
   }
@@ -866,7 +862,7 @@ onMounted(() => {
           </div>
 
           <!-- 卡密领取功能开关 -->
-          <div class="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+          <div class="flex items-center justify-between border border-gray-200 rounded-lg bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
             <div>
               <h4 class="text-sm text-gray-900 font-medium dark:text-white">
                 卡密领取功能
@@ -1392,7 +1388,7 @@ onMounted(() => {
             </div>
           </div>
 
-          <div class="overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+          <div class="overflow-hidden border border-gray-200 rounded-lg bg-white dark:border-gray-700 dark:bg-gray-800">
             <div class="overflow-x-auto">
               <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead class="bg-gray-50 dark:bg-gray-900">
@@ -1597,27 +1593,6 @@ onMounted(() => {
                     label="启用微信登录"
                   />
                 </div>
-                <BaseInput
-                  v-model="localWxConfig.apiBase"
-                  label="API地址"
-                  type="text"
-                  placeholder="http://127.0.0.1:8059/api"
-                  class="col-span-2"
-                />
-                <BaseInput
-                  v-model="localWxConfig.apiKey"
-                  label="API密钥"
-                  type="text"
-                  placeholder="可选，用于代理模式"
-                  class="col-span-2"
-                />
-                <BaseInput
-                  v-model="localWxConfig.proxyApiUrl"
-                  label="代理API地址"
-                  type="text"
-                  placeholder="http://127.0.0.1:8059/api"
-                  class="col-span-2"
-                />
                 <BaseSwitch
                   v-model="localWxConfig.autoAddAccount"
                   label="自动添加账号"

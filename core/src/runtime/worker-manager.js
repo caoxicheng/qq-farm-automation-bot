@@ -97,8 +97,8 @@ function createWorkerManager(options) {
             // 微信账号：重登前刷新登录 code（与手动启动一致，避免旧 code 过期导致握手 400）
             if (acc.platform === 'wx' && acc.wxid) {
                 try {
-                    const { getFarmCode } = require('../services/yyb-proxy');
-                    const refresh = await getFarmCode(acc.wxid);
+                    const { getFarmCode } = require('../services/wx-login-adapter');
+                    const refresh = await getFarmCode(acc.wxid, { accountId: acc.id });
                     if (refresh.Success && refresh.Data && refresh.Data.code) {
                         const { addOrUpdateAccount } = require('../models/store');
                         addOrUpdateAccount({ id: acc.id, code: refresh.Data.code });
@@ -432,6 +432,42 @@ function createWorkerManager(options) {
             }
         } else if (msg.type === 'error') {
             log('错误', `账号[${accountId}]进程报错: ${msg.error}`, { accountId: String(accountId), accountName: worker.name });
+        } else if (msg.type === 'wx_credential_request') {
+            const requestId = msg.id;
+            const sendCredentialResponse = (payload) => {
+                const current = workers[accountId];
+                if (!current || current.process !== worker.process) return;
+                try {
+                    current.process.send({ type: 'wx_credential_response', id: requestId, ...payload });
+                } catch {}
+            };
+            Promise.resolve().then(async () => {
+                const accounts = typeof getAccounts === 'function' ? getAccounts() : { accounts: [] };
+                const acc = (accounts.accounts || []).find((item) => String(item.id) === String(accountId));
+                if (!acc || !acc.wxid) throw new Error('找不到当前微信账号凭证');
+
+                const { getFarmCode, keepWxCredentialAlive } = require('../services/wx-login-adapter');
+                if (msg.action === 'refresh_code') {
+                    const refresh = await getFarmCode(acc.wxid, { accountId: acc.id });
+                    if (refresh.Success && refresh.Data && refresh.Data.code) {
+                        addOrUpdateAccount({ id: acc.id, code: refresh.Data.code });
+                    }
+                    return refresh;
+                }
+                if (msg.action === 'keepalive') {
+                    const alive = await keepWxCredentialAlive(acc);
+                    if (!alive.Success) return alive;
+                    const refresh = await getFarmCode(acc.wxid, { accountId: acc.id });
+                    if (!refresh.Success || !refresh.Data || !refresh.Data.code) return refresh;
+                    addOrUpdateAccount({ id: acc.id, code: refresh.Data.code });
+                    return { Success: true, Data: { code: refresh.Data.code } };
+                }
+                throw new Error('未知微信凭证操作');
+            }).then((result) => {
+                sendCredentialResponse({ result });
+            }).catch((error) => {
+                sendCredentialResponse({ error: error.message });
+            });
         } else if (msg.type === 'ws_error') {
             const code = Number(msg.code) || 0;
             const message = msg.message || '';

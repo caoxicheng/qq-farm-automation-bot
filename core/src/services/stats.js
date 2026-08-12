@@ -261,6 +261,10 @@ function getStats(statusData, userState, connected, limits) {
 }
 
 function saveStats() {
+    if (saveTimer) {
+        clearTimeout(saveTimer);
+        saveTimer = null;
+    }
     doSave();
 }
 

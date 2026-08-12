@@ -46,7 +46,7 @@ const { pause: stopWxCheck, resume: startWxCheck } = useIntervalFn(async () => {
     if (result.success && result.wxid) {
       stopWxCheck()
       // 获取Code并添加账号
-      const codeResult = await wxLoginStore.getFarmCode()
+      const codeResult = await wxLoginStore.getFarmCode(undefined, props.editData?.id)
       if (codeResult.success && codeResult.code) {
         const name = wxAccountName.value.trim() || result.nickname || `微信账号${Date.now()}`
         // 检查是否启用自动添加账号
@@ -58,6 +58,7 @@ const { pause: stopWxCheck, resume: startWxCheck } = useIntervalFn(async () => {
             platform: 'wx',
             loginType: 'wx_qr',
             wxid: result.wxid,
+            wxSessionId: wxLoginStore.uuid,
           })
         }
         else {
@@ -148,6 +149,12 @@ async function submitManual() {
       platform: form.platform,
       loginType: 'manual',
     }
+  }
+
+  if (form.platform === 'wx' && wxLoginStore.wxid && wxLoginStore.uuid) {
+    payload.loginType = 'wx_qr'
+    payload.wxid = wxLoginStore.wxid
+    payload.wxSessionId = wxLoginStore.uuid
   }
 
   await addAccount(payload)

@@ -44,7 +44,6 @@
 - **[linguo2625469/qq-farm-bot](https://github.com/linguo2625469/qq-farm-bot)** — 核心功能
 - **[QianChenJun/qq-farm-bot](https://github.com/QianChenJun/qq-farm-bot)** — 部分功能
 - **[liyangpengs/qq-farm-bot](https://github.com/liyangpengs/qq-farm-bot)** — 赛季/活动协议结构与 ACE 反作弊 TSDK wasm 模拟上报
-- **[Aoluis1005/yyb-go](https://github.com/Aoluis1005/yyb-go)** — 应用宝协议参考实现（头像/签名链路）
 
 在此向以上项目作者表示感谢 🙏
 
@@ -105,7 +104,7 @@ qq-farm-automation-bot/
 │       ├── stores/                # Pinia 状态管理
 │       └── views/                 # 页面（概览/个人/好友/分析/设置/后台）
 ├── scripts/                       # 工具脚本（sync-seed-assets 图片同步等）
-├── docker-compose.yml             # 一键部署（qq-farm-bot + 可选 yyb-go 兼容服务）
+├── docker-compose.yml             # Docker Compose 部署配置
 └── README.md
 ```
 
@@ -122,21 +121,12 @@ qq-farm-automation-bot/
 
 ## 快速开始（Docker 部署，推荐）
 
-> 仓库编排了 `qq-farm-bot`（农场自动化）与可选的 `yyb-go`（旧账号头像兼容）。微信扫码登录已**内置**（进程内应用宝协议），无需外部服务；yyb-go 仅用于旧微信账号的头像回退，可保留可移除。
+> 微信扫码登录已**内置**（进程内应用宝协议），无需安装或启动额外的登录服务。
 
-### 1. 拉取代码（两个仓库同级）
+### 1. 拉取代码
 
 ```bash
-# 农场主程序（本仓库）
 git clone https://github.com/caoxicheng/qq-farm-automation-bot.git
-
-# （可选）yyb-go：旧微信账号头像兼容服务，构建上下文在上一级目录，必须 clone 到同级
-git clone https://github.com/Aoluis1005/yyb-go.git
-
-# 目录结构应为：
-#   your-dir/
-#   ├── qq-farm-automation-bot/
-#   └── yyb-go/            # 可选
 ```
 
 ### 2. 构建并启动
@@ -150,9 +140,8 @@ docker compose up -d --build
 
 ```bash
 # 查看状态
-docker ps                              # qq-farm-bot / yyb-go 均为 Up
+docker ps                              # qq-farm-bot 应为 Up
 docker compose logs -f qq-farm-bot     # 农场服务日志
-docker compose logs -f yyb-go          # （可选）兼容服务日志
 ```
 
 ### 3. 访问面板
@@ -227,7 +216,7 @@ cd qq-farm-automation-bot/core
 node client.js
 ```
 
-无需安装 Go、无需启动 yyb-go。yyb-go 仅作为**可选**兼容服务保留（旧微信账号头像回退，Docker 部署时由 compose 编排）。
+无需安装 Go 或启动额外服务。
 
 ---
 
@@ -241,7 +230,7 @@ node client.js
 
 ## 微信扫码登录（内置应用宝协议）
 
-微信端登录由**进程内置**的应用宝协议实现（`core/src/services/wx-login/`：MMTLS 加密握手 + 微信开放平台扫码，零外部依赖）。适配层 `core/src/services/yyb-proxy.js` 保持 vxcode 兼容接口，无需第三方付费 API。
+微信端登录由**进程内置**的应用宝协议实现（`core/src/services/wx-login/`：MMTLS 加密握手 + 微信开放平台扫码，零外部依赖），无需第三方付费 API。
 
 ### 添加微信账号
 
@@ -253,9 +242,6 @@ node client.js
 
 | 配置项 | 值 | 说明 |
 |--------|-----|------|
-| `apiBase` | `/api` | 同源代理到内置微信登录服务，**不要改成外部地址** |
-| `apiKey` | **留空** | 留空 = 走内置本地通道；填入 = 走第三方代理 API（兼容旧配置） |
-| `appId` | `wx5306c5978fdb76e4` | 游戏小程序 ID，勿改 |
 | `autoAddAccount` | `true` | 扫码后自动添加账号 |
 
 ### 自动重新登录（重要）
@@ -318,11 +304,5 @@ A: 种子图标随游戏资源按需下载。活动新种子需先在游戏里�
 
 **Q: 赛季活动（战令/千星游记）能自动吗？**
 A: 战令进度奖励支持自动领取（先查后领 + 推送驱动，面板「自动控制」可开关，默认关闭）。观星点亮、星砂商店兑换、节令小礼等更多活动功能仍在开发中。
-
-**Q: 为什么前端要保留 `apiKey` 留空？**
-A: 留空走仓库内置的微信登录通道（进程内应用宝协议，免费、无第三方依赖）；填入 apiKey 才会启用外部代理模式（兼容旧配置）。
-
-**Q: Docker 构建 yyb-go 失败（找不到上下文）？**
-A: yyb-go 已是**可选**服务（仅旧微信账号头像回退用），移除它不影响微信扫码登录。如需保留：`docker-compose.yml` 中 yyb-go 的构建上下文是 `../yyb-go`（上一级目录），需先将 yyb-go 仓库 clone 到与主仓库同级，见「快速开始」。
 
 ---

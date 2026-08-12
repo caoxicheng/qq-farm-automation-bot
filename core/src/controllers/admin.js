@@ -8,7 +8,6 @@ const fs = require('node:fs');
 const path = require('node:path');
 const process = require('node:process');
 const express = require('express');
-const fetch = require('node-fetch');
 const { Server: SocketIOServer } = require('socket.io');
 const { version } = require('../../package.json');
 const { CONFIG, updateRuntimeConfig, getRuntimeConfig, getDefaultSystemConfig } = require('../config/config');
@@ -19,7 +18,7 @@ const { addOrUpdateAccount, deleteAccount } = store;
 const { findAccountByRef, normalizeAccountRef, resolveAccountId } = require('../services/account-resolver');
 const { createModuleLogger } = require('../services/logger');
 const { MiniProgramLoginSession } = require('../services/qrlogin');
-const yybProxy = require('../services/yyb-proxy');
+const wxLoginAdapter = require('../services/wx-login-adapter');
 const { getSchedulerRegistrySnapshot } = require('../services/scheduler');
 const userStore = require('../models/user-store');
 
@@ -460,31 +459,42 @@ function startAdminServer(dataProvider) {
         res.json(result);
     });
 
-    // 微信扫码登录（yyb-go 应用宝协议适配层）—— 免鉴权，前端本地 API 模式调用
-    app.post('/api/Login/LoginGetQRCar', async (req, res) => {
+    // 微信扫码登录（进程内应用宝协议适配层）：会话绑定当前登录用户。
+    app.post('/api/Login/LoginGetQRCar', authRequired, async (req, res) => {
         try {
-            const result = await yybProxy.getQRCode();
+            const result = await wxLoginAdapter.getQRCode(req.currentUser.username);
             res.json(result);
         } catch (e) {
             res.json({ Success: false, Message: `获取二维码失败: ${e.message}` });
         }
     });
 
-    app.post('/api/Login/LoginCheckQR', async (req, res) => {
+    app.post('/api/Login/LoginCheckQR', authRequired, async (req, res) => {
         try {
             // 前端把 uuid 放在 query string（?uuid=xxx），兼容 body 两种来源
             const uuid = (req.body && req.body.uuid) || (req.query && req.query.uuid) || '';
-            const result = await yybProxy.checkQR(uuid);
+            const result = await wxLoginAdapter.checkQR(uuid, req.currentUser.username);
             res.json(result);
         } catch (e) {
             res.json({ Success: false, Message: `检查登录状态失败: ${e.message}` });
         }
     });
 
-    app.post('/api/Wxapp/JSLogin', async (req, res) => {
+    app.post('/api/Wxapp/JSLogin', authRequired, async (req, res) => {
         try {
-            const { Wxid } = req.body || {};
-            const result = await yybProxy.getFarmCode(Wxid);
+            const { Wxid, Uuid, AccountId } = req.body || {};
+            if (!Uuid) {
+                return res.status(400).json({ Success: false, Message: '缺少扫码会话标识' });
+            }
+            const accountId = AccountId ? resolveAccId(AccountId) : '';
+            if (accountId && !checkAccountAccess(req, accountId)) {
+                return res.status(403).json({ Success: false, Message: '无权访问此账号' });
+            }
+            const result = await wxLoginAdapter.getFarmCode(Wxid, {
+                sessionId: Uuid,
+                owner: req.currentUser.username,
+                accountId,
+            });
             res.json(result);
         } catch (e) {
             res.json({ Success: false, Message: `获取 Code 失败: ${e.message}` });
@@ -509,7 +519,7 @@ function startAdminServer(dataProvider) {
             if (hit && Date.now() - hit.at < AVATAR_CACHE_TTL_MS) {
                 return res.set('Content-Type', hit.type).set('Cache-Control', 'public, max-age=600').send(hit.buf);
             }
-            const resp = await yybProxy.getAccountAvatar(acc.wxid);
+            const resp = await wxLoginAdapter.getAccountAvatar(acc.wxid);
             if (!resp) return res.status(404).end();
             const buf = Buffer.from(await resp.arrayBuffer());
             const type = resp.headers.get('content-type') || 'image/jpeg';
@@ -526,7 +536,7 @@ function startAdminServer(dataProvider) {
     });
 
     app.use('/api', (req, res, next) => {
-        if (req.path === '/login' || req.path === '/qr/create' || req.path === '/qr/check' || req.path === '/proxy' || req.path === '/card-claim/status' || req.path === '/card-claim/claim' || req.path === '/game-version') return next();
+        if (req.path === '/login' || req.path === '/qr/create' || req.path === '/qr/check' || req.path === '/card-claim/status' || req.path === '/card-claim/claim' || req.path === '/game-version') return next();
         return authRequired(req, res, next);
     });
 
@@ -1452,7 +1462,7 @@ function startAdminServer(dataProvider) {
             try {
                 const account = provider.getAccounts().accounts.find(a => String(a.id) === String(accountId));
                 if (account && account.platform === 'wx' && account.wxid) {
-                    yybProxy.getFarmCode(account.wxid)
+                    wxLoginAdapter.getFarmCode(account.wxid, { accountId })
                         .then((refresh) => {
                             if (refresh.Success && refresh.Data && refresh.Data.code) {
                                 addOrUpdateAccount({ id: accountId, code: refresh.Data.code });
@@ -2196,7 +2206,7 @@ function startAdminServer(dataProvider) {
         }
     });
 
-    app.post('/api/accounts', (req, res) => {
+    app.post('/api/accounts', async (req, res) => {
         try {
             const body = (req.body && typeof req.body === 'object') ? req.body : {};
             const currentUser = req.currentUser;
@@ -2224,7 +2234,15 @@ function startAdminServer(dataProvider) {
             }
 
             const resolvedUpdateId = isUpdate ? resolveAccId(body.id) : '';
-            const payload = isUpdate ? { ...body, id: resolvedUpdateId || String(body.id) } : body;
+            const payload = isUpdate
+                ? { ...body, id: resolvedUpdateId || String(body.id) }
+                : { ...body };
+            const wxSessionId = String(body.wxSessionId || '');
+            delete payload.wxSessionId;
+            delete payload.loginBuffer;
+            delete payload.refreshtoken;
+            delete payload.accesstoken;
+            let pendingWxSessionId = '';
             let wasRunning = false;
             if (isUpdate && provider.isAccountRunning) {
                 wasRunning = provider.isAccountRunning(payload.id);
@@ -2251,33 +2269,53 @@ function startAdminServer(dataProvider) {
             }
 
             // 微信账号：loginBuffer/refreshtoken 只允许来自扫码会话——创建/更新都禁止 body 直接传（防凭证覆盖 DoS），
-            // 创建时从扫码会话（takePendingWxInfo）补充
+            // 创建/编辑时仅从当前用户明确提交的扫码会话补充，账号持久化成功后再消费会话。
             if (body.platform === 'wx' && body.wxid) {
-                delete payload.loginBuffer;
-                delete payload.refreshtoken;
-                delete payload.accesstoken;
+                let wxidChanged = false;
                 if (isUpdate) {
                     // 微信账号变更 wxid（换绑）时清除旧凭证，避免新 wxid 继承上一用户的 loginBuffer/refreshtoken
                     const oldAccounts = provider.getAccounts();
                     const oldWxAccount = (oldAccounts.accounts || []).find(a => a.id === payload.id);
                     if (oldWxAccount && oldWxAccount.wxid && String(oldWxAccount.wxid) !== String(body.wxid)) {
+                        wxidChanged = true;
                         payload.loginBuffer = '';
                         payload.refreshtoken = '';
                         payload.accesstoken = '';
                     }
                 }
-                if (!isUpdate) {
-                    const pending = yybProxy.takePendingWxInfo(String(body.wxid));
-                    if (pending) {
-                        if (pending.loginBuffer) payload.loginBuffer = pending.loginBuffer;
-                        if (pending.refreshtoken) payload.refreshtoken = pending.refreshtoken;
-                        if (pending.accesstoken) payload.accesstoken = pending.accesstoken;
-                        if (!payload.avatar && pending.avatar) payload.avatar = pending.avatar;
+                const requiresWxSession = !isUpdate || wxidChanged || body.loginType === 'wx_qr' || wxSessionId;
+                if (requiresWxSession) {
+                    const pending = wxLoginAdapter.peekPendingWxInfo(
+                        wxSessionId,
+                        String(body.wxid),
+                        currentUser.username,
+                    );
+                    if (!pending) {
+                        return res.status(400).json({ ok: false, error: '扫码会话无效或已过期，请重新扫码' });
                     }
+                    pendingWxSessionId = pending.sessionId;
+                    if (pending.loginBuffer) payload.loginBuffer = pending.loginBuffer;
+                    if (pending.refreshtoken) payload.refreshtoken = pending.refreshtoken;
+                    if (pending.accesstoken) payload.accesstoken = pending.accesstoken;
+                    if (!payload.avatar && pending.avatar) payload.avatar = pending.avatar;
                 }
             }
 
-            const data = addOrUpdateAccount(payload);
+            const saveAccount = () => {
+                const saved = addOrUpdateAccount(payload);
+                if (pendingWxSessionId) {
+                    wxLoginAdapter.consumePendingWxInfo(
+                        pendingWxSessionId,
+                        String(body.wxid),
+                        currentUser.username,
+                    );
+                }
+                return saved;
+            };
+            // 运行中账号重扫时与主进程的保活/code 刷新共用同一把锁，防止旧请求晚到覆盖新凭证。
+            const data = pendingWxSessionId && payload.id
+                ? await wxLoginAdapter.withAccountCredentialLock(body.wxid, payload.id, saveAccount)
+                : saveAccount();
             if (provider.addAccountLog) {
                 const accountId = isUpdate ? String(payload.id) : String((data.accounts[data.accounts.length - 1] || {}).id || '');
                 const accountName = payload.name || '';
@@ -2489,51 +2527,6 @@ function startAdminServer(dataProvider) {
             }
         } catch (e) {
             res.status(500).json({ ok: false, error: e.message });
-        }
-    });
-
-    // ============ 微信登录代理 API ============
-    // 用于转发请求到第三方微信登录 API（如 api.aineishe.com）
-    app.post('/api/proxy', async (req, res) => {
-        const { action, ...params } = req.body || {};
-
-        if (!action) {
-            return res.status(400).json({ code: -1, msg: '缺少 action 参数' });
-        }
-
-        // 从请求头或配置中获取 API 配置
-        // 优先使用请求头中的配置（前端传入）
-        const apiUrl = req.headers['x-proxy-api-url'] || process.env.WX_PROXY_API_URL || 'http://127.0.0.1:8059/api';
-        const apiKey = req.headers['x-proxy-api-key'] || process.env.WX_PROXY_API_KEY || '';
-        const appId = req.headers['x-proxy-app-id'] || process.env.WX_PROXY_APP_ID || 'wx5306c5978fdb76e4';
-
-        if (!apiKey) {
-            return res.status(400).json({ code: -1, msg: '缺少 API Key' });
-        }
-
-        // 如果是 jslogin 动作，自动添加 appid
-        if (action === 'jslogin') {
-            params.appid = appId;
-        }
-
-        try {
-            const url = `${apiUrl}?api_key=${encodeURIComponent(apiKey)}&action=${action}`;
-            adminLogger.info('proxy request', { action, apiUrl });
-
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(params)
-            });
-
-            const data = await response.json();
-            res.json(data);
-        } catch (error) {
-            adminLogger.error('proxy error', { error: error.message, action });
-            res.status(500).json({
-                code: -1,
-                msg: `代理请求失败: ${  error.message}`,
-            });
         }
     });
 

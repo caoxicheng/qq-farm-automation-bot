@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, computed, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import api from '@/api'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
@@ -30,47 +30,61 @@ const claimModalContent = ref({
   title: '',
   message: '',
   cardCode: '',
-  days: 0
+  days: 0,
 })
 
 const passwordStrength = computed(() => {
   const pwd = password.value
-  if (!pwd) return { score: 0, level: '', valid: false }
-  
+  if (!pwd)
+    return { score: 0, level: '', valid: false }
+
   let score = 0
-  
-  if (pwd.length >= 6) score++
-  if (pwd.length >= 10) score++
-  
+
+  if (pwd.length >= 6)
+    score++
+  if (pwd.length >= 10)
+    score++
+
   let typeCount = 0
-  if (/[a-z]/.test(pwd)) typeCount++
-  if (/[A-Z]/.test(pwd)) typeCount++
-  if (/[0-9]/.test(pwd)) typeCount++
-  if (/[!@#$%^&*(),.?":{}|<>_\-+=\[\]\\;'/`~]/.test(pwd)) typeCount++
-  
-  if (typeCount >= 2) score += 2
-  
-  if (typeCount >= 3) score++
-  if (typeCount >= 4) score++
-  
+  if (/[a-z]/.test(pwd))
+    typeCount++
+  if (/[A-Z]/.test(pwd))
+    typeCount++
+  if (/\d/.test(pwd))
+    typeCount++
+  if (/[!@#$%^&*(),.?":{}|<>_\-+=[\]\\;'/`~]/.test(pwd))
+    typeCount++
+
+  if (typeCount >= 2)
+    score += 2
+
+  if (typeCount >= 3)
+    score++
+  if (typeCount >= 4)
+    score++
+
   const commonPasswords = ['password', '123456', 'qwerty', 'abc123', '111111']
   if (commonPasswords.some(p => pwd.toLowerCase().includes(p))) {
     score = Math.max(0, score - 2)
   }
-  
+
   const level = score <= 2 ? '弱' : score <= 4 ? '中' : score <= 6 ? '强' : '非常强'
   const color = score <= 2 ? '#ef5350' : score <= 4 ? '#ffa726' : score <= 6 ? '#66bb6a' : '#43a047'
   const valid = pwd.length >= 6 && typeCount >= 2
-  
+
   return { score, level, color, valid }
 })
 
 const usernameValid = computed(() => {
   const name = username.value
-  if (!name) return { valid: false, message: '' }
-  if (name.length < 3) return { valid: false, message: '用户名至少3位' }
-  if (name.length > 32) return { valid: false, message: '用户名最多32位' }
-  if (!/^[a-zA-Z0-9_]+$/.test(name)) return { valid: false, message: '只能包含字母、数字、下划线' }
+  if (!name)
+    return { valid: false, message: '' }
+  if (name.length < 3)
+    return { valid: false, message: '用户名至少3位' }
+  if (name.length > 32)
+    return { valid: false, message: '用户名最多32位' }
+  if (!/^\w+$/.test(name))
+    return { valid: false, message: '只能包含字母、数字、下划线' }
   return { valid: true, message: '' }
 })
 
@@ -85,40 +99,41 @@ function validateForm(): boolean {
     error.value = '请输入用户名'
     return false
   }
-  
+
   if (!usernameValid.value.valid) {
     error.value = usernameValid.value.message
     return false
   }
-  
+
   if (!password.value) {
     error.value = '请输入密码'
     return false
   }
-  
+
   if (!isLogin.value) {
     if (password.value.length < 6) {
       error.value = '密码长度至少6位'
       return false
     }
-    
+
     if (!passwordStrength.value.valid) {
       error.value = '密码强度不足：需包含大写字母、小写字母、数字、特殊符号中的至少两种'
       return false
     }
-    
+
     if (!cardCode.value) {
       error.value = '请输入卡密'
       return false
     }
   }
-  
+
   return true
 }
 
 async function handleSubmit() {
-  if (!validateForm()) return
-  
+  if (!validateForm())
+    return
+
   loading.value = true
   error.value = ''
   success.value = ''
@@ -140,12 +155,14 @@ async function handleSubmit() {
           if (result.remainingMs) {
             rateLimitRemaining.value = Math.ceil(result.remainingMs / 1000)
           }
-        } else if (result.errorType === 'locked') {
+        }
+        else if (result.errorType === 'locked') {
           error.value = result.error || '账户已被锁定'
           if (result.remainingMs) {
             lockoutRemaining.value = Math.ceil(result.remainingMs / 1000 / 60)
           }
-        } else {
+        }
+        else {
           error.value = result.error || '登录失败'
         }
       }
@@ -170,12 +187,14 @@ async function handleSubmit() {
       if (data.remainingMs) {
         rateLimitRemaining.value = Math.ceil(data.remainingMs / 1000)
       }
-    } else if (data?.errorType === 'locked') {
+    }
+    else if (data?.errorType === 'locked') {
       error.value = data.error || '账户已被锁定'
       if (data.remainingMs) {
         lockoutRemaining.value = Math.ceil(data.remainingMs / 1000 / 60)
       }
-    } else {
+    }
+    else {
       error.value = data?.error || e.message || '操作异常'
     }
   }
@@ -208,13 +227,13 @@ async function checkCardClaimStatus() {
 async function claimFreeCard() {
   if (cardClaimLoading.value)
     return
-  
+
   cardClaimLoading.value = true
   error.value = ''
-  
+
   try {
     const res = await api.post('/api/card-claim/claim')
-    
+
     if (res.data.ok) {
       cardCode.value = res.data.cardCode
       claimModalContent.value = {
@@ -222,7 +241,7 @@ async function claimFreeCard() {
         title: '领取成功',
         message: `成功领取 ${res.data.days} 天卡密！`,
         cardCode: res.data.cardCode,
-        days: res.data.days
+        days: res.data.days,
       }
       showClaimModal.value = true
     }
@@ -232,7 +251,7 @@ async function claimFreeCard() {
         title: '领取失败',
         message: res.data.error || '领取失败，请稍后重试',
         cardCode: '',
-        days: 0
+        days: 0,
       }
       showClaimModal.value = true
     }
@@ -244,7 +263,7 @@ async function claimFreeCard() {
       title: '领取失败',
       message: data?.error || e.message || '领取失败',
       cardCode: '',
-      days: 0
+      days: 0,
     }
     showClaimModal.value = true
   }
@@ -356,9 +375,9 @@ async function fetchGameVersion() {
           />
           <div v-if="showPasswordStrength && password" class="password-strength">
             <div class="strength-bar">
-              <div 
-                class="strength-fill" 
-                :style="{ width: Math.min(passwordStrength.score * 12.5, 100) + '%', backgroundColor: passwordStrength.color }"
+              <div
+                class="strength-fill"
+                :style="{ width: `${Math.min(passwordStrength.score * 12.5, 100)}%`, backgroundColor: passwordStrength.color }"
               />
             </div>
             <span class="strength-text" :style="{ color: passwordStrength.color }">
@@ -388,7 +407,7 @@ async function fetchGameVersion() {
             <span class="label-icon">🎫</span>
             卡密
           </label>
-          
+
           <div v-if="cardClaimEnabled" class="mb-2">
             <button
               type="button"
@@ -400,7 +419,7 @@ async function fetchGameVersion() {
               <span v-else>🎁 免费领取卡密</span>
             </button>
           </div>
-          
+
           <BaseInput
             id="cardCode"
             v-model="cardCode"
@@ -816,7 +835,9 @@ async function fetchGameVersion() {
 
 .strength-fill {
   height: 100%;
-  transition: width 0.3s ease, background-color 0.3s ease;
+  transition:
+    width 0.3s ease,
+    background-color 0.3s ease;
 }
 
 .strength-text {

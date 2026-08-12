@@ -87,6 +87,18 @@ function requiredCookie(cookies, name) {
   if (!value) throw new Error(`WeChat OAuth callback did not provide ${name}`);
   return value;
 }
+
+function pickLoginBuffer(data) {
+  return data?.ext_info?.list_s?.login_buffer?.value?.[0]
+    || data?.extInfo?.listS?.loginBuffer?.value?.[0]
+    || "";
+}
+
+function attachRotatedCredentials(error, refreshToken, accessToken) {
+  error.refreshtoken = refreshToken;
+  error.accesstoken = accessToken;
+  return error;
+}
 class WxLoginService {
   async createQrSession() {
     const cookies = /* @__PURE__ */ new Map();
@@ -146,7 +158,7 @@ class WxLoginService {
     });
     if (response.status < 200 || response.status >= 300) throw new Error(`Unable to obtain WeChat login buffer (HTTP ${response.status})`);
     const data = JSON.parse(response.body.toString("utf8"));
-    const loginBuffer = data?.code === 0 ? data?.ext_info?.list_s?.login_buffer?.value?.[0] : "";
+    const loginBuffer = data?.code === 0 ? pickLoginBuffer(data) : "";
     if (typeof loginBuffer !== "string" || !loginBuffer) throw new Error("WeChat login buffer response is invalid");
     session.cookies.clear();
     session.openid = openid;
@@ -183,7 +195,7 @@ class WxLoginService {
   }
   async refreshLoginBuffer(session) {
     if (!session || !session.openid || !session.refreshtoken) throw new Error("缺少刷新凭证（refreshtoken），请重新扫码登录");
-    // 字段必须 camelCase（yyb-go refreshTokenRequest：userInfo/openId/refreshToken/accessToken/loginType），
+    // 字段必须 camelCase（refreshTokenRequest：userInfo/openId/refreshToken/accessToken/loginType），
     // 用 snake_case 服务器解析不到 refreshtoken → code=-109 "RefreshToken empty token"
     const payload = JSON.stringify({ userInfo: { openId: session.openid, refreshToken: session.refreshtoken, accessToken: session.accesstoken || "", loginType: "WX" } });
     const timestamp = String(Date.now());
@@ -197,28 +209,36 @@ class WxLoginService {
     if (response.status < 200 || response.status >= 300) throw new Error(`Unable to refresh WeChat token (HTTP ${response.status})`);
     const data = JSON.parse(response.body.toString("utf8"));
     if (data?.code !== 0) throw new Error(`WeChat token refresh failed: code=${data?.code} msg=${data?.msg}`);
-    const info = data?.user_info || {};
-    const accessToken = info.access_token || "";
-    const refreshToken = info.refresh_token || session.refreshtoken;
+    const info = data?.user_info || data?.userInfo || {};
+    const accessToken = info.access_token || info.accessToken || "";
+    const refreshToken = info.refresh_token || info.refreshToken || session.refreshtoken;
     if (!accessToken) throw new Error("WeChat token refresh response missing access_token");
-    // 用新凭证换新 loginBuffer（与 yyb-go FetchLoginBuffer 一致：凭证放 Cookie 头，服务器可能校验）
+    // refresh token 为滚动凭证：刷新接口成功后旧 token 已失效，后续 loginBuffer 请求即使失败，
+    // 调用方也必须持久化这里的新 token，避免下一次使用旧 token 永久陷入 40030。
+    session.accesstoken = accessToken;
+    session.refreshtoken = refreshToken;
+    // 用新凭证换新 loginBuffer（凭证放 Cookie 头，服务器可能校验）
     const lbPayload = JSON.stringify({ extInfo: { listS: { unionid: { value: [session.openid] }, user_id: { value: [session.openid] }, access_token: { value: [accessToken] } }, listI: { user_type: { value: [0] } } } });
     const ts2 = String(Date.now());
     const nonce2 = String(import_node_crypto.default.randomInt(1e3, 1e4));
     const sig2 = import_node_crypto.default.createHash("md5").update(`${lbPayload}${ts2}${LOGIN_BUFFER_ACCESS_KEY}${nonce2}`).digest("hex");
-    const lbResp = await request(LOGIN_BUFFER_URL, session.cookies, {
-      method: "POST",
-      body: lbPayload,
-      headers: { "Content-Type": "application/json", "Ual-Access-Businessid": "pc_yyb_auth", "Ual-Access-Timestamp": ts2, "Ual-Access-Nonce": nonce2, "Ual-Access-Signature": sig2, "Cookie": `openid=${session.openid}; accesstoken=${accessToken}; refreshtoken=${refreshToken}` }
-    });
-    if (lbResp.status < 200 || lbResp.status >= 300) throw new Error(`Unable to obtain WeChat login buffer (HTTP ${lbResp.status})`);
-    const lbData = JSON.parse(lbResp.body.toString("utf8"));
-    const loginBuffer = lbData?.code === 0 ? lbData?.ext_info?.list_s?.login_buffer?.value?.[0] : "";
-    if (typeof loginBuffer !== "string" || !loginBuffer) throw new Error("WeChat login buffer refresh response is invalid");
-    session.accesstoken = accessToken;
-    session.refreshtoken = refreshToken;
-    session.loginBuffer = loginBuffer;
-    return { loginBuffer, refreshtoken: refreshToken, accesstoken: accessToken };
+    try {
+      const lbResp = await request(LOGIN_BUFFER_URL, session.cookies, {
+        method: "POST",
+        body: lbPayload,
+        headers: { "Content-Type": "application/json", "Ual-Access-Businessid": "pc_yyb_auth", "Ual-Access-Timestamp": ts2, "Ual-Access-Nonce": nonce2, "Ual-Access-Signature": sig2, "Cookie": `openid=${session.openid}; accesstoken=${accessToken}; refreshtoken=${refreshToken}` }
+      });
+      if (lbResp.status < 200 || lbResp.status >= 300) throw new Error(`Unable to obtain WeChat login buffer (HTTP ${lbResp.status})`);
+      const lbData = JSON.parse(lbResp.body.toString("utf8"));
+      const loginBuffer = lbData?.code === 0 ? pickLoginBuffer(lbData) : "";
+      if (typeof loginBuffer !== "string" || !loginBuffer) {
+        throw new Error(`WeChat login buffer refresh failed: code=${lbData?.code ?? "unknown"} msg=${lbData?.msg || "invalid response"}`);
+      }
+      session.loginBuffer = loginBuffer;
+      return { loginBuffer, refreshtoken: refreshToken, accesstoken: accessToken };
+    } catch (error) {
+      throw attachRotatedCredentials(error, refreshToken, accessToken);
+    }
   }
   destroy(session) {
     session.cookies.clear();
