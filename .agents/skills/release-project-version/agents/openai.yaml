@@ -1,0 +1,4 @@
+interface:
+  display_name: "发布项目版本"
+  short_description: "安全执行项目版本号、更新日志、提交、标签及推送发布流程"
+  default_prompt: "使用 $release-project-version 检查当前改动并发布一个新版本。"
