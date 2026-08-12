@@ -84,6 +84,7 @@ function takePendingWxInfo(openid) {
             return {
                 loginBuffer: String(entry.loginBuffer),
                 refreshtoken: entry.refreshtoken || '',
+                accesstoken: entry.accesstoken || '',
                 avatar: entry.avatar || '',
                 nickname: entry.nickname || '',
             };
@@ -152,6 +153,7 @@ async function checkQR(uuid) {
                     entry.openid = openid;
                     entry.loginBuffer = entry.session.loginBuffer;
                     entry.refreshtoken = entry.session.refreshtoken || '';
+                    entry.accesstoken = entry.session.accesstoken || '';
                     entry.confirmed = true;
                     // 拉取应用宝用户信息（真实昵称 + 头像 URL），失败不阻断登录
                     try {
@@ -195,21 +197,24 @@ async function getFarmCode(openid) {
         return { Success: false, Message: '缺少 openid' };
     }
     try {
-        // 1. 优先用账号持久化的 loginBuffer / refreshtoken
+        // 1. 优先用账号持久化的 loginBuffer / refreshtoken / accesstoken
         let loginBuffer = '';
         let refreshtoken = '';
+        let accesstoken = '';
         let entryAvatar = '';
         const account = findAccountByWxid(openid);
         if (account && account.loginBuffer) loginBuffer = String(account.loginBuffer);
         if (account && account.refreshtoken) refreshtoken = String(account.refreshtoken);
-        // 2. 兜底：刚扫码会话里的 loginBuffer / refreshtoken / 头像
+        if (account && account.accesstoken) accesstoken = String(account.accesstoken);
+        // 2. 兜底：刚扫码会话里的 loginBuffer / refreshtoken / accesstoken / 头像
         if (!loginBuffer || !refreshtoken || !account || !account.avatar) {
             for (const entry of wxSessions.values()) {
                 if (entry.openid === String(openid)) {
                     if (!loginBuffer && entry.loginBuffer) loginBuffer = String(entry.loginBuffer);
                     if (!refreshtoken && entry.refreshtoken) refreshtoken = String(entry.refreshtoken);
+                    if (!accesstoken && entry.accesstoken) accesstoken = String(entry.accesstoken);
                     if (entry.avatar) entryAvatar = String(entry.avatar);
-                    if (loginBuffer && refreshtoken && entryAvatar) break;
+                    if (loginBuffer && refreshtoken && accesstoken && entryAvatar) break;
                 }
             }
         }
@@ -225,9 +230,10 @@ async function getFarmCode(openid) {
             if (refreshtoken && msg.includes('ManualAuth rejected')) {
                 try {
                     // 传空 cookie jar（refresh 请求不依赖 OAuth 回调 cookie，Ual-Access 头鉴权）
-                    const refreshed = await wxLogin.refreshLoginBuffer({ openid: String(openid), refreshtoken, accesstoken: '', cookies: new Map() });
+                    const refreshed = await wxLogin.refreshLoginBuffer({ openid: String(openid), refreshtoken, accesstoken, cookies: new Map() });
                     loginBuffer = refreshed.loginBuffer;
                     refreshtoken = refreshed.refreshtoken;
+                    accesstoken = refreshed.accesstoken || accesstoken;
                     code = await wxLogin.issueCode({ loginBuffer }, TARGET_APP_ID);
                 } catch (refreshErr) {
                     return { Success: false, Message: `获取 Code 失败: ${humanizeWxCodeError(refreshErr.message)}（自动续期失败，请重新扫码登录）` };
@@ -239,8 +245,8 @@ async function getFarmCode(openid) {
         if (!code) {
             return { Success: false, Message: '获取 Code 失败（服务端未返回 code）' };
         }
-        // 4. 成功后将 loginBuffer / refreshtoken / 头像持久化到账号（供自动重登/手动启动刷新 code）
-        //    注意：refreshtoken 是滚动续期的（每次刷新返回新值），必须总是更新，否则旧 token 过期后续期断裂
+        // 4. 成功后将 loginBuffer / refreshtoken / accesstoken / 头像持久化到账号（供自动重登/手动启动刷新 code）
+        //    注意：refreshtoken/accesstoken 是滚动续期的（每次刷新返回新值），必须总是更新，否则旧 token 过期后续期断裂
         if (account) {
             const updates = {};
             if (loginBuffer && loginBuffer !== account.loginBuffer) updates.loginBuffer = loginBuffer;
@@ -296,4 +302,37 @@ async function getAccountAvatar(openid) {
     }
 }
 
-module.exports = { getQRCode, checkQR, getFarmCode, getAccountAvatar, takePendingWxInfo, YYB_BASE };
+/**
+ * 微信凭证主动保活：用账号 refreshtoken 刷新 loginBuffer + refreshtoken（滚动续期）
+ * 关键：loginBuffer 实际有效期 > 2h，而 refreshtoken 约 2h 过期——必须主动刷新（不等 loginBuffer 失效），
+ * 否则 loginBuffer 失效时 refreshtoken 已过期，续期必然失败（code=-109），只能重新扫码。
+ * 每 30 分钟调用一次：refreshtoken 2h 窗口内滚动续期，永不失效。
+ */
+async function keepWxCredentialAlive(acc) {
+    if (!acc || !acc.wxid || !acc.refreshtoken || !acc.loginBuffer) {
+        return { Success: false, Message: '缺少微信凭证（refreshtoken/loginBuffer），请重新扫码登录' };
+    }
+    try {
+        const refreshed = await wxLogin.refreshLoginBuffer({
+            openid: String(acc.wxid),
+            refreshtoken: String(acc.refreshtoken),
+            accesstoken: String(acc.accesstoken || ''),
+            cookies: new Map(),
+        });
+        if (typeof addOrUpdateAccount === 'function') {
+            addOrUpdateAccount({
+                id: acc.id,
+                loginBuffer: refreshed.loginBuffer,
+                refreshtoken: refreshed.refreshtoken,
+                accesstoken: refreshed.accesstoken || acc.accesstoken || '',
+            });
+        }
+        logger.info('wx credential keepalive ok', { accountId: acc.id });
+        return { Success: true };
+    } catch (e) {
+        logger.warn('keepWxCredentialAlive failed', { accountId: acc.id, error: e.message });
+        return { Success: false, Message: e.message };
+    }
+}
+
+module.exports = { getQRCode, checkQR, getFarmCode, getAccountAvatar, takePendingWxInfo, keepWxCredentialAlive, YYB_BASE };

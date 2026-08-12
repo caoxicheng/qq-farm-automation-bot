@@ -598,8 +598,9 @@ async function startBot(config) {
             }
         });
         
-        // 微信凭证定时保活：每 30 分钟刷新 loginBuffer（loginBuffer 约 1 小时过期，
-        // 挂机账号不掉线也要续期，掉线/重启随时可重连，无需重新扫码）
+        // 微信凭证定时保活：每 30 分钟主动刷新 loginBuffer + refreshtoken（滚动续期）+ code。
+        // refreshtoken 约 2h 过期、loginBuffer 有效期 >2h——只换 code 不刷凭证会导致
+        // loginBuffer 失效时 refreshtoken 已过期（code=-109）只能重扫；主动刷新则凭证永不失效
         workerScheduler.setIntervalTask('wx_login_keepalive', 30 * 60 * 1000, async () => {
             if (!isRunning) return;
             try {
@@ -608,13 +609,17 @@ async function startBot(config) {
                 const accounts = typeof getAccounts === 'function' ? getAccounts() : { accounts: [] };
                 const acc = (accounts.accounts || []).find((a) => String(a.id) === accountId);
                 if (!acc || !acc.wxid) return;
-                const { getFarmCode } = require('../services/yyb-proxy');
-                const refresh = await getFarmCode(acc.wxid);
-                if (refresh.Success && refresh.Data && refresh.Data.code && typeof addOrUpdateAccount === 'function') {
-                    addOrUpdateAccount({ id: acc.id, code: refresh.Data.code });
-                    log('系统', '微信凭证保活成功（loginBuffer 已续期）', { accountId });
+                const { keepWxCredentialAlive, getFarmCode } = require('../services/yyb-proxy');
+                const alive = await keepWxCredentialAlive(acc);
+                if (alive.Success) {
+                    // 凭证续期成功后刷新 code（loginBuffer 已更新到账号，getFarmCode 直接用新凭证）
+                    const refresh = await getFarmCode(acc.wxid);
+                    if (refresh.Success && refresh.Data && refresh.Data.code && typeof addOrUpdateAccount === 'function') {
+                        addOrUpdateAccount({ id: acc.id, code: refresh.Data.code });
+                    }
+                    log('系统', '微信凭证保活成功（loginBuffer/refreshtoken/code 已续期）', { accountId });
                 }
-                // 失败静默：掉线时 ws_code_rejected 链路兜底刷新，保活下轮再试
+                // 失败静默：下轮再试；真实掉线时 ws_code_rejected 链路兜底刷新
             } catch (e) {
                 log('系统', `微信凭证保活刷新失败: ${e.message}`, { accountId: String(process.env.FARM_ACCOUNT_ID || '') });
             }

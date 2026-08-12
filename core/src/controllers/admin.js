@@ -2248,6 +2248,7 @@ function startAdminServer(dataProvider) {
             if (body.platform === 'wx' && body.wxid) {
                 delete payload.loginBuffer;
                 delete payload.refreshtoken;
+                delete payload.accesstoken;
                 if (isUpdate) {
                     // 微信账号变更 wxid（换绑）时清除旧凭证，避免新 wxid 继承上一用户的 loginBuffer/refreshtoken
                     const oldAccounts = provider.getAccounts();
@@ -2255,6 +2256,7 @@ function startAdminServer(dataProvider) {
                     if (oldWxAccount && oldWxAccount.wxid && String(oldWxAccount.wxid) !== String(body.wxid)) {
                         payload.loginBuffer = '';
                         payload.refreshtoken = '';
+                        payload.accesstoken = '';
                     }
                 }
                 if (!isUpdate) {
@@ -2262,6 +2264,7 @@ function startAdminServer(dataProvider) {
                     if (pending) {
                         if (pending.loginBuffer) payload.loginBuffer = pending.loginBuffer;
                         if (pending.refreshtoken) payload.refreshtoken = pending.refreshtoken;
+                        if (pending.accesstoken) payload.accesstoken = pending.accesstoken;
                         if (!payload.avatar && pending.avatar) payload.avatar = pending.avatar;
                     }
                 }

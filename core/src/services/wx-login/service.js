@@ -199,7 +199,7 @@ class WxLoginService {
     const accessToken = info.access_token || "";
     const refreshToken = info.refresh_token || session.refreshtoken;
     if (!accessToken) throw new Error("WeChat token refresh response missing access_token");
-    // 用新凭证换新 loginBuffer
+    // 用新凭证换新 loginBuffer（与 yyb-go FetchLoginBuffer 一致：凭证放 Cookie 头，服务器可能校验）
     const lbPayload = JSON.stringify({ extInfo: { listS: { unionid: { value: [session.openid] }, user_id: { value: [session.openid] }, access_token: { value: [accessToken] } }, listI: { user_type: { value: [0] } } } });
     const ts2 = String(Date.now());
     const nonce2 = String(import_node_crypto.default.randomInt(1e3, 1e4));
@@ -207,7 +207,7 @@ class WxLoginService {
     const lbResp = await request(LOGIN_BUFFER_URL, session.cookies, {
       method: "POST",
       body: lbPayload,
-      headers: { "Content-Type": "application/json", "Ual-Access-Businessid": "pc_yyb_auth", "Ual-Access-Timestamp": ts2, "Ual-Access-Nonce": nonce2, "Ual-Access-Signature": sig2 }
+      headers: { "Content-Type": "application/json", "Ual-Access-Businessid": "pc_yyb_auth", "Ual-Access-Timestamp": ts2, "Ual-Access-Nonce": nonce2, "Ual-Access-Signature": sig2, "Cookie": `openid=${session.openid}; accesstoken=${accessToken}; refreshtoken=${refreshToken}` }
     });
     if (lbResp.status < 200 || lbResp.status >= 300) throw new Error(`Unable to obtain WeChat login buffer (HTTP ${lbResp.status})`);
     const lbData = JSON.parse(lbResp.body.toString("utf8"));
