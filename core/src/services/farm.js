@@ -207,19 +207,26 @@ function getSlaveLandIds(land) {
 }
 
 /**
- * 从全农场地块中筛选空的 2x2 主格（land_size >= 2）
- * 2x2 作物必须种在主格（左下角），服务端自动占用从属格
+ * 2x2 作物：从空地里取相邻 4 格一组（服务端自动整合 2x2）。
+ * 用户澄清（2026-08-12）：24 块地全是 1 格，种 4 格种子时格子空着即可自动整合成 4 格，
+ * 由选择 4 格种子种植时的前端/服务器判断——不需要预置 land_size>=2 主格。
+ * 布局实证（2026-08-12 测试）：24 块 = 4 列 × 6 行（id 1-4 行1、5-8 行2、...、21-24 行6），
+ * 相邻 2x2 = (i, i+1, i+4, i+5)，i 为每行第 1-3 列（i%4 ∈ {1,2,3}）且下方有行（i <= 20）。
+ * 服务端会把请求的 4 格映射到相邻 2x2（主格=左下角），非相邻 4 格会失败（1001052）。
  */
-function findEmptyMasterLands(allLands, emptyLandIds) {
+function findEmptyLandQuads(emptyLandIds) {
     const emptySet = new Set((emptyLandIds || []).map(Number));
-    const masters = [];
-    for (const land of (Array.isArray(allLands) ? allLands : [])) {
-        if (!land) continue;
-        const id = toNum(land.id);
-        if (!emptySet.has(id)) continue;
-        if (toNum(land.land_size) >= 2) masters.push(id);
+    const quads = [];
+    for (let i = 1; i <= 20; i++) {
+        const col = i % 4; // 列位置：1/2/3 可作 2x2 左格，0（第 4 列）不行
+        if (col === 0) continue;
+        const quad = [i, i + 1, i + 4, i + 5];
+        if (quad.every(id => emptySet.has(id))) {
+            quads.push(quad);
+            for (const id of quad) emptySet.delete(id); // 占用，避免重叠组
+        }
     }
-    return masters;
+    return quads; // 每组 4 格（服务端自动整合）
 }
 
 function hasPlantData(land) {
@@ -539,7 +546,7 @@ async function buyGoods(goodsId, num, price) {
 
 // ============ 种植 ============
 
-function encodePlantRequest(seedId, landIds) {
+function encodePlantRequest(seedId, landIds, autoSlave = false) {
     const writer = protobuf.Writer.create();
     const itemWriter = writer.uint32(18).fork();
     itemWriter.uint32(8).int64(seedId);
@@ -548,6 +555,8 @@ function encodePlantRequest(seedId, landIds) {
         idsWriter.int64(id);
     }
     idsWriter.ldelim();
+    // field 3 auto_slave=true：多格作物（2x2）自动占用从属格/自动整合（缺省 false 时多格种植被服务端拒绝 1001052）
+    if (autoSlave) itemWriter.uint32(24).bool(true);
     itemWriter.ldelim();
     return writer.finish();
 }
@@ -569,6 +578,51 @@ async function plantSeeds(seedId, landIds, options = {}) {
     const failedErrorCodes = new Set();
     const maxPlantCount = Math.max(0, toNum(options.maxPlantCount) || 0) || Number.POSITIVE_INFINITY;
     const pendingLandIds = new Set((Array.isArray(landIds) ? landIds : []).map(id => toNum(id)).filter(Boolean));
+    const quadGroups = Array.isArray(options.quadGroups) ? options.quadGroups : null;
+    const usedLandIds = new Set();
+
+    // 2x2 作物：每组 4 格一次请求（服务端自动整合 2x2，全 1x1 布局）
+    if (quadGroups && quadGroups.length > 0) {
+        for (const group of quadGroups) {
+            if (successCount >= maxPlantCount) break;
+            const groupIds = (Array.isArray(group) ? group : []).map(id => toNum(id)).filter(Boolean);
+            if (groupIds.length < 4) continue;
+            // 防御：与已处理组重叠的地块跳过（findEmptyLandQuads 保证不相交；防未来调用方误传重叠组）
+            if (groupIds.some(id => usedLandIds.has(id))) continue;
+            try {
+                const body = encodePlantRequest(seedId, groupIds, true);
+                const { body: replyBody } = await sendMsgAsync('gamepb.plantpb.PlantService', 'Plant', body);
+                const reply = types.PlantReply.decode(replyBody);
+                const changedLands = Array.isArray(reply && reply.land) ? reply.land : [];
+                const changedMap = buildLandMap(changedLands);
+                const selfLand = changedMap.get(groupIds[0]);
+                const displayContext = getDisplayLandContext(selfLand || { id: groupIds[0] }, changedMap);
+                const occupiedIds = displayContext.occupiedLandIds.length > 0
+                    ? displayContext.occupiedLandIds
+                    : groupIds;
+                successCount++;
+                plantedLandIds.push(displayContext.masterLandId || groupIds[0]);
+                for (const occupiedId of occupiedIds) {
+                    occupiedLandIds.add(occupiedId);
+                    usedLandIds.add(occupiedId);
+                }
+            } catch (e) {
+                const msg = String((e && e.message) || '');
+                const codeMatch = msg.match(/code=(\d+)/);
+                if (codeMatch && codeMatch[1]) failedErrorCodes.add(codeMatch[1]);
+                logWarn('种植', `2x2 组 [${groupIds.join(',')}] 失败: ${msg}`);
+                // 失败也标记已用，避免后续组重叠请求同一批地块
+                for (const id of groupIds) usedLandIds.add(id);
+            }
+            await sleep(50);  // 50ms 间隔
+        }
+        return {
+            planted: successCount,
+            plantedLandIds,
+            occupiedLandIds: [...occupiedLandIds],
+            failedErrorCodes: [...failedErrorCodes],
+        };
+    }
 
     for (const rawLandId of landIds) {
         const landId = toNum(rawLandId);
@@ -699,26 +753,22 @@ async function plantFromBagSeeds(landsToPlant) {
         const maxPlantCount = Math.min(Number(seed.count || 0), remainingLandIds.length);
         if (maxPlantCount <= 0) continue;
 
-        // 2x2 作物：只种主格（land_size >= 2 的空格）；无主格则跳过，不阻断回退
-        let targetLands = remainingLandIds;
+        // 2x2 作物：从空地里取 4 格一组（全 1x1 布局，服务端自动整合 2x2）；空地不足 4 格则跳过
+        const targetLands = remainingLandIds;
+        let quadGroups = null;
         if (is2x2) {
-            try {
-                const allReply = await getAllLands();
-                const masterIds = findEmptyMasterLands(allReply && allReply.lands, remainingLandIds);
-                if (masterIds.length === 0) {
-                    log('种植', `种子 ${seed.name} 为多格作物，当前无可用 2x2 主格，本轮跳过`, {
-                        module: 'farm', event: '种植种子', result: 'no_2x2_master', seedId: seed.seedId,
-                    });
-                    continue;
-                }
-                targetLands = masterIds;
-            } catch (e) {
-                logWarn('种植', `获取 2x2 主格失败，跳过该种子: ${e.message}`);
+            quadGroups = findEmptyLandQuads(remainingLandIds);
+            if (quadGroups.length === 0) {
+                log('种植', `种子 ${seed.name} 为多格作物，当前空地不足 4 格，本轮跳过`, {
+                    module: 'farm', event: '种植种子', result: 'no_2x2_quads', seedId: seed.seedId,
+                });
                 continue;
             }
         }
 
-        const result = await plantSeeds(seed.seedId, targetLands, { maxPlantCount });
+        const result = await plantSeeds(seed.seedId, targetLands, quadGroups
+            ? { quadGroups, maxPlantCount: Math.min(Number(seed.count || 0), quadGroups.length) }
+            : { maxPlantCount });
         const currentOccupied = (Array.isArray(result.occupiedLandIds) ? result.occupiedLandIds : []).map(Number).filter(id => id > 0);
         const currentPlantedLandIds = (Array.isArray(result.plantedLandIds) ? result.plantedLandIds : []).map(Number).filter(id => id > 0);
         if (result.planted > 0) {
@@ -1029,7 +1079,11 @@ async function getLandsDetail() {
             const plantCfg = getPlantById(plantId);
             const seedId = toNum(plantCfg && plantCfg.seed_id) || deriveSeedIdFromPlantId(plantId);
             const seedImage = seedId > 0 ? getSeedImageBySeedId(seedId) : '';
-            const plantSize = Math.max(1, toNum(plantCfg && plantCfg.size) || 1);
+            let plantSize = Math.max(1, toNum(plantCfg && plantCfg.size) || 1);
+            // 本地配置缺失的活动种子（如 29003 梅酒）：用主格占用格数推断尺寸（4 格 → 2x2）
+            if (plantSize <= 1 && occupiedLandIds.length > 1 && !occupiedByMaster) {
+                plantSize = Math.round(Math.sqrt(occupiedLandIds.length));
+            }
             const totalSeason = Math.max(1, toNum(plantCfg && plantCfg.seasons) || 1);
             const currentSeasonRaw = toNum(plant.season);
             const currentSeason = currentSeasonRaw > 0 ? Math.min(currentSeasonRaw, totalSeason) : 1;
@@ -1189,29 +1243,31 @@ async function plantFromShop(landsToPlant, state, overrideStrategy) {
 
     // 3. 购买
     let needCount = landsToPlant.length;
-    let targetLands = landsToPlant;
+    const targetLands = landsToPlant;
+    let quadGroups = null;
     if (landFootprint > 1) {
-        // 2x2 作物：筛主格（land_size >= 2 的空格），避免种到 1x1 地块全失败（1001052）
-        // 与背包路径（plantFromBagSeeds）的主格分支保持一致
-        try {
-            const allReply = await getAllLands();
-            const masterIds = findEmptyMasterLands(allReply && allReply.lands, landsToPlant);
-            if (masterIds.length === 0) {
-                log('种植', `${seedName} 为 ${plantSize}x${plantSize} 作物，当前无可用 2x2 主格，本轮跳过`, {
-                    module: 'farm',
-                    event: '种植种子',
-                    result: 'no_2x2_master',
-                    seedId: bestSeed.seedId,
-                    landFootprint,
-                });
-                return { plantedLands: [] };
-            }
-            targetLands = masterIds;
-            needCount = Math.min(Math.floor(landsToPlant.length / landFootprint), masterIds.length);
-        } catch (e) {
-            logWarn('种植', `获取 2x2 主格失败，跳过该种子: ${e.message}`);
+        // 2x2 作物：从空地里取 4 格一组（全 1x1 布局，服务端自动整合），避免种到不足 4 格失败（1001052）
+        quadGroups = findEmptyLandQuads(landsToPlant);
+        if (quadGroups.length === 0) {
+            log('种植', `${seedName} 为 ${plantSize}x${plantSize} 作物，当前空地不足 4 格，本轮跳过`, {
+                module: 'farm',
+                event: '种植种子',
+                result: 'no_2x2_quads',
+                seedId: bestSeed.seedId,
+                landFootprint,
+                emptyCount: landsToPlant.length,
+            });
             return { plantedLands: [] };
         }
+        needCount = quadGroups.length;
+        log('种植', `${seedName} 为 ${plantSize}x${plantSize} 作物，空地自动整合 ${needCount} 组（每组 4 格）`, {
+            module: 'farm',
+            event: '种植种子',
+            result: 'auto_quad',
+            seedId: bestSeed.seedId,
+            landFootprint,
+            quads: needCount,
+        });
         if (needCount <= 0) {
             log('种植', `${seedName} 需要至少 ${landFootprint} 块空地才能合并种植，当前仅 ${landsToPlant.length} 块可用，已跳过`, {
                 module: 'farm',
@@ -1269,10 +1325,12 @@ async function plantFromShop(landsToPlant, state, overrideStrategy) {
         return { plantedLands: [] };
     }
 
-    // 4. 种植（逐块拖动，间隔50ms；2x2 作物 targetLands 已筛为主格）
+    // 4. 种植（逐块拖动，间隔50ms；2x2 作物 quadGroups 每组 4 格一次请求，服务端自动整合）
     let plantedLands = [];
     try {
-        const { planted, plantedLandIds, occupiedLandIds, failedErrorCodes } = await plantSeeds(actualSeedId, targetLands, { maxPlantCount: needCount });
+        const { planted, plantedLandIds, occupiedLandIds, failedErrorCodes } = await plantSeeds(actualSeedId, targetLands, quadGroups
+            ? { quadGroups, maxPlantCount: needCount }
+            : { maxPlantCount: needCount });
         // 失败学习：1001052（地块不匹配，可能为 2x2 种子配置缺失）→ 记录，与背包路径共享 unplantableSeeds，
         // 后续轮次按 2x2 主格处理/跳过，避免反复购买浪费金币
         if (Array.isArray(failedErrorCodes) && failedErrorCodes.includes('1001052')) {
