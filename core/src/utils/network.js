@@ -424,6 +424,15 @@ function handleNotify(msg) {
             return;
         }
 
+        // 战令（千星游记）进度变化通知：推送驱动自动领取
+        if (type.includes('BattlePassChangeNotify')) {
+            try {
+                const notify = types.BattlePassChangeNotify.decode(eventBody);
+                networkEvents.emit('battlePassNotify', notify.pass);
+            } catch { }
+            return;
+        }
+
         // 红点类通知（图鉴/头像框/成就等）：界面状态提示，bot 无需响应，静默识别避免刷"未处理"日志
         if (type.includes('RedDotNotify')) {
             return;

@@ -20,7 +20,7 @@ const { performDailyShare, getShareDailyState } = require('../services/share');
 const { resetSessionGains, recordOperation, initStatsWithPersistence, saveStats } = require('../services/stats');
 const { initStatusBar, setStatusPlatform, statusData } = require('../services/status');
 const { setRecordGoldExpHook } = require('../services/status');
-const { cleanupTaskSystem, checkAndClaimTasks, getTaskClaimDailyState, getTaskDailyStateLikeApp, getGrowthTaskStateLikeApp } = require('../services/task');
+const { cleanupTaskSystem, checkAndClaimTasks, initTaskSystem, getTaskClaimDailyState, getTaskDailyStateLikeApp, getGrowthTaskStateLikeApp } = require('../services/task');
 const { sellAllFruits, getBag, getBagItems, openFertilizerGiftPacksSilently } = require('../services/warehouse');
 const { connect, reconnect, cleanup, getWs, getUserState, networkEvents } = require('../utils/network');
 const { setClientVersionPrefix } = require('../config/config');
@@ -116,6 +116,7 @@ let lastStatusHash = '';
 let lastStatusSentAt = 0;
 let onSellGain = null;
 let onFarmHarvested = null;
+let onBattlePassNotify = null;
 let harvestSellRunning = false;
 let onWsError = null;
 let wsErrorHandledAt = 0;
@@ -549,6 +550,30 @@ async function startBot(config) {
         };
         networkEvents.on('sell', onSellGain);
 
+        // 任务推送驱动自动领取（TaskInfoNotify 到达即时领，30 秒轮询兜底）
+        try {
+            initTaskSystem();
+        } catch (e) {
+            log('任务', `任务推送监听初始化失败: ${e.message}`, { module: 'task', event: 'push_init_error', error: e.message });
+        }
+
+        // 战令（千星游记）推送驱动自动领取（BattlePassChangeNotify 到达即领）
+        if (onBattlePassNotify) {
+            networkEvents.off('battlePassNotify', onBattlePassNotify);
+        }
+        onBattlePassNotify = async () => {
+            if (!isRunning) return;
+            try {
+                const result = await require('../services/activity').claimBattlePassRewards();
+                if (result && result.rewards && result.rewards.length > 0) {
+                    log('活动', `战令推送自动领取 ${result.rewards.length} 项奖励`, { module: 'activity', event: 'battle_pass_push_claim', count: result.rewards.length });
+                }
+            } catch (e) {
+                log('活动', `战令推送自动领取失败: ${e.message}`, { module: 'activity', event: 'battle_pass_push_claim_error', error: e.message });
+            }
+        };
+        networkEvents.on('battlePassNotify', onBattlePassNotify);
+
         if (onFarmHarvested) {
             networkEvents.off('farmHarvested', onFarmHarvested);
         }
@@ -627,6 +652,28 @@ async function startBot(config) {
                 // 失败静默：下轮再试；真实掉线时 ws_code_rejected 链路兜底刷新
             } catch (e) {
                 log('系统', `微信凭证保活刷新失败: ${e.message}`, { accountId: String(process.env.FARM_ACCOUNT_ID || '') });
+            }
+        }, { preventOverlap: true });
+
+        // 观星自动点亮：每日星宿奖励含梅酒种子（29003 等返场作物），点亮当日星宿奖励即自动入包。
+        // 每 6 小时尝试一次（当日已领则幂等跳过 nothingToClaim，次日自动点亮下一宿）
+        workerScheduler.setIntervalTask('constellation_auto_light', 6 * 60 * 60 * 1000, async () => {
+            if (!isRunning) return;
+            try {
+                const { lightConstellation } = require('../services/activity');
+                const result = await lightConstellation();
+                if (result && result.outcome === 'lighted') {
+                    log('活动', '观星自动点亮成功，当日星宿奖励已入包', { accountId: String(process.env.FARM_ACCOUNT_ID || '') });
+                } else if (result && result.outcome === 'nothingToClaim') {
+                    // 今日已领，幂等跳过
+                } else if (result && result.error) {
+                    log('活动', `观星自动点亮跳过: ${result.error}`, { accountId: String(process.env.FARM_ACCOUNT_ID || '') });
+                }
+            } catch (e) {
+                const msg = String((e && e.message) || '');
+                // 星座活动不存在/未开放：静默（下轮再试），避免每 6 小时刷错误日志
+                if (msg.includes('未发现星座活动') || msg.includes('1034038')) return;
+                log('活动', `观星自动点亮失败: ${msg}`, { accountId: String(process.env.FARM_ACCOUNT_ID || '') });
             }
         }, { preventOverlap: true });
         
