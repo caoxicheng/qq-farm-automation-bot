@@ -1,323 +1,143 @@
 # QQ 农场多账号挂机 + Web 面板
 
-基于 Node.js 的 QQ 农场自动化工具，支持多账号管理、Web 控制面板、实时日志、数据分析与活动支持（千星游记/战令/神秘商人）。
+基于 Node.js 的 QQ 农场自动化工具，提供多账号管理、微信扫码登录、Web 控制面板、实时日志、数据分析和活动支持。
 
-> 📖 喜欢的点一个 star ⭐ 吧！
+> 默认管理员账号和密码均为 `admin`，服务端口为 `3007`。首次登录后请立即修改密码。
 >
-> 🔐 默认面板管理员账号/密码都是 `admin`，端口 `3007`，请部署登录后尽快修改密码！
->
-> ⚠️ 开源免费，禁止倒卖，请勿用于商业用途。
+> 本项目开源免费，仅供学习与研究，禁止倒卖或用于商业用途。
 
----
+## 功能
 
-## 功能特性
+- **农场自动化**：收获、种植、浇水、除草除虫、铲除、施肥和土地升级
+- **仓库与好友**：自动出售、背包优先种植、偷菜、帮忙、捣乱和好友黑名单
+- **任务与活动**：每日任务、活跃度、图鉴、邮件、月卡、礼包、千星游记和神秘商人
+- **微信登录**：内置应用宝扫码协议，无需额外登录服务
+- **多账号管理**：账号独立策略、实时日志、运行状态和数据分析
+- **运行自愈**：Worker 看护、掉线停止和可配置的延迟自动重登
+- **静态资源包**：物品名称和图片随代码及 Docker 镜像发布，运行时不访问微信缓存或 CDN
 
-### 🌾 核心功能
+## 快速开始
 
-- **农场自动化** — 收获、种植（含背包优先策略、2x2 相邻 4 格自动整合种植）、浇水、除草除虫、铲除、施肥、土地自动升级
-- **仓库管理** — 收获后自动出售果实（批量自动分批）、活动果实分类与图片显示
-- **好友互动** — 自动偷菜 / 帮忙 / 捣乱（放虫放草，面板开关）、好友黑名单、访客自动同步
-- **任务系统** — 每日任务与活跃度自动领取、图鉴一键领奖、邮件、月卡、会员/免费礼包
-- **微信登录** — 内置原生应用宝协议扫码登录（进程内 MMTLS，无需外部服务），启动自动刷新 code，微信头像/昵称显示
-- **自动重登** — 被踢下线后延迟自动重登（防循环，面板可配，默认关闭）
-- **挂机自愈** — worker 卡死 watchdog 自动重启（30s 探活 / 90s 判定 / 连续 3 次退避停止），不再假运行
-- **版本自动校准** — 客户端版本日期自动更新 + 服务端版本前缀自动同步，无需手动维护
-- **多账号管理** — 账号独立配置、实时日志筛选、暗色/亮色主题、分析页（经验/利润效率排序）
-
-### 🎮 活动支持
-
-- **千星游记/战令/观星** — 赛季协议支持，进度奖励自动领取（先查后领 + 推送驱动，面板开关）；观星每日星宿自动点亮（梅酒种子持续入包）
-- **神秘商人** — 限时 NPC 商品查询/购买（动态渲染 + 倒计时 + 余额判断，侧边栏独立页面）
-- **ACE 反作弊模拟** — TSDK wasm 定时 AntiData 上报，避免服务端挂起连接
-
-### 🖼️ 资源与展示
-
-- **活动种子** — 活动种子自动识别种植、面板图标显示
-- **果实图片同步** — 成熟果实图片自动同步（本地卷挂载 + crontab 定时）
-
----
-
-## 特别感谢
-
-- **[XyhTender/qq-farm-automation-bot](https://github.com/XyhTender/qq-farm-automation-bot)** — 本项目 fork 来源
-- **[Penty-d/qq-farm-bot-ui](https://github.com/Penty-d/qq-farm-bot-ui)** — 上游二改基础
-- **[linguo2625469/qq-farm-bot](https://github.com/linguo2625469/qq-farm-bot)** — 核心功能
-- **[QianChenJun/qq-farm-bot](https://github.com/QianChenJun/qq-farm-bot)** — 部分功能
-- **[liyangpengs/qq-farm-bot](https://github.com/liyangpengs/qq-farm-bot)** — 赛季/活动协议结构与 ACE 反作弊 TSDK wasm 模拟上报
-
-在此向以上项目作者表示感谢 🙏
-
----
-
-## 免责声明
-
-本项目仅供学习与研究用途。使用本工具可能违反游戏服务条款，由此产生的一切后果由使用者自行承担。请勿用于商业用途或倒卖。
-
----
-
-## 技术栈
-
-**后端**
-
-[<img src="https://skillicons.dev/icons?i=nodejs" height="48" title="Node.js 20+" />](https://nodejs.org/)
-[<img src="https://skillicons.dev/icons?i=express" height="48" title="Express 4" />](https://expressjs.com/)
-[<img src="https://skillicons.dev/icons?i=socketio" height="48" title="Socket.io 4" />](https://socket.io/)
-
-**前端**
-
-[<img src="https://skillicons.dev/icons?i=vue" height="48" title="Vue 3" />](https://vuejs.org/)
-[<img src="https://skillicons.dev/icons?i=vite" height="48" title="Vite" />](https://vitejs.dev/)
-[<img src="https://skillicons.dev/icons?i=ts" height="48" title="TypeScript" />](https://www.typescriptlang.org/)
-[<img src="https://cdn.simpleicons.org/pinia/FFD859" height="48" title="Pinia" />](https://pinia.vuejs.org/)
-[<img src="https://skillicons.dev/icons?i=unocss" height="48" title="UnoCSS" />](https://unocss.dev/)
-
-**部署**
-
-[<img src="https://skillicons.dev/icons?i=pnpm" height="48" title="pnpm" />](https://pnpm.io/)
-[<img src="https://skillicons.dev/icons?i=docker" height="48" title="Docker Compose" />](https://docs.docker.com/compose/)
-[<img src="https://skillicons.dev/icons?i=github" height="48" title="GitHub" />](https://github.com/)
-
----
-
-## 项目结构
-
-```
-qq-farm-automation-bot/
-├── core/                              # Node.js 后端与机器人引擎
-│   ├── client.js                      # 后端入口
-│   ├── Dockerfile                     # 多阶段生产镜像
-│   ├── src/
-│   │   ├── activity-data/             # 活动期静态数据
-│   │   ├── config/                    # 系统配置、游戏配置与资源路径
-│   │   ├── controllers/admin.js       # 管理面板 HTTP / Socket.io API
-│   │   ├── core/worker.js             # 单账号 Worker 执行入口
-│   │   ├── gameConfig/                # 原始业务配置（价格、出售与种植规则）
-│   │   ├── game-data/                 # 发布资源包的运行时加载与查询
-│   │   ├── models/                    # 账号、用户及全局配置持久化
-│   │   ├── proto/                     # QQ 农场 Protobuf 协议定义
-│   │   ├── runtime/                   # 主运行时、Worker 管理、状态与重登
-│   │   ├── services/                  # 农场、好友、任务、活动、商城等业务服务
-│   │   │   ├── wx-login/              # 微信扫码、凭证刷新与原生协议
-│   │   │   └── wx-login-adapter.js    # 微信登录会话、账号凭证与并发协调
-│   │   └── utils/                     # 网络、Proto、二维码及 ACE/TSDK 运行时
-│   ├── tools/                         # 协议抓包解码等开发工具
-│   ├── resources/game-data/           # 随版本发布的物品目录与内容寻址图片
-│   └── data/                          # 运行时账号、配置、统计与日志（部署数据卷）
-├── web/                               # Vue 3 + Vite + TypeScript 前端
-│   └── src/
-│       ├── api/                       # HTTP API 客户端
-│       ├── components/                # 账号、农场、背包、活动与基础 UI 组件
-│       ├── layouts/                   # 页面布局
-│       ├── router/                    # 路由与菜单
-│       ├── stores/                    # Pinia 状态（账号、农场、微信登录等）
-│       └── views/                     # 登录、概览、好友、活动、设置与后台页面
-├── docs/                              # 协议分析与开发文档
-├── scripts/game-data/                 # macOS 维护者资源同步工具
-├── scripts/game-data.mjs              # 资源包 scan/sync/check 统一入口
-├── scripts/sync-seed-assets.mjs       # 已弃用的兼容入口
-├── docker-compose.yml                 # 单服务 Docker Compose 部署配置
-├── docker-compose.dev.yml             # 维护者本地资源包挂载覆盖
-├── pnpm-workspace.yaml                # pnpm workspace 定义
-├── CHANGELOG.md                       # 日期化版本更新日志
-├── TODO.md                            # 未完成工程事项
-└── README.md                          # 项目说明与部署文档
-```
-
----
-
-## 环境要求
-
-| 部署方式 | 要求 |
-| --- | --- |
-| Docker 部署 | Docker（含 Docker Compose 插件） |
-| 源码运行 | Node.js 20+ · pnpm（`corepack enable` 启用）· Git |
-
----
-
-## 快速开始（Docker 部署，推荐）
-
-> 微信扫码登录已**内置**（进程内应用宝协议），无需安装或启动额外的登录服务。
-
-### 1. 拉取代码
+推荐使用 Docker Compose。需要 Docker（含 Compose 插件）和 Git。
 
 ```bash
 git clone https://github.com/caoxicheng/qq-farm-automation-bot.git
-```
-
-### 2. 构建并启动
-
-```bash
 cd qq-farm-automation-bot
 docker compose up -d --build
 ```
 
-首次构建需拉取基础镜像与依赖，约几分钟。启动后：
+浏览器访问 `http://localhost:3007`；远程部署时将 `localhost` 替换为服务器地址。
+
+登录后前往 **设置 → 账号管理**：QQ 玩家可手动填码，微信玩家可扫码添加。账号添加后点击“启动”开始挂机。
+
+常用命令：
 
 ```bash
-# 查看状态
-docker ps                              # qq-farm-bot 应为 Up
-docker compose logs -f qq-farm-bot     # 农场服务日志
+docker compose ps                   # 查看状态
+docker compose logs -f qq-farm-bot  # 查看日志
+docker compose up -d --build        # 拉取改动后重新构建
+docker compose down                 # 停止服务，保留数据
 ```
 
-### 3. 访问面板
+账号、配置和日志保存在 `qq-farm-data`、`qq-farm-logs` 数据卷中。不要随意执行 `docker compose down -v`，该命令会删除数据卷。
 
-浏览器打开 `http://<你的IP>:3007`（本机为 `http://localhost:3007`），默认账号 `admin/admin`，**登录后立即修改密码**。
+## 微信登录与自动重登
 
-### 4. 添加账号并开始挂机
+微信扫码登录由进程内置协议实现，不需要 Go 服务、第三方 API 或额外容器。
 
-1. 面板 → **设置 → 账号管理 → 添加账号**
-2. QQ 玩家：手动填码；微信玩家：**微信扫码**（手机微信扫 → 应用宝授权页确认）
-3. 账号卡片点「启动」→ 开始挂机（默认不自动启动，需手动点一次）
+1. 打开 **设置 → 账号管理 → 添加账号 → 微信扫码**。
+2. 使用手机微信扫码并在应用宝授权页确认。
+3. 系统保存登录凭证并添加账号。
 
-### 常用命令
+已保存有效会话凭证的账号，重新启动时会自动刷新短时效 code，通常无需再次扫码。旧账号缺少 `wxid` 或凭证已经失效时，需要删除后重新扫码一次。
+
+游戏为单会话机制，手机登录会将 Bot 踢下线。手机使用结束后可手动启动账号，也可在 **设置 → 策略设置 → 自动重登设置** 中开启延迟重登。自动重登默认关闭，并包含每日上限和防循环保护。
+
+## 源码运行
+
+需要 Node.js 20+、pnpm 和 Git。源码服务与 Docker 服务不能同时占用 `3007` 端口。
 
 ```bash
-docker compose down                    # 停止
-docker compose up -d --build           # 更新后重建（改代码后必须重建才生效）
-docker compose down -v                 # 停止并删除数据卷（会清空账号，慎用）
-```
-
-### 数据持久化
-
-账号、配置、日志存在 Docker 数据卷（`qq-farm-data` / `qq-farm-logs`），`down` 不会删除，重装/重启不丢数据。
-
----
-
-## 源码本地运行
-
-> 源码方式与 Docker 不能同时占用 3007 端口。微信扫码登录已**内置**（进程内应用宝协议），源码方式无需额外服务。
-
-### macOS / Linux
-
-```bash
-# 1. 安装依赖并构建前端
-cd qq-farm-automation-bot
-pnpm install
-pnpm build:web
-
-# 2. 启动后端（必须在 core/ 目录下）
-cd core && node client.js
-
-# 3. 浏览器访问 http://localhost:3007
-```
-
-### Windows
-
-```powershell
-# 1. 安装 Node.js 20+ 并启用 pnpm
-node -v
 corepack enable
-pnpm -v
-
-# 2. 安装依赖并构建前端
-cd D:\Projects\qq-farm-automation-bot
 pnpm install
 pnpm build:web
-
-# 3. 启动
-pnpm dev:core
-
-# （可选）指定端口
-$env:ADMIN_PORT="你的新端口"
 pnpm dev:core
 ```
 
-### 微信登录（源码方式）
-
-微信扫码登录已**内置**（`core/src/services/wx-login/`，进程内应用宝协议），源码方式直接启动即可：
+常用开发命令：
 
 ```bash
-cd qq-farm-automation-bot/core
-node client.js
+pnpm lint
+pnpm build:web
+pnpm game-data check
 ```
 
-无需安装 Go 或启动额外服务。
+资源同步仅供项目维护者在 macOS 上使用。普通用户只需运行 Bot，静态资源已经包含在仓库和镜像中。
 
----
+## 项目结构
 
-## 登录与安全
-
-- 面板默认管理账号：`admin/admin`（端口 3007）
-- **部署后立即修改密码**（面板 → 设置 → 用户管理）
-- 面板不要直接暴露公网；如必须远程访问，请置于反向代理 + HTTPS 之后
-
----
-
-## 微信扫码登录（内置应用宝协议）
-
-微信端登录由**进程内置**的应用宝协议实现（`core/src/services/wx-login/`：MMTLS 加密握手 + 微信开放平台扫码，零外部依赖），无需第三方付费 API。
-
-### 添加微信账号
-
-1. 面板 → **设置 → 账号管理 → 添加账号 → 微信扫码**
-2. 手机微信扫码 → 应用宝授权页确认
-3. 自动添加账号（平台 `wx`，保存 openid、loginBuffer 凭证与微信头像/昵称）
-
-### 微信配置（设置 → 管理面板 → 微信登录配置）
-
-| 配置项 | 值 | 说明 |
-|--------|-----|------|
-| `autoAddAccount` | `true` | 扫码后自动添加账号 |
-
-### 自动重新登录（重要）
-
-微信 `wx.login` code 短时效。本仓库已实现：**启动账号时自动通过内置协议刷新 code**（凭证 loginBuffer 已持久化到账号）。
-
-- 手机玩过、bot 被踢下线后 → 面板点「启动」→ 自动刷新 code 直连，无需重新扫码
-- 前提：账号需存有 `wxid`（新添加的微信账号自动保存；旧账号删除后重新扫码一次即可）
-
-### 多端互踢说明
-
-游戏服务端为**单会话互踢**：手机登录时 bot 会被踢下线并自动停止（官方客户端优先）。手机玩完，面板点「启动」恢复挂机即可。
-
----
-
-## 自动重登（面板可配，默认关闭）
-
-账号被踢下线后，可配置**延迟自动重登**（防循环保护）：
-
-- 面板 → **设置 → 策略设置 → 自动重登设置**
-- 参数：延迟分钟数（默认 15）、每日上限（默认 3 次）、重登窗口（10 分钟内再被踢则当日禁用）、登录失败窗口（60 秒内退出则当日禁用）
-- 默认关闭；开启后：手机玩完踢掉 bot → 自动重登恢复挂机
-
----
-
-## 版本号维护（已自动，一般无需操作）
-
-游戏服务端校验客户端版本（按日期部分）。本仓库已实现**版本号自动校准**：
-
-- 日期段：启动时按当天日期动态生成
-- 前缀段：登录/心跳时从服务端 `version_info` 自动同步并持久化
-
-正常使用**无需手动修改**。仅当长期停跑、登录都进不去时，手动改 `core/src/config/config.js` 的 `clientVersion`（如 `1.11.1.7_20260806`，日期改成当天）并重建：
-
-```bash
-docker compose up -d --build
+```text
+qq-farm-automation-bot/
+├── .agents/skills/                 # 仓库共享的 Codex Skills
+├── core/                           # Node.js 后端与机器人引擎
+│   ├── client.js                   # 服务入口
+│   ├── Dockerfile                  # 多阶段生产镜像
+│   ├── resources/game-data/        # 随版本发布的物品目录和内容寻址图片
+│   ├── src/
+│   │   ├── gameConfig/             # 价格、出售和种植等原始业务配置
+│   │   ├── game-data/              # 发布资源包加载与查询
+│   │   ├── runtime/                # 主运行时、Worker 管理和重登状态
+│   │   ├── services/               # 农场、好友、任务、活动和微信登录服务
+│   │   └── controllers/            # 管理面板 HTTP 与 Socket.io API
+│   ├── test/                        # Core 与资源系统测试
+│   ├── tools/                       # 协议分析工具
+│   └── data/                        # 运行时生成的数据（Git 忽略，Docker 卷持久化）
+├── web/
+│   ├── public/                      # 图标和活动静态资源
+│   └── src/                         # Vue 3 管理面板
+├── scripts/game-data/               # macOS 资源同步实现
+├── scripts/game-data.mjs            # game-data CLI 入口
+├── artifacts/                       # 资源同步报告等开发产物
+├── docs/                            # 协议分析与开发文档
+├── docker-compose.yml               # 默认部署配置
+├── docker-compose.dev.yml           # 维护者资源包挂载覆盖
+├── package.json                     # Workspace 与开发命令
+├── CHANGELOG.md                     # 版本更新日志
+└── TODO.md                          # 未完成工程事项
 ```
 
----
+## 安全建议
 
-## 常见问题（FAQ）
+- 首次登录后立即修改默认管理员密码。
+- 不要将管理面板直接暴露到公网；远程访问建议使用 HTTPS 反向代理。
+- 项目会在管理员进入面板时提示 GitHub 新版本，但不会自动更新、重建或重启服务。
 
-**Q: 挂机需要一直开着面板网页吗？**
-A: 不需要。服务跑在 Docker 容器里，网页只是管理界面，关掉不影响挂机。容器 `restart: unless-stopped` 开机自启。
+## 常见问题
 
-**Q: Mac/服务器重启后账号会自动恢复吗？**
-A: 容器自动恢复，但账号默认**不自动启动**（`autoStartAccounts: false`）。需要开机即挂机可改为 `true` 并重建；或重启后在面板点「启动」。
+**挂机需要一直打开网页吗？** 不需要。网页只是管理面板，关闭后容器仍会继续运行。
 
-**Q: 手机登录会影响挂机吗？**
-A: 游戏单会话互踢：手机登录会把 bot 踢下线（bot 自动停止），手机优先。玩完在面板点「启动」恢复（自动刷新 code，无需重新扫码）；或开启「自动重登」自动恢复。
+**重启机器后账号会自动挂机吗？** 容器会按 `restart: unless-stopped` 恢复，但账号默认不会自动启动。可在面板手动启动，或启用账号自动启动配置。
 
-**Q: 启动时报 `Unexpected server response: 400` / 连接被拒绝？**
-A: 微信 code 过期。新版本启动时会自动刷新 code（需账号有 `wxid`）；若仍失败，删除账号重新扫码添加一次。
+**微信账号为什么又要求扫码？** 新账号通常可以使用已保存凭证刷新 code。旧账号缺少 `wxid`、凭证失效或刷新失败时，需要重新扫码。
 
-**Q: 日志出现「客户端版本过低」被踢？**
-A: 版本号已自动校准，一般不会出现。若出现，手动更新 `config.js` 的 `clientVersion` 日期为当天并重建，详见「版本号维护」。
+**为什么物品名称或图片缺失？** 资源随 Bot 版本发布。请先更新到最新版；仍有缺失时，可提交物品 ID 供维护者补充资源包。
 
-**Q: 为什么种子图标显示不出来？**
-A: 图片随 Bot 版本和 Docker 镜像一同发布，普通用户无需安装微信或运行同步命令。若最新版仍缺图，请提交物品 ID；资源维护者在 macOS 上使用 `pnpm game-data sync` 生成并发布新资源包。
+**日志提示客户端版本过低怎么办？** 客户端日期和服务端版本前缀会自动校准。若持续失败，请更新 Bot 并重新构建镜像。
 
-**Q: 赛季活动（战令/千星游记）能自动吗？**
-A: 战令进度奖励支持自动领取（先查后领 + 推送驱动，面板「自动控制」可开关，默认关闭）。观星点亮、星砂商店兑换、节令小礼等更多活动功能仍在开发中。
+## 技术栈
 
----
+- 后端：Node.js 20、Express、Socket.io
+- 前端：Vue 3、Vite、TypeScript、Pinia、UnoCSS
+- 工程：pnpm workspace、Docker Compose
+
+## 特别感谢
+
+- [XyhTender/qq-farm-automation-bot](https://github.com/XyhTender/qq-farm-automation-bot) — 本项目 fork 来源
+- [Penty-d/qq-farm-bot-ui](https://github.com/Penty-d/qq-farm-bot-ui) — 上游二改基础
+- [linguo2625469/qq-farm-bot](https://github.com/linguo2625469/qq-farm-bot) — 核心功能
+- [QianChenJun/qq-farm-bot](https://github.com/QianChenJun/qq-farm-bot) — 部分功能
+- [liyangpengs/qq-farm-bot](https://github.com/liyangpengs/qq-farm-bot) — 赛季、活动协议与 ACE/TSDK 上报参考
+
+## 免责声明
+
+本项目仅供学习与研究。使用本工具可能违反游戏服务条款，由此产生的后果由使用者自行承担。请勿用于商业用途或倒卖。
