@@ -83,29 +83,44 @@
 
 ```
 qq-farm-automation-bot/
-├── core/                          # 后端（Node.js 机器人引擎）
+├── core/                              # Node.js 后端与机器人引擎
+│   ├── client.js                      # 后端入口
+│   ├── Dockerfile                     # 多阶段生产镜像
 │   ├── src/
-│   │   ├── config/                # 配置管理 & 游戏配置（版本号/图片映射）
-│   │   ├── controllers/           # HTTP API 路由（账号、农场、好友、认证等）
-│   │   ├── core/                  # Worker 进程管理
-│   │   ├── gameConfig/            # 游戏静态数据
-│   │   │   └── seed_images_named/ # 种子/果实图片资源（本地卷挂载，crontab 自动同步）
-│   │   ├── models/                # 全局配置与账号持久化
-│   │   ├── proto/                 # Protobuf 协议定义（19 个 .proto）
-│   │   ├── runtime/               # 运行时引擎、状态管理、Worker 调度
-│   │   ├── services/              # 业务逻辑（farm/warehouse/friend/task/mall/season/ace 等）
-│   │   └── utils/                 # 工具（网络、Proto 解析、ACE 反作弊 TSDK WASM）
-│   └── data/                      # 运行时数据（账号、用户、日志等）
-├── web/                           # 前端（Vue 3 + Vite + TypeScript）
+│   │   ├── activity-data/             # 活动期静态数据
+│   │   ├── config/                    # 系统配置、游戏配置与资源路径
+│   │   ├── controllers/admin.js       # 管理面板 HTTP / Socket.io API
+│   │   ├── core/worker.js             # 单账号 Worker 执行入口
+│   │   ├── gameConfig/                # 原始业务配置（价格、出售与种植规则）
+│   │   ├── game-data/                 # 发布资源包的运行时加载与查询
+│   │   ├── models/                    # 账号、用户及全局配置持久化
+│   │   ├── proto/                     # QQ 农场 Protobuf 协议定义
+│   │   ├── runtime/                   # 主运行时、Worker 管理、状态与重登
+│   │   ├── services/                  # 农场、好友、任务、活动、商城等业务服务
+│   │   │   ├── wx-login/              # 微信扫码、凭证刷新与原生协议
+│   │   │   └── wx-login-adapter.js    # 微信登录会话、账号凭证与并发协调
+│   │   └── utils/                     # 网络、Proto、二维码及 ACE/TSDK 运行时
+│   ├── tools/                         # 协议抓包解码等开发工具
+│   ├── resources/game-data/           # 随版本发布的物品目录与内容寻址图片
+│   └── data/                          # 运行时账号、配置、统计与日志（部署数据卷）
+├── web/                               # Vue 3 + Vite + TypeScript 前端
 │   └── src/
-│       ├── api/                   # API 客户端 & Socket.io 连接
-│       ├── components/            # 通用组件（BaseSwitch/BaseInput/LandCard/BagPanel 等）
-│       ├── layouts/               # 页面布局
-│       ├── stores/                # Pinia 状态管理
-│       └── views/                 # 页面（概览/个人/好友/分析/设置/后台）
-├── scripts/                       # 工具脚本（sync-seed-assets 图片同步等）
-├── docker-compose.yml             # Docker Compose 部署配置
-└── README.md
+│       ├── api/                       # HTTP API 客户端
+│       ├── components/                # 账号、农场、背包、活动与基础 UI 组件
+│       ├── layouts/                   # 页面布局
+│       ├── router/                    # 路由与菜单
+│       ├── stores/                    # Pinia 状态（账号、农场、微信登录等）
+│       └── views/                     # 登录、概览、好友、活动、设置与后台页面
+├── docs/                              # 协议分析与开发文档
+├── scripts/game-data/                 # macOS 维护者资源同步工具
+├── scripts/game-data.mjs              # 资源包 scan/sync/check 统一入口
+├── scripts/sync-seed-assets.mjs       # 已弃用的兼容入口
+├── docker-compose.yml                 # 单服务 Docker Compose 部署配置
+├── docker-compose.dev.yml             # 维护者本地资源包挂载覆盖
+├── pnpm-workspace.yaml                # pnpm workspace 定义
+├── CHANGELOG.md                       # 日期化版本更新日志
+├── TODO.md                            # 未完成工程事项
+└── README.md                          # 项目说明与部署文档
 ```
 
 ---
@@ -300,7 +315,7 @@ A: 微信 code 过期。新版本启动时会自动刷新 code（需账号有 `w
 A: 版本号已自动校准，一般不会出现。若出现，手动更新 `config.js` 的 `clientVersion` 日期为当天并重建，详见「版本号维护」。
 
 **Q: 为什么种子图标显示不出来？**
-A: 种子图标随游戏资源按需下载。活动新种子需先在游戏里种植/查看一次，然后运行 `node scripts/sync-seed-assets.mjs` 同步图标（详见脚本注释）。
+A: 图片随 Bot 版本和 Docker 镜像一同发布，普通用户无需安装微信或运行同步命令。若最新版仍缺图，请提交物品 ID；资源维护者在 macOS 上使用 `pnpm game-data sync` 生成并发布新资源包。
 
 **Q: 赛季活动（战令/千星游记）能自动吗？**
 A: 战令进度奖励支持自动领取（先查后领 + 推送驱动，面板「自动控制」可开关，默认关闭）。观星点亮、星砂商店兑换、节令小礼等更多活动功能仍在开发中。
