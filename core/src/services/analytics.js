@@ -2,7 +2,7 @@
  * 数据分析模块 - 作物效率分析
  */
 
-const { getAllPlants, getFruitPrice, getSeedPrice, getItemImageById } = require('../config/gameConfig');
+const { getAllPlants, getFruitPrice, getSeedPrice, getItemImageById, getPlantDisplayById } = require('../config/gameConfig');
 
 function parseGrowTime(growPhases) {
     if (!growPhases) return 0;
@@ -45,6 +45,7 @@ function getPlantRankings(sortBy = 'exp') {
 
     const results = [];
     for (const plant of normalPlants) {
+        const display = getPlantDisplayById(plant.id);
         const baseGrowTime = parseGrowTime(plant.grow_phases);
         if (baseGrowTime <= 0) continue;
         const seasons = Number(plant.seasons) || 1;
@@ -78,7 +79,7 @@ function getPlantRankings(sortBy = 'exp') {
         results.push({
             id: plant.id,
             seedId: plant.seed_id,
-            name: plant.name,
+            name: (display && display.name) || plant.name,
             seasons,
             level: requiredLevel,
             growTime,

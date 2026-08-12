@@ -3,7 +3,7 @@
 const { sendMsgAsync } = require('../utils/network');
 const { types } = require('../utils/proto');
 const { toNum } = require('../utils/utils');
-const { getItemById, getItemImageById } = require('../config/gameConfig');
+const { getItemDisplayById } = require('../config/gameConfig');
 const { getBag, getBagItems } = require('./warehouse');
 
 const MYSTERY_SHOP_SERVICE = 'gamepb.mysteryshoppb.MysteryShopService';
@@ -18,12 +18,12 @@ function int64String(value) {
 function itemDto(item) {
     const id = int64String(item && (item.id ?? item.item_id));
     const numId = Number(id) || 0;
-    const cfg = numId ? getItemById(numId) : null;
+    const display = numId ? getItemDisplayById(numId) : null;
     return {
         id,
         count: int64String(item && (item.count ?? item.item_count)),
-        name: cfg ? String(cfg.name || '') : (numId ? '' : ''),
-        image: cfg ? String(getItemImageById(numId) || '') : '',
+        name: display ? String(display.name || '') : '',
+        image: display ? String(display.image || '') : '',
     };
 }
 
@@ -69,7 +69,7 @@ async function getMysteryShopSnapshot() {
     const currencyId = Math.max(0, toNum(npc.currency_item_id));
     const balances = await readBagBalances([currencyId]);
     const rewardItemId = Number(int64String(npc.reward_item_id)) || 0;
-    const rewardCfg = rewardItemId ? getItemById(rewardItemId) : null;
+    const rewardDisplay = rewardItemId ? getItemDisplayById(rewardItemId) : null;
     return {
         active: true,
         serverTime: getServerTimeSec() * 1000,
@@ -80,8 +80,8 @@ async function getMysteryShopSnapshot() {
             reward: {
                 id: int64String(npc.reward_item_id),
                 count: int64String(npc.reward_count),
-                name: rewardCfg ? String(rewardCfg.name || '') : '',
-                image: rewardCfg ? String(getItemImageById(rewardItemId) || '') : '',
+                name: rewardDisplay ? String(rewardDisplay.name || '') : '',
+                image: rewardDisplay ? String(rewardDisplay.image || '') : '',
             },
             stock: Math.max(0, toNum(npc.stock_count)),
             price: {

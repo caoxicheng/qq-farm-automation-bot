@@ -1,0 +1,2042 @@
+[
+  {
+    "id": 1020001,
+    "name": "草莓",
+    "seedId": 20001,
+    "fruitId": 40001,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020002,
+    "name": "白萝卜",
+    "seedId": 20002,
+    "fruitId": 40002,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020003,
+    "name": "胡萝卜",
+    "seedId": 20003,
+    "fruitId": 40003,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020004,
+    "name": "玉米",
+    "seedId": 20004,
+    "fruitId": 40004,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020005,
+    "name": "土豆",
+    "seedId": 20005,
+    "fruitId": 40005,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020006,
+    "name": "茄子",
+    "seedId": 20006,
+    "fruitId": 40006,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020007,
+    "name": "番茄",
+    "seedId": 20007,
+    "fruitId": 40007,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020008,
+    "name": "豌豆",
+    "seedId": 20008,
+    "fruitId": 40008,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020009,
+    "name": "辣椒",
+    "seedId": 20009,
+    "fruitId": 40009,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020010,
+    "name": "南瓜",
+    "seedId": 20010,
+    "fruitId": 40010,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020011,
+    "name": "苹果",
+    "seedId": 20011,
+    "fruitId": 40011,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020013,
+    "name": "葡萄",
+    "seedId": 20013,
+    "fruitId": 40013,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020014,
+    "name": "西瓜",
+    "seedId": 20014,
+    "fruitId": 40014,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020015,
+    "name": "香蕉",
+    "seedId": 20015,
+    "fruitId": 40015,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020018,
+    "name": "桃子",
+    "seedId": 20018,
+    "fruitId": 40018,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020019,
+    "name": "橙子",
+    "seedId": 20019,
+    "fruitId": 40019,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020022,
+    "name": "鳄梨",
+    "seedId": 20022,
+    "fruitId": 40022,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020023,
+    "name": "石榴",
+    "seedId": 20023,
+    "fruitId": 40023,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020025,
+    "name": "银杏树苗",
+    "seedId": 20025,
+    "fruitId": 40025,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020026,
+    "name": "柚子",
+    "seedId": 20026,
+    "fruitId": 40026,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020027,
+    "name": "菠萝",
+    "seedId": 20027,
+    "fruitId": 40027,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020029,
+    "name": "椰子",
+    "seedId": 20029,
+    "fruitId": 40029,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020031,
+    "name": "葫芦",
+    "seedId": 20031,
+    "fruitId": 40031,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020033,
+    "name": "火龙果",
+    "seedId": 20033,
+    "fruitId": 40033,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020034,
+    "name": "樱桃",
+    "seedId": 20034,
+    "fruitId": 40034,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020035,
+    "name": "荔枝",
+    "seedId": 20035,
+    "fruitId": 40035,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020036,
+    "name": "箬竹",
+    "seedId": 20036,
+    "fruitId": 40036,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020037,
+    "name": "莲藕",
+    "seedId": 20037,
+    "fruitId": 40037,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020038,
+    "name": "木瓜",
+    "seedId": 20038,
+    "fruitId": 40038,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020039,
+    "name": "杨桃",
+    "seedId": 20039,
+    "fruitId": 40039,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020041,
+    "name": "红玫瑰",
+    "seedId": 20041,
+    "fruitId": 40041,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020042,
+    "name": "柠檬",
+    "seedId": 20042,
+    "fruitId": 40042,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020043,
+    "name": "无花果",
+    "seedId": 20043,
+    "fruitId": 40043,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020044,
+    "name": "丝瓜",
+    "seedId": 20044,
+    "fruitId": 40044,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020045,
+    "name": "猕猴桃",
+    "seedId": 20045,
+    "fruitId": 40045,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020046,
+    "name": "爱心果",
+    "seedId": 20046,
+    "fruitId": 40046,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020047,
+    "name": "甘蔗",
+    "seedId": 20047,
+    "fruitId": 40047,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020048,
+    "name": "杨梅",
+    "seedId": 20048,
+    "fruitId": 40048,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020049,
+    "name": "花生",
+    "seedId": 20049,
+    "fruitId": 40049,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020050,
+    "name": "蘑菇",
+    "seedId": 20050,
+    "fruitId": 40050,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020051,
+    "name": "红枣",
+    "seedId": 20051,
+    "fruitId": 40051,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020052,
+    "name": "金针菇",
+    "seedId": 20052,
+    "fruitId": 40052,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020053,
+    "name": "桂圆",
+    "seedId": 20053,
+    "fruitId": 40053,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020054,
+    "name": "梨",
+    "seedId": 20054,
+    "fruitId": 40054,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020055,
+    "name": "枇杷",
+    "seedId": 20055,
+    "fruitId": 40055,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020056,
+    "name": "哈密瓜",
+    "seedId": 20056,
+    "fruitId": 40056,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020057,
+    "name": "芒果",
+    "seedId": 20057,
+    "fruitId": 40057,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020058,
+    "name": "榴莲",
+    "seedId": 20058,
+    "fruitId": 40058,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020059,
+    "name": "大白菜",
+    "seedId": 20059,
+    "fruitId": 40059,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020060,
+    "name": "水稻",
+    "seedId": 20060,
+    "fruitId": 40060,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020061,
+    "name": "小麦",
+    "seedId": 20061,
+    "fruitId": 40061,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020062,
+    "name": "四叶草",
+    "seedId": 20062,
+    "fruitId": 40062,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020063,
+    "name": "苦瓜",
+    "seedId": 20063,
+    "fruitId": 40063,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020064,
+    "name": "大葱",
+    "seedId": 20064,
+    "fruitId": 40064,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020065,
+    "name": "大蒜",
+    "seedId": 20065,
+    "fruitId": 40065,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020066,
+    "name": "鲜姜",
+    "seedId": 20066,
+    "fruitId": 40066,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020067,
+    "name": "香瓜",
+    "seedId": 20067,
+    "fruitId": 40067,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020068,
+    "name": "冬瓜",
+    "seedId": 20068,
+    "fruitId": 40068,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020069,
+    "name": "莴笋",
+    "seedId": 20069,
+    "fruitId": 40069,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020070,
+    "name": "黄豆",
+    "seedId": 20070,
+    "fruitId": 40070,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020071,
+    "name": "小白菜",
+    "seedId": 20071,
+    "fruitId": 40071,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020072,
+    "name": "榛子",
+    "seedId": 20072,
+    "fruitId": 40072,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020073,
+    "name": "菠菜",
+    "seedId": 20073,
+    "fruitId": 40073,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020074,
+    "name": "金桔",
+    "seedId": 20074,
+    "fruitId": 40074,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020075,
+    "name": "桑葚",
+    "seedId": 20075,
+    "fruitId": 40075,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020076,
+    "name": "山竹",
+    "seedId": 20076,
+    "fruitId": 40076,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020077,
+    "name": "蓝莓",
+    "seedId": 20077,
+    "fruitId": 40077,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020078,
+    "name": "杏子",
+    "seedId": 20078,
+    "fruitId": 40078,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020079,
+    "name": "番石榴",
+    "seedId": 20079,
+    "fruitId": 40079,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020080,
+    "name": "月柿",
+    "seedId": 20080,
+    "fruitId": 40080,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020083,
+    "name": "红毛丹",
+    "seedId": 20083,
+    "fruitId": 40083,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020084,
+    "name": "芭蕉",
+    "seedId": 20084,
+    "fruitId": 40084,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020085,
+    "name": "番荔枝",
+    "seedId": 20085,
+    "fruitId": 40085,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020086,
+    "name": "橄榄",
+    "seedId": 20086,
+    "fruitId": 40086,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020087,
+    "name": "百香果",
+    "seedId": 20087,
+    "fruitId": 40087,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020088,
+    "name": "灯笼果",
+    "seedId": 20088,
+    "fruitId": 40088,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020089,
+    "name": "芦荟",
+    "seedId": 20089,
+    "fruitId": 40089,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020090,
+    "name": "薄荷",
+    "seedId": 20090,
+    "fruitId": 40090,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020091,
+    "name": "山楂",
+    "seedId": 20091,
+    "fruitId": 40091,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020095,
+    "name": "栗子",
+    "seedId": 20095,
+    "fruitId": 40095,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020096,
+    "name": "生菜",
+    "seedId": 20096,
+    "fruitId": 40096,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020097,
+    "name": "黄瓜",
+    "seedId": 20097,
+    "fruitId": 40097,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020098,
+    "name": "花菜",
+    "seedId": 20098,
+    "fruitId": 40098,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020099,
+    "name": "油菜",
+    "seedId": 20099,
+    "fruitId": 40099,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020100,
+    "name": "竹笋",
+    "seedId": 20100,
+    "fruitId": 40100,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020101,
+    "name": "薰衣草",
+    "seedId": 20101,
+    "fruitId": 40101,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020102,
+    "name": "马蹄莲",
+    "seedId": 20102,
+    "fruitId": 40102,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020103,
+    "name": "天香百合",
+    "seedId": 20103,
+    "fruitId": 40103,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020104,
+    "name": "非洲菊",
+    "seedId": 20104,
+    "fruitId": 40104,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020105,
+    "name": "小雏菊",
+    "seedId": 20105,
+    "fruitId": 40105,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020106,
+    "name": "郁金香",
+    "seedId": 20106,
+    "fruitId": 40106,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020108,
+    "name": "铃兰",
+    "seedId": 20108,
+    "fruitId": 40108,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020109,
+    "name": "蝴蝶兰",
+    "seedId": 20109,
+    "fruitId": 40109,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020110,
+    "name": "满天星",
+    "seedId": 20110,
+    "fruitId": 40110,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020112,
+    "name": "风信子",
+    "seedId": 20112,
+    "fruitId": 40112,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020115,
+    "name": "兰花",
+    "seedId": 20115,
+    "fruitId": 40115,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020116,
+    "name": "曼陀罗华",
+    "seedId": 20116,
+    "fruitId": 40116,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020120,
+    "name": "蒲公英",
+    "seedId": 20120,
+    "fruitId": 40120,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020121,
+    "name": "蔷薇",
+    "seedId": 20121,
+    "fruitId": 40121,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020122,
+    "name": "丁香花",
+    "seedId": 20122,
+    "fruitId": 40122,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020124,
+    "name": "月季花",
+    "seedId": 20124,
+    "fruitId": 40124,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020126,
+    "name": "曼珠沙华",
+    "seedId": 20126,
+    "fruitId": 40126,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020128,
+    "name": "茉莉花",
+    "seedId": 20128,
+    "fruitId": 40128,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020129,
+    "name": "勿忘我",
+    "seedId": 20129,
+    "fruitId": 40129,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020131,
+    "name": "六月雪",
+    "seedId": 20131,
+    "fruitId": 40131,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020132,
+    "name": "蓝铃花",
+    "seedId": 20132,
+    "fruitId": 40132,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020133,
+    "name": "凤仙花",
+    "seedId": 20133,
+    "fruitId": 40133,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020134,
+    "name": "绿牡丹",
+    "seedId": 20134,
+    "fruitId": 40134,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020135,
+    "name": "火绒草",
+    "seedId": 20135,
+    "fruitId": 40135,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020139,
+    "name": "糖槭树花",
+    "seedId": 20139,
+    "fruitId": 40139,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020140,
+    "name": "象牙红",
+    "seedId": 20140,
+    "fruitId": 40140,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020141,
+    "name": "花香根鸢尾",
+    "seedId": 20141,
+    "fruitId": 40141,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020142,
+    "name": "虞美人",
+    "seedId": 20142,
+    "fruitId": 40142,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020143,
+    "name": "含羞草",
+    "seedId": 20143,
+    "fruitId": 40143,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020144,
+    "name": "七里香",
+    "seedId": 20144,
+    "fruitId": 40144,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020145,
+    "name": "向日葵",
+    "seedId": 20145,
+    "fruitId": 40145,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020147,
+    "name": "牵牛花",
+    "seedId": 20147,
+    "fruitId": 40147,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020154,
+    "name": "月桂花",
+    "seedId": 20154,
+    "fruitId": 40154,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020161,
+    "name": "秋菊（黄色）",
+    "seedId": 20161,
+    "fruitId": 40161,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020162,
+    "name": "秋菊（红色）",
+    "seedId": 20162,
+    "fruitId": 40162,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020167,
+    "name": "欢乐糖果",
+    "seedId": 20167,
+    "fruitId": 40167,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020172,
+    "name": "宋梅",
+    "seedId": 20172,
+    "fruitId": 40172,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020174,
+    "name": "晚香玉",
+    "seedId": 20174,
+    "fruitId": 40174,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020176,
+    "name": "金银花",
+    "seedId": 20176,
+    "fruitId": 40176,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020182,
+    "name": "艳蝶兰",
+    "seedId": 20182,
+    "fruitId": 40182,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020184,
+    "name": "卡特兰",
+    "seedId": 20184,
+    "fruitId": 40184,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020185,
+    "name": "似何莲",
+    "seedId": 20185,
+    "fruitId": 40185,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020186,
+    "name": "米兰",
+    "seedId": 20186,
+    "fruitId": 40186,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020187,
+    "name": "君子兰",
+    "seedId": 20187,
+    "fruitId": 40187,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020188,
+    "name": "文殊兰",
+    "seedId": 20188,
+    "fruitId": 40188,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020193,
+    "name": "红云飞片",
+    "seedId": 20193,
+    "fruitId": 40193,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020199,
+    "name": "石莲花",
+    "seedId": 20199,
+    "fruitId": 40199,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020201,
+    "name": "天山雪莲",
+    "seedId": 20201,
+    "fruitId": 40201,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020202,
+    "name": "金边灵芝",
+    "seedId": 20202,
+    "fruitId": 40202,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020204,
+    "name": "人参",
+    "seedId": 20204,
+    "fruitId": 40204,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020218,
+    "name": "瓶子树",
+    "seedId": 20218,
+    "fruitId": 40218,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020220,
+    "name": "猪笼草",
+    "seedId": 20220,
+    "fruitId": 40220,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020221,
+    "name": "天堂鸟",
+    "seedId": 20221,
+    "fruitId": 40221,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020222,
+    "name": "豹皮花",
+    "seedId": 20222,
+    "fruitId": 40222,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020223,
+    "name": "夏蜡梅",
+    "seedId": 20223,
+    "fruitId": 40223,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020224,
+    "name": "昙花",
+    "seedId": 20224,
+    "fruitId": 40224,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020225,
+    "name": "宝华玉兰",
+    "seedId": 20225,
+    "fruitId": 40225,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020226,
+    "name": "依米花",
+    "seedId": 20226,
+    "fruitId": 40226,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020227,
+    "name": "大王花",
+    "seedId": 20227,
+    "fruitId": 40227,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020228,
+    "name": "人参果",
+    "seedId": 20228,
+    "fruitId": 40228,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020229,
+    "name": "何首乌",
+    "seedId": 20229,
+    "fruitId": 40229,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020235,
+    "name": "金花茶",
+    "seedId": 20235,
+    "fruitId": 40235,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020242,
+    "name": "似血杜鹃",
+    "seedId": 20242,
+    "fruitId": 40242,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020243,
+    "name": "芹叶铁线莲",
+    "seedId": 20243,
+    "fruitId": 40243,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020249,
+    "name": "荷包牡丹",
+    "seedId": 20249,
+    "fruitId": 40249,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020251,
+    "name": "鹭草",
+    "seedId": 20251,
+    "fruitId": 40251,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020256,
+    "name": "石竹花",
+    "seedId": 20256,
+    "fruitId": 40256,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020257,
+    "name": "孔雀草",
+    "seedId": 20257,
+    "fruitId": 40257,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020258,
+    "name": "欧石楠",
+    "seedId": 20258,
+    "fruitId": 40258,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020259,
+    "name": "银莲花",
+    "seedId": 20259,
+    "fruitId": 40259,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020261,
+    "name": "针垫花",
+    "seedId": 20261,
+    "fruitId": 40261,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020262,
+    "name": "帝王花",
+    "seedId": 20262,
+    "fruitId": 40262,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020263,
+    "name": "天竺葵",
+    "seedId": 20263,
+    "fruitId": 40263,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020264,
+    "name": "帝王血",
+    "seedId": 20264,
+    "fruitId": 40264,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020267,
+    "name": "地涌金莲",
+    "seedId": 20267,
+    "fruitId": 40267,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020269,
+    "name": "桔梗花",
+    "seedId": 20269,
+    "fruitId": 40269,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020304,
+    "name": "黄金果",
+    "seedId": 20304,
+    "fruitId": 40304,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020305,
+    "name": "韭菜",
+    "seedId": 20305,
+    "fruitId": 40305,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020306,
+    "name": "芹菜",
+    "seedId": 20306,
+    "fruitId": 40306,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020308,
+    "name": "核桃",
+    "seedId": 20308,
+    "fruitId": 40308,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020329,
+    "name": "发财红包",
+    "seedId": 20329,
+    "fruitId": 40329,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020375,
+    "name": "木槿",
+    "seedId": 20375,
+    "fruitId": 40375,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020396,
+    "name": "迎春花",
+    "seedId": 20396,
+    "fruitId": 40396,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020413,
+    "name": "李子",
+    "seedId": 20413,
+    "fruitId": 40413,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020416,
+    "name": "哈哈南瓜",
+    "seedId": 20416,
+    "fruitId": 49002,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020442,
+    "name": "睡莲",
+    "seedId": 20442,
+    "fruitId": 40442,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1020804,
+    "name": "绵绵糖果",
+    "seedId": null,
+    "fruitId": 40804,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1021032,
+    "name": "琉璃宝荷",
+    "seedId": 21032,
+    "fruitId": 41032,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1021037,
+    "name": "银星海棠",
+    "seedId": 21037,
+    "fruitId": 41037,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1021038,
+    "name": "香彩雀",
+    "seedId": 21038,
+    "fruitId": 41038,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1021044,
+    "name": "繁星花",
+    "seedId": 21044,
+    "fruitId": 41044,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1021050,
+    "name": "萱草",
+    "seedId": 21050,
+    "fruitId": 41050,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1021134,
+    "name": "菖蒲",
+    "seedId": 21134,
+    "fruitId": 41134,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1021135,
+    "name": "艾草",
+    "seedId": 21135,
+    "fruitId": 41135,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1021221,
+    "name": "青梅",
+    "seedId": 21221,
+    "fruitId": 41221,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1021251,
+    "name": "紫茉莉",
+    "seedId": 21251,
+    "fruitId": 41251,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1021353,
+    "name": "紫薇",
+    "seedId": 21353,
+    "fruitId": 41353,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1021380,
+    "name": "梧桐",
+    "seedId": 21380,
+    "fruitId": 41380,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1021404,
+    "name": "月光花",
+    "seedId": 21404,
+    "fruitId": 41404,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1021474,
+    "name": "荷青花",
+    "seedId": 21474,
+    "fruitId": 41474,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1021542,
+    "name": "新春红包",
+    "seedId": 21542,
+    "fruitId": 41542,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1026032,
+    "name": "月见草",
+    "seedId": 26032,
+    "fruitId": 46032,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1026109,
+    "name": "荷花",
+    "seedId": null,
+    "fruitId": 46109,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1026127,
+    "name": "凌霄花",
+    "seedId": 26127,
+    "fruitId": 46127,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1028001,
+    "name": "哈哈南瓜塔",
+    "seedId": null,
+    "fruitId": 204002,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1028002,
+    "name": "月华宝荷",
+    "seedId": null,
+    "fruitId": 204004,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1028003,
+    "name": "蝶梦星铃",
+    "seedId": null,
+    "fruitId": 204006,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1029001,
+    "name": "哈哈小南瓜",
+    "seedId": null,
+    "fruitId": 49001,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1029003,
+    "name": "星语铃花",
+    "seedId": 29003,
+    "fruitId": 49003,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1120025,
+    "name": "黄金·银杏树苗",
+    "seedId": null,
+    "fruitId": 1040025,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1120046,
+    "name": "黄金·爱心果",
+    "seedId": null,
+    "fruitId": 1040046,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1120108,
+    "name": "黄金·铃兰",
+    "seedId": null,
+    "fruitId": 1040108,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1120109,
+    "name": "黄金·蝴蝶兰",
+    "seedId": null,
+    "fruitId": 1040109,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1120112,
+    "name": "黄金·风信子",
+    "seedId": null,
+    "fruitId": 1040112,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1120121,
+    "name": "黄金·蔷薇",
+    "seedId": null,
+    "fruitId": 1040121,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1120122,
+    "name": "黄金·丁香花",
+    "seedId": null,
+    "fruitId": 1040122,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1120129,
+    "name": "黄金·勿忘我",
+    "seedId": null,
+    "fruitId": 1040129,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1120133,
+    "name": "黄金·凤仙花",
+    "seedId": null,
+    "fruitId": 1040133,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1120134,
+    "name": "黄金·绿牡丹",
+    "seedId": null,
+    "fruitId": 1040134,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1120139,
+    "name": "黄金·糖槭树花",
+    "seedId": null,
+    "fruitId": 1040139,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1120140,
+    "name": "黄金·象牙红",
+    "seedId": null,
+    "fruitId": 1040140,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1120144,
+    "name": "黄金·七里香",
+    "seedId": null,
+    "fruitId": 1040144,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1120154,
+    "name": "黄金·月桂花",
+    "seedId": null,
+    "fruitId": 1040154,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1120167,
+    "name": "黄金·欢乐糖果",
+    "seedId": null,
+    "fruitId": 1040167,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1120176,
+    "name": "黄金·金银花",
+    "seedId": null,
+    "fruitId": 1040176,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1120184,
+    "name": "黄金·卡特兰",
+    "seedId": null,
+    "fruitId": 1040184,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1120185,
+    "name": "黄金·似何莲",
+    "seedId": null,
+    "fruitId": 1040185,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1120186,
+    "name": "黄金·米兰",
+    "seedId": null,
+    "fruitId": 1040186,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1120193,
+    "name": "黄金·红云飞片",
+    "seedId": null,
+    "fruitId": 1040193,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1120199,
+    "name": "黄金·石莲花",
+    "seedId": null,
+    "fruitId": 1040199,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1120223,
+    "name": "黄金·夏蜡梅",
+    "seedId": null,
+    "fruitId": 1040223,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1120224,
+    "name": "黄金·昙花",
+    "seedId": null,
+    "fruitId": 1040224,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1120243,
+    "name": "黄金·芹叶铁线莲",
+    "seedId": null,
+    "fruitId": 1040243,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1120249,
+    "name": "黄金·荷包牡丹",
+    "seedId": null,
+    "fruitId": 1040249,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1120251,
+    "name": "黄金·鹭草",
+    "seedId": null,
+    "fruitId": 1040251,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1120256,
+    "name": "黄金·石竹花",
+    "seedId": null,
+    "fruitId": 1040256,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1120257,
+    "name": "黄金·孔雀草",
+    "seedId": null,
+    "fruitId": 1040257,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1120258,
+    "name": "黄金·欧石楠",
+    "seedId": null,
+    "fruitId": 1040258,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1120261,
+    "name": "黄金·针垫花",
+    "seedId": null,
+    "fruitId": 1040261,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1120262,
+    "name": "黄金·帝王花",
+    "seedId": null,
+    "fruitId": 1040262,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1120263,
+    "name": "黄金·天竺葵",
+    "seedId": null,
+    "fruitId": 1040263,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1120264,
+    "name": "黄金·帝王血",
+    "seedId": null,
+    "fruitId": 1040264,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1120267,
+    "name": "黄金·地涌金莲",
+    "seedId": null,
+    "fruitId": 1040267,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1120269,
+    "name": "黄金·桔梗花",
+    "seedId": null,
+    "fruitId": 1040269,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1120304,
+    "name": "黄金·黄金果",
+    "seedId": null,
+    "fruitId": 1040304,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1120375,
+    "name": "黄金·木槿",
+    "seedId": null,
+    "fruitId": 1040375,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1120416,
+    "name": "黄金·哈哈南瓜",
+    "seedId": null,
+    "fruitId": 1040416,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1121032,
+    "name": "黄金·琉璃宝荷",
+    "seedId": null,
+    "fruitId": 1041032,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1121037,
+    "name": "黄金·银星海棠",
+    "seedId": null,
+    "fruitId": 1041037,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1121038,
+    "name": "黄金·香彩雀",
+    "seedId": null,
+    "fruitId": 1041038,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1121044,
+    "name": "黄金·繁星花",
+    "seedId": null,
+    "fruitId": 1041044,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1121050,
+    "name": "黄金·萱草",
+    "seedId": null,
+    "fruitId": 1041050,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1121134,
+    "name": "黄金·菖蒲",
+    "seedId": null,
+    "fruitId": 1041134,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1121135,
+    "name": "黄金·艾草",
+    "seedId": null,
+    "fruitId": 1041135,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1121221,
+    "name": "黄金·青梅",
+    "seedId": null,
+    "fruitId": 1041221,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1121251,
+    "name": "黄金·紫茉莉",
+    "seedId": null,
+    "fruitId": 1041251,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1121353,
+    "name": "黄金·紫薇",
+    "seedId": null,
+    "fruitId": 1041353,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1121380,
+    "name": "黄金·梧桐",
+    "seedId": null,
+    "fruitId": 1041380,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1121404,
+    "name": "黄金·月光花",
+    "seedId": null,
+    "fruitId": 1041404,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1121474,
+    "name": "黄金·荷青花",
+    "seedId": null,
+    "fruitId": 1041474,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1126032,
+    "name": "黄金·月见草",
+    "seedId": null,
+    "fruitId": 1046032,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1126109,
+    "name": "黄金·荷花",
+    "seedId": null,
+    "fruitId": 1046109,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1126127,
+    "name": "黄金·凌霄花",
+    "seedId": null,
+    "fruitId": 1046127,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1128001,
+    "name": "黄金·哈哈南瓜塔",
+    "seedId": null,
+    "fruitId": 204003,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1128002,
+    "name": "黄金·月华宝荷",
+    "seedId": null,
+    "fruitId": 204005,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1128003,
+    "name": "黄金·蝶梦星铃",
+    "seedId": null,
+    "fruitId": 204007,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1129001,
+    "name": "黄金·哈哈小南瓜",
+    "seedId": null,
+    "fruitId": 1049001,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 1129003,
+    "name": "黄金·星语铃花",
+    "seedId": null,
+    "fruitId": 1049003,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 2020002,
+    "name": "白萝卜",
+    "seedId": 29999,
+    "fruitId": 40002,
+    "level": 1,
+    "source": "official"
+  },
+  {
+    "id": 2029998,
+    "name": "哈哈南瓜",
+    "seedId": 29998,
+    "fruitId": 40416,
+    "level": 1,
+    "source": "official"
+  }
+]

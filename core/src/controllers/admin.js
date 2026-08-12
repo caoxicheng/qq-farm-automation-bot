@@ -12,7 +12,7 @@ const { Server: SocketIOServer } = require('socket.io');
 const { version } = require('../../package.json');
 const { CONFIG, updateRuntimeConfig, getRuntimeConfig, getDefaultSystemConfig } = require('../config/config');
 const { getLevelExpProgress } = require('../config/gameConfig');
-const { getResourcePath } = require('../config/runtime-paths');
+const { getBundleRoot } = require('../game-data/resource-bundle');
 const store = require('../models/store');
 const { addOrUpdateAccount, deleteAccount } = store;
 const { findAccountByRef, normalizeAccountRef, resolveAccountId } = require('../services/account-resolver');
@@ -164,7 +164,16 @@ function startAdminServer(dataProvider) {
         adminLogger.warn('web build not found', { webDist });
         app.get('/', (req, res) => res.send('web build not found. Please build the web project.'));
     }
-    app.use('/game-config', express.static(getResourcePath('gameConfig')));
+    app.use('/game-assets', express.static(path.join(getBundleRoot(), 'assets'), {
+        immutable: true,
+        maxAge: '1y',
+        setHeaders(res, filePath) {
+            const contentHash = path.basename(filePath).split('.')[0];
+            res.setHeader('ETag', `"${contentHash}"`);
+            res.setHeader('X-Content-Type-Options', 'nosniff');
+        },
+    }));
+    app.use('/game-config', (_req, res) => res.sendStatus(404));
 
     // Token 到用户映射（用于用户系统）
     const tokenUserMap = new Map();
@@ -2749,7 +2758,7 @@ function startAdminServer(dataProvider) {
 
     // SPA 兜底（必须最后注册，避免拦截 /api 路由）
     app.get('*', (req, res) => {
-        if (req.path.startsWith('/api') || req.path.startsWith('/game-config')) {
+        if (req.path.startsWith('/api') || req.path.startsWith('/game-assets')) {
             return res.status(404).json({ ok: false, error: 'Not Found' });
         }
         if (fs.existsSync(webDist)) {

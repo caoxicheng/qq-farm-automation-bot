@@ -6,6 +6,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { getResourcePath } = require('./runtime-paths');
+const { loadResourceBundle } = require('../game-data/resource-bundle');
 
 // ============ 等级经验表 ============
 let roleLevelConfig = null;
@@ -19,9 +20,7 @@ const fruitToPlant = new Map();  // fruit_id -> plant (果实ID -> 植物)
 let itemInfoConfig = null;
 const itemInfoMap = new Map();  // item_id -> item
 const seedItemMap = new Map();  // seed_id -> item(type=5)
-const seedImageMap = new Map(); // seed_id -> image url
-const seedAssetImageMap = new Map(); // asset_name (Crop_xxx) -> image url
-const fruitImageMap = new Map(); // fruit/item_id -> image url（成熟果实图）
+let resourceBundle = null;
 
 /**
  * 加载配置文件
@@ -89,50 +88,9 @@ function loadConfigs() {
         console.warn('[配置] 加载 ItemInfo.json 失败:', e.message);
     }
 
-    // 加载种子图片映射（seed_images_named）
-    try {
-        const seedImageDir = path.join(configDir, 'seed_images_named');
-        seedImageMap.clear();
-        seedAssetImageMap.clear();
-        fruitImageMap.clear();
-        if (fs.existsSync(seedImageDir)) {
-            const files = fs.readdirSync(seedImageDir);
-            for (const file of files) {
-                const filename = String(file || '');
-                const fileUrl = `/game-config/seed_images_named/${encodeURIComponent(file)}`;
-
-                // 1) id_..._Seed.png 命名，按 id 建立映射
-                const byId = filename.match(/^(\d+)_.*\.(?:png|jpg|jpeg|webp|gif)$/i);
-                if (byId) {
-                    const seedId = Number(byId[1]) || 0;
-                    if (seedId > 0 && !seedImageMap.has(seedId)) {
-                        seedImageMap.set(seedId, fileUrl);
-                    }
-                }
-
-                // 2) ...Crop_xxx_Seed.png 命名，按 asset_name 建立映射
-                const byAsset = filename.match(/(Crop_\d+)_Seed\.(?:png|jpg|jpeg|webp|gif)$/i);
-                if (byAsset) {
-                    const assetName = byAsset[1];
-                    if (assetName && !seedAssetImageMap.has(assetName)) {
-                        seedAssetImageMap.set(assetName, fileUrl);
-                    }
-                }
-
-                // 3) id_..._Mature.png 命名，按物品ID（果实）建立映射
-                const byMature = filename.match(/^(\d+)_.*_Mature\.(?:png|jpg|jpeg|webp|gif)$/i);
-                if (byMature) {
-                    const itemId = Number(byMature[1]) || 0;
-                    if (itemId > 0 && !fruitImageMap.has(itemId)) {
-                        fruitImageMap.set(itemId, fileUrl);
-                    }
-                }
-            }
-            console.warn(`[配置] 已加载种子图片映射 (${seedImageMap.size} 项)`);
-        }
-    } catch (e) {
-        console.warn('[配置] 加载 seed_images_named 失败:', e.message);
-    }
+    resourceBundle = loadResourceBundle();
+    const status = resourceBundle.getBundleStatus();
+    console.warn(`[配置] 已加载游戏资源包 ${status.bundleVersion} (${status.itemCount} 项, ${status.uniqueAssetCount} 图)`);
 }
 
 // ============ 等级经验相关 ============
@@ -278,72 +236,40 @@ function deriveSeedIdFromPlantId(plantId) {
  * 获取所有种子信息（用于备选）
  */
 function getAllSeeds() {
-    return Array.from(seedToPlant.values()).map(p => ({
-        seedId: p.seed_id,
-        name: p.name,
-        requiredLevel: Number(p.land_level_need) || 0,
-        price: getSeedPrice(p.seed_id),
-        image: getSeedImageBySeedId(p.seed_id),
-    }));
-}
-
-function getMappedSeedImage(targetId) {
-    const id = Number(targetId) || 0;
-    if (id <= 0) return '';
-
-    const direct = seedImageMap.get(id);
-    if (direct) return direct;
-
-    const item = itemInfoMap.get(id);
-    const assetName = item && item.asset_name ? String(item.asset_name).trim() : '';
-    if (!assetName) return '';
-
-    return seedAssetImageMap.get(assetName) || '';
+    return Array.from(seedToPlant.values()).map(p => {
+        const display = resourceBundle && resourceBundle.getPlantDisplay(p.id);
+        return {
+            seedId: p.seed_id,
+            name: (display && display.name) || p.name,
+            requiredLevel: Number(p.land_level_need) || 0,
+            price: getSeedPrice(p.seed_id),
+            image: getSeedImageBySeedId(p.seed_id),
+        };
+    });
 }
 
 function getSeedImageBySeedId(seedId) {
-    return getMappedSeedImage(seedId);
+    const display = resourceBundle && resourceBundle.getItemDisplay(seedId);
+    return (display && display.image) || '';
 }
 
 function getItemImageById(itemId) {
     const id = Number(itemId) || 0;
     if (id <= 0) return '';
-
-    // 内部函数：根据 ID 获取图片
-    const getImg = (targetId) => {
-        // 1. 优先按物品ID命中（如 20003_胡萝卜_Crop_3_Seed.png）
-        const direct = seedImageMap.get(targetId);
-        if (direct) return direct;
-        // 2. 果实/物品图片（id_..._Mature.png，如 46032_Crop_6032_Mature.png）
-        const fruit = fruitImageMap.get(targetId);
-        if (fruit) return fruit;
-
-        // 2. 其次按 ItemInfo.asset_name 命中（如 Crop_3_Seed.png）
-        const item = itemInfoMap.get(targetId);
-        const assetName = item && item.asset_name ? String(item.asset_name) : '';
-        if (assetName) {
-            const byAsset = seedAssetImageMap.get(assetName);
-            if (byAsset) return byAsset;
-        }
-        return '';
-    };
-
-    // 1. 尝试直接获取
-    let img = getImg(id);
-    if (img) return img;
-
-    // 2. 如果是果实，尝试获取对应的种子图片
-    const plant = getPlantByFruitId(id);
-    if (plant && plant.seed_id) {
-        img = getImg(plant.seed_id);
-        if (img) return img;
-    }
-
-    return '';
+    const display = resourceBundle && resourceBundle.getItemDisplay(id);
+    return (display && display.image) || '';
 }
 
 function getItemById(itemId) {
     return itemInfoMap.get(Number(itemId) || 0);
+}
+
+function getItemDisplayById(itemId) {
+    return resourceBundle ? resourceBundle.getItemDisplay(itemId) : null;
+}
+
+function getPlantDisplayById(plantId) {
+    return resourceBundle ? resourceBundle.getPlantDisplay(plantId) : null;
 }
 
 function getSeedPrice(seedId) {
@@ -382,6 +308,8 @@ module.exports = {
     getFruitName,
     getPlantByFruitId,
     getItemById,
+    getItemDisplayById,
+    getPlantDisplayById,
     getItemImageById,
     getSeedPrice,
     getFruitPrice,

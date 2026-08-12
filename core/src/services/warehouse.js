@@ -4,32 +4,7 @@
  */
 
 const protobuf = require('protobufjs');
-const { getFruitName, getPlantByFruitId, getPlantBySeedId, getItemById, getItemImageById, getSeedImageBySeedId } = require('../config/gameConfig');
-
-// 活动/特殊物品名映射（本地 ItemInfo/植物配置缺失，名字实测确认：
-// 梅酒=观星/返场活动作物 29003 种子 + 49003 果实；1023=星砂（活动商店货币）；
-// 20xxxx=星砂商店装饰（activity-center shop.goods 名称））
-const EXTRA_ITEM_NAMES = {
-    29003: '梅酒种子',
-    49003: '梅酒果实',
-    1023: '星砂',
-    201008: '萤火星房小屋',
-    207008: '萤火星房街道',
-    205007: '萤火星房狗屋',
-    202007: '萤火星房木牌',
-    206007: '萤火星房仓库',
-    203008: '萤火星房栅栏',
-    208008: '萤火星房围栏',
-    201009: '月光营地小屋',
-    207009: '月光营地街道',
-    205008: '月光营地狗屋',
-    202008: '月光营地木牌',
-    206008: '月光营地仓库',
-    203009: '月光营地栅栏',
-    208009: '月光营地围栏',
-    2156: '萤火星房头像框',
-    2157: '月光营地头像框',
-};
+const { getFruitName, getPlantByFruitId, getPlantBySeedId, getItemById, getItemDisplayById, getItemImageById, getSeedImageBySeedId } = require('../config/gameConfig');
 const { isAutomationOn } = require('../models/store');
 const { sendMsgAsync, networkEvents, getUserState } = require('../utils/network');
 const { types } = require('../utils/proto');
@@ -380,8 +355,9 @@ async function getBagDetail() {
         const count = toNum(it.count);
         if (id <= 0 || count <= 0) continue;
         const info = getItemById(id) || null;
-        let name = info && info.name ? String(info.name) : (EXTRA_ITEM_NAMES[id] || '');
-        let category = 'item';
+        const display = getItemDisplayById(id);
+        let name = display && display.name ? String(display.name) : (info && info.name ? String(info.name) : '');
+        let category = display && display.kind && display.kind !== 'unknown' ? display.kind : 'item';
         if (id === 1 || id === 1001) {
             name = '金币';
             category = 'gold';
@@ -389,19 +365,20 @@ async function getBagDetail() {
             name = '经验';
             category = 'exp';
         } else if (getPlantByFruitId(id) || isLikelyFruitId(id)) {
-            if (!name) {
+            if (!name || name === `物品 #${id}`) {
                 const fruitName = getFruitName(id);
                 name = fruitName === `果实${id}` ? `果实#${id}` : `${fruitName}果实`;
             }
             category = 'fruit';
         } else if (getPlantBySeedId(id) || isLikelySeedId(id)) {
             const p = getPlantBySeedId(id);
-            if (!name) name = p && p.name ? `${p.name}种子` : `种子#${id}`;
+            if (!name || name === `物品 #${id}`) name = p && p.name ? `${p.name}种子` : `种子#${id}`;
             category = 'seed';
         }
-        if (!name) name = `物品${id}`;
+        if (!name) name = `物品 #${id}`;
         const interactionType = info && info.interaction_type ? String(info.interaction_type) : '';
-        const priceId = info ? (Number(info.price_id) || 0) : 0;
+        const displayPrice = display && display.price;
+        const priceId = info ? (Number(info.price_id) || 0) : (Number(displayPrice && displayPrice.id) || 0);
         const priceUnit = priceId === 1005 ? '金豆豆' : priceId === 1002 ? '点券' : '金';
 
         if (!merged.has(id)) {
@@ -409,7 +386,7 @@ async function getBagDetail() {
             // 种子/果实段缺图时提示同步（去重，避免刷屏）
             if (!image && (isLikelySeedId(id) || isLikelyFruitId(id)) && !missingImageNotified.has(id)) {
                 missingImageNotified.add(id);
-                logWarn('仓库', `物品 ${id} 无本地图片，可运行 scripts/sync-seed-assets.mjs（含 --mature）同步`, {
+                logWarn('仓库', `物品 ${id} 未包含在当前发布资源包中`, {
                     module: 'warehouse',
                     event: 'missing_image',
                     itemId: id,
@@ -421,11 +398,11 @@ async function getBagDetail() {
                 name,
                 image,
                 category,
-                itemType: category === 'seed' ? 5 : (category === 'fruit' ? 6 : (info ? (Number(info.type) || 0) : 0)),
+                itemType: display && display.itemType ? display.itemType : (category === 'seed' ? 5 : (category === 'fruit' ? 6 : (info ? (Number(info.type) || 0) : 0))),
                 priceId,
-                price: info ? (Number(info.price) || 0) : 0,
+                price: info ? (Number(info.price) || 0) : (Number(displayPrice && displayPrice.amount) || 0),
                 priceUnit,
-                level: info ? (Number(info.level) || 0) : 0,
+                level: info ? (Number(info.level) || 0) : (Number(display && display.level) || 0),
                 interactionType,
                 hoursText: '',
             });

@@ -1,0 +1,4 @@
+services:
+  qq-farm-bot:
+    volumes:
+      - ./core/resources/game-data:/app/core/resources/game-data:ro

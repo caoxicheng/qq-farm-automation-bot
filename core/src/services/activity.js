@@ -24,7 +24,7 @@ const import_constellation_2026072701 = __toESM(require("../activity-data/conste
 const LongModule = require("long");
 const { sendMsgAsync, GatewayError } = require("../utils/network");
 const { types } = require("../utils/proto");
-const { getItemById, getItemImageById } = require("../config/gameConfig");
+const { getItemById, getItemDisplayById, getItemImageById } = require("../config/gameConfig");
 const { getBag, getBagItems } = require("./warehouse");
 const {
   mergeConstellationStates,
@@ -181,10 +181,12 @@ function itemDto(item) {
   const id = int64String(rawId);
   const numericId = int64Number(rawId);
   const metadata = numericId > 0 ? getItemById(numericId) : void 0;
+  const display = numericId > 0 ? getItemDisplayById(numericId) : null;
+  const serverName = bytesToText(item?.name);
   return {
     id,
     count: int64String(item?.count),
-    name: metadata?.name || bytesToText(item?.name),
+    name: display?.source !== 'inferred' ? display.name : (metadata?.name || serverName || display?.name || ''),
     image: numericId > 0 ? getItemImageById(numericId) : "",
     rarity: Number(metadata?.rarity) || 0
   };
