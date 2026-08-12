@@ -27,13 +27,12 @@ message SellReply {
 // ============ 使用物品 ============
 
 message UseRequest {
-    int64 item_id = 1;
-    int64 count = 2;
-    repeated int64 land_ids = 3;
+    corepb.Item item = 1;
 }
 
 message UseReply {
-    repeated corepb.Item items = 1;
+    repeated corepb.Item used_items = 1;
+    repeated corepb.Item items = 2;
 }
 
 // ============ 批量使用物品 ============

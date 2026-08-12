@@ -114,10 +114,15 @@ function createDataProvider(options) {
         getCurrentSeasonEvent: (accountRef) => callWorkerApi(resolveAccountRefId(accountRef), 'getCurrentSeasonEvent'),
         getCurrentStarSandShop: (accountRef) => callWorkerApi(resolveAccountRefId(accountRef), 'getCurrentStarSandShop'),
         getCurrentSolarTerms: (accountRef) => callWorkerApi(resolveAccountRefId(accountRef), 'getCurrentSolarTerms'),
+        getCurrentQingMeiActivity: (accountRef) => callWorkerApi(resolveAccountRefId(accountRef), 'getCurrentQingMeiActivity'),
         claimBattlePassRewards: (accountRef) => callWorkerApi(resolveAccountRefId(accountRef), 'claimBattlePassRewards'),
         exchangeStarSandGoods: (accountRef, goodsId, count) => callWorkerApi(resolveAccountRefId(accountRef), 'exchangeStarSandGoods', goodsId, count),
         lightConstellation: (accountRef) => callWorkerApi(resolveAccountRefId(accountRef), 'lightConstellation'),
         claimSolarTerm: (accountRef, termId) => callWorkerApi(resolveAccountRefId(accountRef), 'claimSolarTerm', termId),
+        claimQingMeiDailySeed: (accountRef) => callWorkerApi(resolveAccountRefId(accountRef), 'claimQingMeiDailySeed'),
+        startQingMeiBrew: (accountRef, ingredients) => callWorkerApi(resolveAccountRefId(accountRef), 'startQingMeiBrew', ingredients),
+        continueQingMeiBrew: (accountRef) => callWorkerApi(resolveAccountRefId(accountRef), 'continueQingMeiBrew'),
+        settleQingMeiBrew: (accountRef) => callWorkerApi(resolveAccountRefId(accountRef), 'settleQingMeiBrew'),
 
         setAutomation: async (accountRef, key, value) => {
             const accountId = resolveAccountRefId(accountRef);

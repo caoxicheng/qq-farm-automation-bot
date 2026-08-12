@@ -531,6 +531,31 @@ function createWorkerManager(options) {
         }
     }
 
+    const ACTIVITY_READ_METHODS = new Set([
+        'getActivityCenterSnapshot',
+        'getCurrentSeasonEvent',
+        'getCurrentStarSandShop',
+        'getCurrentSolarTerms',
+        'getCurrentQingMeiActivity',
+    ]);
+    const ACTIVITY_MUTATION_METHODS = new Set([
+        'claimBattlePassRewards',
+        'exchangeStarSandGoods',
+        'lightConstellation',
+        'claimSolarTerm',
+        'claimQingMeiDailySeed',
+        'startQingMeiBrew',
+        'continueQingMeiBrew',
+        'settleQingMeiBrew',
+    ]);
+
+    function workerApiTimeout(method) {
+        // 活动变更包含操作前校验、实际写操作与操作后快照，可能串行执行多次游戏请求。
+        if (ACTIVITY_MUTATION_METHODS.has(method)) return 150000;
+        if (ACTIVITY_READ_METHODS.has(method)) return 25000;
+        return 10000;
+    }
+
     function callWorkerApi(accountId, method, ...args) {
         const worker = workers[accountId];
         if (!worker) return Promise.reject(new Error('账号未运行'));
@@ -540,7 +565,7 @@ function createWorkerManager(options) {
             worker.requests.set(id, { resolve, reject });
 
             // 超时处理
-            managerScheduler.setTimeoutTask(`api_timeout_${accountId}_${id}`, 10000, () => {
+            managerScheduler.setTimeoutTask(`api_timeout_${accountId}_${id}`, workerApiTimeout(method), () => {
                 if (worker.requests.has(id)) {
                     worker.requests.delete(id);
                     reject(new Error('API Timeout'));

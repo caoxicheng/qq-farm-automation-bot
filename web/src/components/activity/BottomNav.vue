@@ -17,6 +17,7 @@ const items: Array<{ key: ActivityTab, label: string }> = [
   { key: 'constellation', label: '观星礼录' },
   { key: 'shop', label: '星砂商店' },
   { key: 'solar', label: '节令小礼' },
+  { key: 'qingmei', label: '青酿换万金' },
 ]
 </script>
 
@@ -33,7 +34,8 @@ const items: Array<{ key: ActivityTab, label: string }> = [
       @click="$emit('update:modelValue', item.key)"
     >
       <span class="activity-nav__visual">
-        <img :src="`/activity-center/stellar/nav-${item.key}.png`" alt="">
+        <span v-if="item.key === 'qingmei'" class="activity-nav__qingmei" aria-hidden="true">🍶</span>
+        <img v-else :src="`/activity-center/stellar/nav-${item.key}.png`" alt="">
         <i v-if="badges[item.key]" class="activity-nav__badge" aria-label="有可操作内容" />
       </span>
     </button>
@@ -48,7 +50,7 @@ const items: Array<{ key: ActivityTab, label: string }> = [
   height: calc(72px + env(safe-area-inset-bottom));
   padding: 1px 7px env(safe-area-inset-bottom);
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   border-top: 2px solid rgba(132, 220, 252, 0.68);
   background: #326ba3 url('/activity-center/stellar/nav-background.png') center top / 100% 100% no-repeat;
   box-shadow:
@@ -85,6 +87,15 @@ button {
 .activity-nav__item--solar {
   --nav-image-width: 48px;
   --nav-image-offset-y: 7px;
+}
+.activity-nav__item--qingmei {
+  --nav-image-offset-y: 7px;
+}
+.activity-nav__qingmei {
+  margin-top: 8px;
+  font-size: 38px;
+  line-height: 1;
+  filter: drop-shadow(0 2px 3px rgba(25, 71, 45, 0.45));
 }
 
 .activity-nav__visual {

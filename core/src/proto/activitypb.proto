@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package gamepb.activitypb;
 
+import "corepb.proto";
+
 message ActivityContent {
     int64 activity_id = 1;
     int64 group_id = 2;
@@ -12,6 +14,8 @@ message ActivityContent {
     int64 end_time = 7;
     int64 sort_order = 8;
     int64 field_20 = 20;
+    int64 field_21 = 21;
+    int64 field_22 = 22;
     int64 field_23 = 23;
 }
 
@@ -65,7 +69,50 @@ message ConstellationData {
 message ActivityData {
     ActivityContent activity = 1;
     StarSandGoodsList catalog = 102;
+    QingMeiDailySeedData qingmei_daily_seed = 103;
+    QingMeiBrewData qingmei_brew = 108;
     ConstellationData constellation = 110;
+    QingMeiBrewStarted qingmei_brew_started = 113;
+    QingMeiQuote qingmei_quote = 114;
+}
+
+message QingMeiDailySeedGrant {
+    int64 grant_id = 1;
+    ActivityItem item = 3;
+}
+
+message QingMeiDailySeedData {
+    bool claimed = 1;
+    QingMeiDailySeedGrant grant = 2;
+}
+
+message QingMeiBrewData {
+    int64 base_gold = 1;
+    int64 current_round = 2;
+    int64 max_rounds = 3;
+    repeated int64 quote_prices = 4 [packed = true];
+    repeated int64 quote_totals = 5 [packed = true];
+    bool finished = 6;
+    int64 base_price = 7;
+    repeated int64 ingredient_item_ids = 8 [packed = true];
+    int64 guaranteed_price = 9;
+}
+
+message QingMeiBrewStarted {
+    int64 base_gold = 1;
+}
+
+message QingMeiQuote {
+    int64 round = 1;
+    int64 unit_price = 2;
+    int64 total_gold = 3;
+    bool doubled = 4;
+}
+
+message QingMeiSettlement {
+    int64 settlement_mode = 1;
+    int64 total_gold = 2;
+    corepb.Item reward = 3;
 }
 
 // ActivityService.Operate selectors are fixed by the callers below. No generic
@@ -94,10 +141,46 @@ message OperateConstellationRequest {
     Empty field_119 = 119;
 }
 
+message ClaimQingMeiDailySeedRequest {
+    message Params { int64 grant_id = 1; }
+    int64 activity_id = 1;
+    int64 operate_type = 2;
+    Params params = 103;
+}
+
+message StartQingMeiBrewRequest {
+    message Ingredient {
+        int64 uid = 1;
+        int64 count = 2;
+    }
+    message Params { repeated Ingredient ingredients = 1; }
+    int64 activity_id = 1;
+    int64 operate_type = 2;
+    Params params = 112;
+}
+
+message ContinueQingMeiBrewRequest {
+    message Empty {}
+    int64 activity_id = 1;
+    int64 operate_type = 2;
+    Empty params = 113;
+}
+
+message SettleQingMeiBrewRequest {
+    message Params { int64 settlement_mode = 1; }
+    int64 activity_id = 1;
+    int64 operate_type = 2;
+    Params params = 114;
+}
+
 message ActivityOperateReply {
     int64 activity_id = 1;
     int64 operate_type = 2;
     ActivityData data = 3;
+    repeated corepb.Item rewards = 104;
+    QingMeiBrewStarted qingmei_brew_started = 113;
+    QingMeiQuote qingmei_quote = 114;
+    QingMeiSettlement qingmei_settlement = 115;
 }
 
 message ActiviesChangeNotify {

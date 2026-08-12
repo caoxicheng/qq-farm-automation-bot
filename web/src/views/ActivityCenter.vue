@@ -9,6 +9,7 @@ import ActivityHeader from '@/components/activity/ActivityHeader.vue'
 import ActivityShell from '@/components/activity/ActivityShell.vue'
 import BottomNav from '@/components/activity/BottomNav.vue'
 import ConstellationTab from '@/components/activity/ConstellationTab.vue'
+import QingMeiTab from '@/components/activity/QingMeiTab.vue'
 import SolarTermsTab from '@/components/activity/SolarTermsTab.vue'
 import StarSandExchangeDialog from '@/components/activity/StarSandExchangeDialog.vue'
 import StarSandShopTab from '@/components/activity/StarSandShopTab.vue'
@@ -20,15 +21,15 @@ const router = useRouter()
 const accountStore = useAccountStore()
 const activityStore = useActivityCenterStore()
 const { currentAccountId } = storeToRefs(accountStore)
-const { season, shop, solarTerms, constellation, actions, tabBadges, loading, error, actionError, notice, serverClockOffset, pendingActions } = storeToRefs(activityStore)
+const { season, shop, solarTerms, constellation, qingMei, actions, tabBadges, loading, error, actionError, notice, serverClockOffset, pendingActions } = storeToRefs(activityStore)
 const activeTab = ref<ActivityTab>('travel')
 const selectedShopGoods = ref<ShopGoodsDto | null>(null)
 const clockNow = ref(Date.now())
 let clockTimer: number | undefined
 
-const currentData = computed(() => activeTab.value === 'shop' ? shop.value : activeTab.value === 'solar' ? solarTerms.value : activeTab.value === 'constellation' ? constellation.value : season.value)
+const currentData = computed(() => activeTab.value === 'shop' ? shop.value : activeTab.value === 'solar' ? solarTerms.value : activeTab.value === 'constellation' ? constellation.value : activeTab.value === 'qingmei' ? qingMei.value : season.value)
 const serverNow = computed(() => clockNow.value + serverClockOffset.value)
-const pageTitle = computed(() => currentData.value?.title || season.value?.title || '—')
+const pageTitle = computed(() => activeTab.value === 'qingmei' ? (qingMei.value?.name || '青酿换万金') : currentData.value && 'title' in currentData.value ? currentData.value.title : (season.value?.title || '—'))
 const theme = computed(() => activeTab.value === 'solar' ? 'day' : 'night')
 const endTime = computed(() => {
   if (activeTab.value === 'shop')
@@ -37,6 +38,8 @@ const endTime = computed(() => {
     return constellation.value?.endTime || season.value?.endTime
   if (activeTab.value === 'solar')
     return season.value?.endTime
+  if (activeTab.value === 'qingmei')
+    return qingMei.value?.endTime
   return season.value?.endTime
 })
 const remaining = computed(() => {
@@ -59,6 +62,10 @@ function goBack() { router.back() }
 function claimPass() { activityStore.claimPass(accountId()) }
 function lightConstellation() { activityStore.lightConstellation(accountId()) }
 function claimSolar(termId: string) { activityStore.claimSolarTerm(accountId(), termId) }
+function claimQingMeiSeed() { activityStore.claimQingMeiSeed(accountId()) }
+function startQingMeiBrew(ingredients: Array<{ uid: string, count: number }>) { activityStore.startQingMeiBrew(accountId(), ingredients) }
+function continueQingMeiBrew() { activityStore.continueQingMeiBrew(accountId()) }
+function settleQingMeiBrew() { activityStore.settleQingMeiBrew(accountId()) }
 function selectShopGoods(goods: ShopGoodsDto) { selectedShopGoods.value = goods }
 function closeExchangeDialog() {
   if (!pendingActions.value.exchange)
@@ -89,7 +96,7 @@ onUnmounted(() => {
       <div v-if="!currentAccountId" class="activity-state">
         <strong>请先选择账号</strong><span>活动数据按当前账号加载</span>
       </div>
-      <div v-else-if="loading && !season && !shop && !solarTerms && !constellation" class="activity-state">
+      <div v-else-if="loading && !season && !shop && !solarTerms && !constellation && !qingMei" class="activity-state">
         <div class="activity-spinner" /><strong>正在加载活动</strong>
       </div>
       <template v-else>
@@ -102,7 +109,8 @@ onUnmounted(() => {
           <TravelPassTab v-if="activeTab === 'travel'" :season="season" :enabled="actions.claimPass.enabled" :pending="pendingActions.claimPass" @claim="claimPass" />
           <ConstellationTab v-else-if="activeTab === 'constellation'" :constellation="constellation" :enabled="actions.lightConstellation.enabled" :pending="pendingActions.lightConstellation" @light="lightConstellation" />
           <StarSandShopTab v-else-if="activeTab === 'shop'" :shop="shop" :enabled="actions.exchange.enabled" :pending="pendingActions.exchange" @select="selectShopGoods" />
-          <SolarTermsTab v-else :solar="solarTerms" :now="serverNow" :pending="pendingActions.claimSolar" @claim="claimSolar" />
+          <SolarTermsTab v-else-if="activeTab === 'solar'" :solar="solarTerms" :now="serverNow" :pending="pendingActions.claimSolar" @claim="claimSolar" />
+          <QingMeiTab v-else :activity="qingMei" :pending-seed="pendingActions.qingMeiSeed" :pending-start="pendingActions.qingMeiStart" :pending-continue="pendingActions.qingMeiContinue" :pending-settle="pendingActions.qingMeiSettle" @claim-seed="claimQingMeiSeed" @start="startQingMeiBrew" @continue="continueQingMeiBrew" @settle="settleQingMeiBrew" />
         </main>
       </template>
       <BottomNav v-model="activeTab" :badges="tabBadges" />

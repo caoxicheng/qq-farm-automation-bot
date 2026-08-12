@@ -196,6 +196,10 @@ async function loadProto() {
     types.QueryActivityRequest = root.lookupType('gamepb.activitypb.QueryActivityRequest');
     types.ExchangeShopRequest = root.lookupType('gamepb.activitypb.ExchangeShopRequest');
     types.OperateConstellationRequest = root.lookupType('gamepb.activitypb.OperateConstellationRequest');
+    types.ClaimQingMeiDailySeedRequest = root.lookupType('gamepb.activitypb.ClaimQingMeiDailySeedRequest');
+    types.StartQingMeiBrewRequest = root.lookupType('gamepb.activitypb.StartQingMeiBrewRequest');
+    types.ContinueQingMeiBrewRequest = root.lookupType('gamepb.activitypb.ContinueQingMeiBrewRequest');
+    types.SettleQingMeiBrewRequest = root.lookupType('gamepb.activitypb.SettleQingMeiBrewRequest');
     types.ActivityOperateReply = root.lookupType('gamepb.activitypb.ActivityOperateReply');
     types.ActiviesChangeNotify = root.lookupType('gamepb.activitypb.ActiviesChangeNotify');
     types.GetSolarTermsRequest = root.lookupType('gamepb.solartermspb.GetSolarTermsRequest');

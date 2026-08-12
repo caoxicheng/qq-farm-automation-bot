@@ -2,7 +2,7 @@
  * 分享奖励
  */
 
-const { sendMsgAsync } = require('../utils/network');
+const { sendMsg, sendMsgAsync } = require('../utils/network');
 const { types } = require('../utils/proto');
 const { log, toNum } = require('../utils/utils');
 
@@ -56,9 +56,15 @@ async function checkCanShare() {
 }
 
 async function reportShare() {
-    const body = types.ReportShareRequest.encode(types.ReportShareRequest.create({ shared: true })).finish();
+    const body = types.ReportShareRequest.encode(types.ReportShareRequest.create({ source: 1, scene: 42 })).finish();
     const { body: replyBody } = await sendMsgAsync('gamepb.sharepb.ShareService', 'ReportShare', body);
     return types.ReportShareReply.decode(replyBody);
+}
+
+async function reportActivityShare(source, scene) {
+    const body = types.ReportShareRequest.encode(types.ReportShareRequest.create({ source, scene })).finish();
+    const sent = await sendMsg('gamepb.sharepb.ShareService', 'ReportShare', body);
+    if (!sent) throw new Error('活动分享上报发送失败');
 }
 
 async function claimShareReward() {
@@ -138,6 +144,7 @@ async function performDailyShare(force = false) {
 
 module.exports = {
     performDailyShare,
+    reportActivityShare,
     getShareDailyState: () => ({
         key: DAILY_KEY,
         doneToday: isDoneToday(),

@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import api from '@/api'
 
-export type ActivityTabKey = 'travel' | 'constellation' | 'shop' | 'solar'
+export type ActivityTabKey = 'travel' | 'constellation' | 'shop' | 'solar' | 'qingmei'
 export type ActivityVariant = 'blue' | 'violet' | 'gold' | 'green'
 export type ActivityRecord = Record<string, unknown>
 
@@ -192,6 +192,33 @@ export interface SolarTermsDto {
   terms: SolarTermDto[]
 }
 
+export interface QingMeiIngredientDto extends ActivityItemDto {
+  uid: string
+  mutantTypes: string[]
+}
+
+export interface QingMeiActivityDto {
+  activityId: string
+  name: string
+  startTime: number | null
+  endTime: number | null
+  ingredient: ActivityItemDto
+  ingredients: QingMeiIngredientDto[]
+  balance: string
+  balanceKnown: boolean
+  baseGold: string
+  basePrice: string
+  guaranteedPrice: string
+  currentRound: number
+  maxRounds: number
+  started: boolean
+  finished: boolean
+  quotePrices: string[]
+  quoteTotals: string[]
+  dailySeed: { claimed: boolean, grantId: string }
+  actions: { claimSeed: ActivityActionDto, start: ActivityActionDto, continue: ActivityActionDto, settle: ActivityActionDto }
+}
+
 export interface ActivityActionDto {
   enabled: boolean
   available: boolean
@@ -213,10 +240,11 @@ export interface ActivityCenterSnapshotDto {
   shop: ShopDto | null
   solarTerms: SolarTermsDto | null
   constellation: ConstellationDto | null
+  qingMei: QingMeiActivityDto | null
   actions: ActivityActionsDto
 }
 
-export type ActivityMutationKey = 'claimPass' | 'lightConstellation' | 'claimSolar' | 'exchange'
+export type ActivityMutationKey = 'claimPass' | 'lightConstellation' | 'claimSolar' | 'exchange' | 'qingMeiSeed' | 'qingMeiStart' | 'qingMeiContinue' | 'qingMeiSettle'
 
 function isRecord(value: unknown): value is ActivityRecord {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -651,11 +679,46 @@ export function normalizeActivitySnapshot(value: unknown): ActivityCenterSnapsho
     shop: normalizeShop(first(root.shop, root.starSandShop, root.star_sand_shop)),
     solarTerms: normalizeSolarTerms(first(root.solarTerms, root.solar_terms, root.solar)),
     constellation: normalizeConstellation(first(root.constellation, root.constellationActivity, seasonRecord.constellation, seasonRecord.constellationActivity, seasonRecord.starContract, seasonRecord.contract)),
+    qingMei: normalizeQingMei(first(root.qingMei, root.qingmei, root.qing_mei)),
     actions: {
       claimPass: normalizeAction(actionsRaw, capabilitiesRaw, ['claimPass', 'passClaim', 'pass_claim']),
       lightConstellation: normalizeAction(actionsRaw, capabilitiesRaw, ['lightConstellation', 'constellationLight', 'constellation_light']),
       claimSolar: normalizeAction(actionsRaw, capabilitiesRaw, ['claimSolar', 'solarClaim', 'solar_claim']),
       exchange: normalizeAction(actionsRaw, capabilitiesRaw, ['exchange', 'shopExchange', 'shop_exchange']),
+    },
+  }
+}
+
+function normalizeQingMei(value: unknown): QingMeiActivityDto | null {
+  if (!isRecord(value))
+    return null
+  const raw = record(value)
+  const actionRaw = record(raw.actions)
+  const capabilities = { claimSeed: true, start: true, continue: true, settle: true }
+  return {
+    activityId: text(raw.activityId, raw.activity_id),
+    name: text(raw.name, '青酿换万金'),
+    startTime: toMilliseconds(first(raw.startTime, raw.start_time)),
+    endTime: toMilliseconds(first(raw.endTime, raw.end_time)),
+    ingredient: normalizeItem(raw.ingredient),
+    ingredients: records(raw.ingredients).map(item => ({ ...normalizeItem(item), uid: text(item.uid), mutantTypes: Array.isArray(item.mutantTypes) ? item.mutantTypes.map(String) : [] })).filter(item => item.uid),
+    balance: text(raw.balance, '0'),
+    balanceKnown: raw.balanceKnown === undefined ? true : bool(raw.balanceKnown),
+    baseGold: text(raw.baseGold, raw.base_gold, '0'),
+    basePrice: text(raw.basePrice, raw.base_price, '0'),
+    guaranteedPrice: text(raw.guaranteedPrice, raw.guaranteed_price, '0'),
+    currentRound: finiteNumber(first(raw.currentRound, raw.current_round)) || 0,
+    maxRounds: finiteNumber(first(raw.maxRounds, raw.max_rounds)) || 3,
+    started: bool(raw.started),
+    finished: bool(raw.finished),
+    quotePrices: Array.isArray(raw.quotePrices) ? raw.quotePrices.map(String) : [],
+    quoteTotals: Array.isArray(raw.quoteTotals) ? raw.quoteTotals.map(String) : [],
+    dailySeed: { claimed: bool(record(raw.dailySeed).claimed), grantId: text(record(raw.dailySeed).grantId, record(raw.dailySeed).grant_id) },
+    actions: {
+      claimSeed: normalizeAction(actionRaw, capabilities, ['claimSeed']),
+      start: normalizeAction(actionRaw, capabilities, ['start']),
+      continue: normalizeAction(actionRaw, capabilities, ['continue']),
+      settle: normalizeAction(actionRaw, capabilities, ['settle']),
     },
   }
 }
@@ -690,8 +753,12 @@ const activityErrorMessages: Record<string, string> = {
 
 function errorMessage(error: unknown, fallback = '活动数据加载失败') {
   const candidate = error as { response?: { data?: { error?: unknown, message?: unknown, errorCode?: unknown } }, message?: unknown, code?: unknown }
+  if (candidate.code === 'ECONNABORTED' && fallback === '活动操作失败')
+    return '操作结果暂时未知，请先刷新活动状态确认，不要立即重复操作'
   const rawMessage = String(candidate.response?.data?.error || candidate.response?.data?.message || candidate.message || '')
   const errorCode = String(candidate.response?.data?.errorCode || candidate.code || rawMessage.match(/\bcode=(\d+)\b/)?.[1] || '')
+  if (errorCode === 'ACTIVITY_TIMEOUT' && fallback === '活动操作失败')
+    return '操作结果暂时未知，请先刷新活动状态确认，不要立即重复操作'
   if (activityErrorMessages[errorCode])
     return activityErrorMessages[errorCode]
   if (rawMessage.includes('当前无可领取的奖励节点'))
@@ -729,23 +796,31 @@ export const useActivityCenterStore = defineStore('activity-center', () => {
     lightConstellation: false,
     claimSolar: false,
     exchange: false,
+    qingMeiSeed: false,
+    qingMeiStart: false,
+    qingMeiContinue: false,
+    qingMeiSettle: false,
   })
+  let loadInFlight: { accountId: string, promise: Promise<boolean> } | null = null
 
   const season = computed(() => snapshot.value.season)
   const shop = computed(() => snapshot.value.shop)
   const solarTerms = computed(() => snapshot.value.solarTerms)
   const solar = solarTerms
   const constellation = computed(() => snapshot.value.constellation)
+  const qingMei = computed(() => snapshot.value.qingMei)
   const actions = computed(() => snapshot.value.actions)
   const serverNow = computed(() => Date.now() + serverClockOffset.value)
   const tabBadges = computed<Partial<Record<ActivityTabKey, boolean>>>(() => ({
     travel: actions.value.claimPass.available,
     constellation: actions.value.lightConstellation.available,
     solar: actions.value.claimSolar.available,
+    qingmei: !!qingMei.value && (!qingMei.value.dailySeed.claimed || qingMei.value.actions.continue.available || qingMei.value.actions.settle.available),
   }))
 
   function reset() {
     requestVersion.value += 1
+    loadInFlight = null
     snapshot.value = normalizeActivitySnapshot({})
     loading.value = false
     error.value = ''
@@ -753,7 +828,7 @@ export const useActivityCenterStore = defineStore('activity-center', () => {
     notice.value = ''
     loadedAccountId.value = ''
     serverClockOffset.value = 0
-    pendingActions.value = { claimPass: false, lightConstellation: false, claimSolar: false, exchange: false }
+    pendingActions.value = { claimPass: false, lightConstellation: false, claimSolar: false, exchange: false, qingMeiSeed: false, qingMeiStart: false, qingMeiContinue: false, qingMeiSettle: false }
   }
 
   function isCurrent(version: number, accountId: string) {
@@ -803,37 +878,49 @@ export const useActivityCenterStore = defineStore('activity-center', () => {
     }
     if (!force && loadedAccountId.value === requestedAccountId)
       return true
+    if (loadInFlight?.accountId === requestedAccountId)
+      return loadInFlight.promise
 
-    const version = ++requestVersion.value
-    const clientStartedAt = Date.now()
-    loading.value = true
-    error.value = ''
-    actionError.value = ''
-    notice.value = ''
-    if (loadedAccountId.value !== requestedAccountId) {
-      snapshot.value = normalizeActivitySnapshot({})
-      loadedAccountId.value = ''
-      serverClockOffset.value = 0
-    }
-
-    try {
-      const value = await fetchSnapshot(requestedAccountId)
-      if (!isCurrent(version, requestedAccountId))
-        return false
-      applySnapshot(value, clientStartedAt)
-      loadedAccountId.value = requestedAccountId
-      return true
-    }
-    catch (loadError) {
-      if (isCurrent(version, requestedAccountId)) {
-        error.value = errorMessage(loadError)
-        loadedAccountId.value = requestedAccountId
+    const promise = (async () => {
+      const version = ++requestVersion.value
+      const clientStartedAt = Date.now()
+      loading.value = true
+      error.value = ''
+      actionError.value = ''
+      notice.value = ''
+      if (loadedAccountId.value !== requestedAccountId) {
+        snapshot.value = normalizeActivitySnapshot({})
+        loadedAccountId.value = ''
+        serverClockOffset.value = 0
       }
-      return false
+
+      try {
+        const value = await fetchSnapshot(requestedAccountId)
+        if (!isCurrent(version, requestedAccountId))
+          return false
+        applySnapshot(value, clientStartedAt)
+        loadedAccountId.value = requestedAccountId
+        return true
+      }
+      catch (loadError) {
+        if (isCurrent(version, requestedAccountId)) {
+          error.value = errorMessage(loadError)
+          loadedAccountId.value = requestedAccountId
+        }
+        return false
+      }
+      finally {
+        if (requestVersion.value === version)
+          loading.value = false
+      }
+    })()
+    loadInFlight = { accountId: requestedAccountId, promise }
+    try {
+      return await promise
     }
     finally {
-      if (requestVersion.value === version)
-        loading.value = false
+      if (loadInFlight?.promise === promise)
+        loadInFlight = null
     }
   }
 
@@ -849,6 +936,7 @@ export const useActivityCenterStore = defineStore('activity-center', () => {
       const response = await api.post(`/api/activity-center${path}`, payload, {
         headers: { 'x-account-id': requestedAccountId },
         skipErrorToast: true,
+        timeout: 155000,
       } as any)
       const result = responsePayload(response.data)
       if (!isCurrent(version, requestedAccountId))
@@ -890,6 +978,22 @@ export const useActivityCenterStore = defineStore('activity-center', () => {
     return mutate('exchange', '/shop/exchange', accountId, { goodsId, count })
   }
 
+  function claimQingMeiSeed(accountId: string) {
+    return mutate('qingMeiSeed', '/qingmei/daily-seed/claim', accountId)
+  }
+
+  function startQingMeiBrew(accountId: string, ingredients: Array<{ uid: string, count: number }>) {
+    return mutate('qingMeiStart', '/qingmei/brew/start', accountId, { ingredients })
+  }
+
+  function continueQingMeiBrew(accountId: string) {
+    return mutate('qingMeiContinue', '/qingmei/brew/continue', accountId)
+  }
+
+  function settleQingMeiBrew(accountId: string) {
+    return mutate('qingMeiSettle', '/qingmei/brew/settle', accountId)
+  }
+
   function lazyLoad(accountId: string) {
     return load(accountId, false)
   }
@@ -905,6 +1009,7 @@ export const useActivityCenterStore = defineStore('activity-center', () => {
     solar,
     solarTerms,
     constellation,
+    qingMei,
     actions,
     tabBadges,
     loading,
@@ -921,6 +1026,10 @@ export const useActivityCenterStore = defineStore('activity-center', () => {
     lightConstellation,
     claimSolarTerm,
     exchangeStarSandGoods,
+    claimQingMeiSeed,
+    startQingMeiBrew,
+    continueQingMeiBrew,
+    settleQingMeiBrew,
     reset,
   }
 })

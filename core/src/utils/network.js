@@ -13,16 +13,8 @@ const { recordOperation } = require('../services/stats');
 const { types } = require('./proto');
 const { toLong, toNum, syncServerTime, log, logWarn } = require('./utils');
 const cryptoWasm = require('./crypto-wasm');
+const { canReserveRequest } = require('./request-coordination');
 const { startAceRuntime } = require('../services/ace');
-
-// 延迟加载 warehouse 模块避免循环依赖
-let warehouseModule = null;
-function getWarehouseModule() {
-    if (!warehouseModule) {
-        warehouseModule = require('../services/warehouse');
-    }
-    return warehouseModule;
-}
 
 // ============ 事件发射器 (用于推送通知) ============
 const networkEvents = new EventEmitter();
@@ -34,13 +26,18 @@ let serverSeq = 0;
 const pendingCallbacks = new Map();
 let wsErrorState = { code: 0, at: 0, message: '' };
 const networkScheduler = createScheduler('network');
+const MAX_PENDING_REQUESTS = 5;
+const MAX_BUSINESS_REQUESTS = 4;
+let connectionRevision = 0;
+let lastInboundAt = Date.now();
 
 function rejectAllPendingRequests(reason = '请求被中断') {
     const entries = Array.from(pendingCallbacks.entries());
     pendingCallbacks.clear();
-    for (const [, callback] of entries) {
+    for (const [seq, entry] of entries) {
+        networkScheduler.clear(`request_timeout_${seq}`);
         try {
-            callback(new Error(reason));
+            entry.callback(new Error(reason));
         } catch {
             // ignore callback failure
         }
@@ -67,26 +64,6 @@ function setWsErrorState(code, message) {
 }
 function clearWsErrorState() {
     wsErrorState = { code: 0, at: 0, message: '' };
-}
-
-// 登录后从背包获取金豆豆数量
-async function fetchGoldBeanFromBag() {
-    try {
-        const warehouse = getWarehouseModule();
-        const bagReply = await warehouse.getBag();
-        const items = warehouse.getBagItems(bagReply);
-        for (const item of (items || [])) {
-            const id = toNum(item && item.id);
-            const count = toNum(item && item.count);
-            if (id === 1005 && count > 0) {
-                userState.goldBean = count;
-                log('系统', `金豆豆数量: ${count}`);
-                break;
-            }
-        }
-    } catch {
-        // 忽略获取失败
-    }
 }
 
 function hasOwn(obj, key) {
@@ -116,21 +93,45 @@ async function encodeMsg(serviceName, methodName, bodyBytes, clientSeqValue) {
 }
 
 async function sendMsg(serviceName, methodName, bodyBytes, callback) {
-    if (!ws || ws.readyState !== WebSocket.OPEN) {
+    const socket = ws;
+    const revision = connectionRevision;
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
         log('系统', '[WS] 连接未打开');
         return false;
     }
     const seq = clientSeq;
     clientSeq += 1;
-    const encoded = await encodeMsg(serviceName, methodName, bodyBytes, seq);
-    if (callback) pendingCallbacks.set(seq, callback);
-    // ws.send(encoded);
+    let completed = false;
+    const finish = (error, body, meta) => {
+        if (completed) return;
+        completed = true;
+        pendingCallbacks.delete(seq);
+        if (callback) callback(error, body, meta);
+    };
+    if (callback) {
+        pendingCallbacks.set(seq, {
+            callback: finish,
+            serviceName,
+            methodName,
+            category: 'control',
+            startedAt: Date.now(),
+            sentAt: 0,
+            revision,
+        });
+    }
     try {
-        ws.send(encoded);
+        const encoded = await encodeMsg(serviceName, methodName, bodyBytes, seq);
+        if (revision !== connectionRevision || socket !== ws || socket.readyState !== WebSocket.OPEN) {
+            throw new Error(`请求已中断: ${methodName}`);
+        }
+        const entry = pendingCallbacks.get(seq);
+        if (entry) entry.sentAt = Date.now();
+        await new Promise((resolve, reject) => {
+            socket.send(encoded, error => error ? reject(error) : resolve());
+        });
     } catch (err) {
         if (callback) {
-            pendingCallbacks.delete(seq);
-            callback(err);
+            finish(err);
         }
         return false;
     }
@@ -160,6 +161,7 @@ function sendMsgAsync(serviceName, methodName, bodyBytes, timeoutOrOptions = 200
         ? { timeoutMs: timeoutOrOptions }
         : (timeoutOrOptions || {});
     const timeout = Math.max(1, Number(options.timeoutMs) || 20000);
+    const category = options.category === 'control' ? 'control' : 'business';
     return new Promise((resolve, reject) => {
         // 检查连接状态
         if (!ws || ws.readyState !== WebSocket.OPEN) {
@@ -167,31 +169,56 @@ function sendMsgAsync(serviceName, methodName, bodyBytes, timeoutOrOptions = 200
             return;
         }
 
-        // 如果待处理请求过多，拒绝新请求避免堆积
-        if (pendingCallbacks.size >= 5) {
+        if (!canReserveRequest(pendingCallbacks.values(), category, {
+            maxPending: MAX_PENDING_REQUESTS,
+            maxBusiness: MAX_BUSINESS_REQUESTS,
+        })) {
             reject(new Error(`请求队列已满: ${methodName} (pending=${pendingCallbacks.size})`));
             return;
         }
 
-        const seq = clientSeq;
+        const socket = ws;
+        const revision = connectionRevision;
+        const seq = clientSeq++;
         const timeoutKey = `request_timeout_${seq}`;
-        networkScheduler.setTimeoutTask(timeoutKey, timeout, () => {
+        let completed = false;
+        const startedAt = Date.now();
+        const finish = (error, body, meta) => {
+            if (completed) return;
+            completed = true;
             pendingCallbacks.delete(seq);
-            // 检查当前待处理的请求数
-            const pending = pendingCallbacks.size;
-            reject(new Error(`请求超时: ${methodName} (seq=${seq}, pending=${pending})`));
-        });
-
-        const sent = sendMsg(serviceName, methodName, bodyBytes, (err, body, meta) => {
             networkScheduler.clear(timeoutKey);
-            if (err) reject(err);
+            if (error) reject(error);
             else resolve({ body, meta });
+        };
+        const entry = {
+            callback: finish,
+            serviceName,
+            methodName,
+            category,
+            startedAt,
+            sentAt: 0,
+            revision,
+        };
+        pendingCallbacks.set(seq, entry);
+        networkScheduler.setTimeoutTask(timeoutKey, timeout, () => {
+            const error = new Error(`请求超时: ${methodName} (seq=${seq}, pending=${Math.max(0, pendingCallbacks.size - 1)}, elapsed=${Date.now() - startedAt}ms)`);
+            error.code = 'REQUEST_TIMEOUT';
+            error.sentAt = entry.sentAt;
+            finish(error);
         });
 
-        if (!sent) {
-            networkScheduler.clear(timeoutKey);
-            reject(new Error(`发送失败: ${methodName}`));
-        }
+        Promise.resolve().then(async () => {
+            const encoded = await encodeMsg(serviceName, methodName, bodyBytes, seq);
+            if (completed) return;
+            if (revision !== connectionRevision || socket !== ws || socket.readyState !== WebSocket.OPEN) {
+                throw new Error(`请求已中断: ${methodName}`);
+            }
+            entry.sentAt = Date.now();
+            socket.send(encoded, (error) => {
+                if (error) finish(error);
+            });
+        }).catch(error => finish(error));
     });
 }
 
@@ -202,6 +229,7 @@ function handleMessage(data) {
         const msg = types.GateMessage.decode(buf);
         const meta = msg.meta;
         if (!meta) return;
+        lastInboundAt = Date.now();
 
         if (meta.server_seq) {
             const seq = toNum(meta.server_seq);
@@ -221,13 +249,13 @@ function handleMessage(data) {
             const errorCode = toNum(meta.error_code);
             const clientSeqVal = toNum(meta.client_seq);
 
-            const cb = pendingCallbacks.get(clientSeqVal);
-            if (cb) {
+            const entry = pendingCallbacks.get(clientSeqVal);
+            if (entry) {
                 pendingCallbacks.delete(clientSeqVal);
                 if (errorCode !== 0) {
-                    cb(new GatewayError(meta));
+                    entry.callback(new GatewayError(meta));
                 } else {
-                    cb(null, msg.body, meta);
+                    entry.callback(null, msg.body, meta);
                 }
                 return;
             }
@@ -521,9 +549,6 @@ async function sendLogin(onLoginSuccess) {
                 console.warn('===============================');
                 console.warn('');
 
-                // 登录后主动获取背包中的金豆豆数量
-                fetchGoldBeanFromBag();
-
                 // ACE 反作弊：绑定用户并启动定时 AntiData 上报（模拟真实客户端，避免服务端挂起）
                 userState.openid = String(reply.basic && reply.basic.open_id || '').trim();
                 if (userState.openid) {
@@ -542,51 +567,43 @@ async function sendLogin(onLoginSuccess) {
 }
 
 // ============ 心跳 ============
-let lastHeartbeatResponse = Date.now();
-let heartbeatMissCount = 0;
-const HEARTBEAT_TIMEOUT = 30000; // 30秒无响应认为连接异常
-const MAX_HEARTBEAT_MISS = 1; // 1次心跳丢失就触发重连
+let heartbeatInFlight = false;
+const HEARTBEAT_TIMEOUT = 20000;
 
 function startHeartbeat() {
     networkScheduler.clear('heartbeat_interval');
-    lastHeartbeatResponse = Date.now();
-    heartbeatMissCount = 0;
+    lastInboundAt = Date.now();
+    heartbeatInFlight = false;
 
     networkScheduler.setIntervalTask('heartbeat_interval', CONFIG.heartbeatInterval, () => {
         if (!userState.gid) return;
 
-        // 检查上次心跳响应时间，超过 30 秒没响应说明连接有问题
-        const timeSinceLastResponse = Date.now() - lastHeartbeatResponse;
-        if (timeSinceLastResponse > HEARTBEAT_TIMEOUT) {
-            heartbeatMissCount++;
-            logWarn('心跳', `连接可能已断开 (${Math.round(timeSinceLastResponse/1000)}s 无响应, pending=${pendingCallbacks.size})`);
-            if (heartbeatMissCount >= MAX_HEARTBEAT_MISS) {
-                log('心跳', '心跳超时，立即重连...');
-                // 清理待处理的回调，避免堆积
-                // pendingCallbacks.forEach((cb, _seq) => {
-                //     try { cb(new Error('连接超时，已清理')); } catch {}
-                // });
-                // pendingCallbacks.clear();
-                rejectAllPendingRequests('连接超时，已清理');
-                // 立即触发重连
-                reconnect(null);
-                return;
-            }
-        }
+        if (heartbeatInFlight) return;
 
         const body = types.HeartbeatRequest.encode(types.HeartbeatRequest.create({
             gid: toLong(userState.gid),
             client_version: getClientVersion(),
         })).finish();
-        sendMsgAsync('gamepb.userpb.UserService', 'Heartbeat', body).then(({ body: replyBody }) => {
-            lastHeartbeatResponse = Date.now();
-            heartbeatMissCount = 0;
+        heartbeatInFlight = true;
+        sendMsgAsync('gamepb.userpb.UserService', 'Heartbeat', body, {
+            timeoutMs: HEARTBEAT_TIMEOUT,
+            category: 'control',
+        }).then(({ body: replyBody }) => {
             try {
                 const reply = types.HeartbeatReply.decode(replyBody);
                 applyServerVersionInfo(reply.version_info);
                 if (reply.server_time) syncServerTime(toNum(reply.server_time));
             } catch { }
-        }).catch(() => { });
+        }).catch((error) => {
+            const wasSent = Number(error && error.sentAt) > 0;
+            const noInboundSinceSend = lastInboundAt <= Number(error && error.sentAt);
+            if (error && error.code === 'REQUEST_TIMEOUT' && wasSent && noInboundSinceSend) {
+                logWarn('心跳', `心跳请求超时且 ${Math.round((Date.now() - lastInboundAt) / 1000)}s 无入站消息，立即重连`);
+                reconnect(null);
+            }
+        }).finally(() => {
+            heartbeatInFlight = false;
+        });
     });
 }
 
@@ -595,28 +612,34 @@ let savedLoginCallback = null;
 let savedCode = null;
 
 function connect(code, onLoginSuccess) {
+    connectionRevision += 1;
+    const revision = connectionRevision;
     savedLoginCallback = onLoginSuccess;
     if (code) savedCode = code;
     const url = `${CONFIG.serverUrl}?platform=${CONFIG.platform}&os=${CONFIG.os}&ver=${getClientVersion()}&code=${savedCode}&openID=`;
 
-    ws = new WebSocket(url, {
+    const socket = new WebSocket(url, {
         headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36 MicroMessenger/7.0.20.1781(0x6700143B) NetType/WIFI MiniProgramEnv/Windows WindowsWechat/WMPF WindowsWechat(0x63090a13)',
             'Origin': 'https://gate-obt.nqf.qq.com',
         },
     });
 
-    ws.binaryType = 'arraybuffer';
+    ws = socket;
+    socket.binaryType = 'arraybuffer';
 
-    ws.on('open', () => {
+    socket.on('open', () => {
+        if (revision !== connectionRevision || socket !== ws) return;
         sendLogin(onLoginSuccess);
     });
 
-    ws.on('message', (data) => {
+    socket.on('message', (data) => {
+        if (revision !== connectionRevision || socket !== ws) return;
         handleMessage(Buffer.isBuffer(data) ? data : Buffer.from(data));
     });
 
-    ws.on('close', (code, _reason) => {
+    socket.on('close', (code, _reason) => {
+        if (revision !== connectionRevision || socket !== ws) return;
         console.warn(`[WS] 连接关闭 (code=${code})`);
         cleanup();
         // 连接被拒（400，code 过期）：跳过自动重连，等 worker 刷新 code 后手动重连
@@ -633,7 +656,8 @@ function connect(code, onLoginSuccess) {
         }
     });
 
-    ws.on('error', (err) => {
+    socket.on('error', (err) => {
+        if (revision !== connectionRevision || socket !== ws) return;
         const message = err && err.message ? String(err.message) : '';
         logWarn('系统', `[WS] 错误: ${message}`);
         const match = message.match(/Unexpected server response:\s*(\d+)/i);
@@ -656,6 +680,8 @@ function connect(code, onLoginSuccess) {
 let skipAutoReconnect = false;
 
 function cleanup(reason = '网络清理') {
+    connectionRevision += 1;
+    heartbeatInFlight = false;
     rejectAllPendingRequests(`请求已中断: ${reason}`);
     networkScheduler.clearAll();
     // pendingCallbacks.clear();

@@ -87,7 +87,7 @@ function getPriceClass(item: any) {
 
 function canSell(item: any) {
   const itemType = Number(item?.itemType || 0)
-  return itemType === 17 || itemType === 6
+  return (itemType === 17 || itemType === 6) && item?.sellable === true
 }
 
 function canBatchSell(item: any) {

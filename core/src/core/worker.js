@@ -196,13 +196,15 @@ async function runDailyRoutines(force = false) {
 
 function stopDailyRoutineTimer() {
     workerScheduler.clear('daily_routine_interval');
+    workerScheduler.clear('daily_routine_startup');
 }
 
-function startDailyRoutineTimer() {
+function startDailyRoutineTimer(initialDelayMs = 12000) {
     stopDailyRoutineTimer();
     lastDailyRunDate = getLocalDateKey();
-    // 新账号登录后按当前设置强制执行一次领取
-    runDailyRoutines(true).catch(() => null);
+    workerScheduler.setTimeoutTask('daily_routine_startup', initialDelayMs, () => {
+        runDailyRoutines(true).catch(() => null);
+    });
     workerScheduler.setIntervalTask('daily_routine_interval', 30 * 1000, () => {
         if (!loginReady) return;
         const today = getLocalDateKey();
@@ -647,19 +649,21 @@ async function startBot(config) {
         };
         networkEvents.on('farmHarvested', onFarmHarvested);
 
-        // 登录后主动拉一次背包，初始化点券(ID:1002)数量
+        // 登录后只拉一次背包，同时初始化点券和金豆豆数量。
         try {
             const bagReply = await getBag();
             const items = getBagItems(bagReply);
             let coupon = 0;
+            let goldBean = 0;
             for (const it of (items || [])) {
-                if (toNum(it && it.id) === 1002) {
-                    coupon = toNum(it.count);
-                    break;
-                }
+                const id = toNum(it && it.id);
+                if (id === 1002) coupon = toNum(it.count);
+                if (id === 1005) goldBean = toNum(it.count);
             }
             const state = getUserState();
             state.coupon = Math.max(0, coupon);
+            state.goldBean = Math.max(0, goldBean);
+            log('系统', `金豆豆数量: ${state.goldBean}`);
         } catch {
             // ignore
         }
@@ -679,7 +683,7 @@ async function startBot(config) {
         if (!isLifecycleActive()) return;
         
         // 启动时执行一次放虫放草（只在账号启动时执行）
-        workerScheduler.setTimeoutTask('bad_startup_once', 10000, async () => {
+        workerScheduler.setTimeoutTask('bad_startup_once', 20000, async () => {
             try {
                 await runBadOnceOnStartup();
             } catch (e) {
@@ -877,6 +881,9 @@ async function handleApiCall(msg) {
             case 'getCurrentSolarTerms':
                 result = await require('../services/activity').getCurrentSolarTerms();
                 break;
+            case 'getCurrentQingMeiActivity':
+                result = await require('../services/activity').getCurrentQingMeiActivity();
+                break;
             case 'claimBattlePassRewards':
                 result = await require('../services/activity').claimBattlePassRewards();
                 break;
@@ -888,6 +895,18 @@ async function handleApiCall(msg) {
                 break;
             case 'claimSolarTerm':
                 result = await require('../services/activity').claimSolarTerm(args[0]);
+                break;
+            case 'claimQingMeiDailySeed':
+                result = await require('../services/activity').claimQingMeiDailySeed();
+                break;
+            case 'startQingMeiBrew':
+                result = await require('../services/activity').startQingMeiBrew(args[0]);
+                break;
+            case 'continueQingMeiBrew':
+                result = await require('../services/activity').continueQingMeiBrew();
+                break;
+            case 'settleQingMeiBrew':
+                result = await require('../services/activity').settleQingMeiBrew();
                 break;
             default:
                 error = 'Unknown method';

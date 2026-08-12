@@ -24,8 +24,10 @@ const import_constellation_2026072701 = __toESM(require("../activity-data/conste
 const LongModule = require("long");
 const { sendMsgAsync, GatewayError } = require("../utils/network");
 const { types } = require("../utils/proto");
+const { createSingleFlight } = require("../utils/request-coordination");
 const { getItemById, getItemDisplayById, getItemImageById } = require("../config/gameConfig");
 const { getBag, getBagItems } = require("./warehouse");
+const qingmei = require("./qingmei");
 const {
   mergeConstellationStates,
   stateRecordKey,
@@ -39,6 +41,8 @@ const CONSTELLATION_ACTIVITY_TYPE = "13";
 const EXCHANGE_SHOP_OPERATE_TYPE = 1;
 const QUERY_SHOP_OPERATE_TYPE = 7;
 const LIGHT_CONSTELLATION_OPERATE_TYPE = 21;
+const SNAPSHOT_REQUEST_TIMEOUT_MS = 20000;
+const ACTIVITY_READ_TIMEOUT_MS = 20000;
 const MAX_SIGNED_INT64 = 9223372036854775807n;
 const SECONDS_PER_DAY = 86400;
 const BEIJING_UTC_OFFSET_SECONDS = 8 * 60 * 60;
@@ -410,14 +414,14 @@ function constellationDto(activity, serverTimeValue, data, confirmedState) {
     } : {}
   };
 }
-async function querySeason() {
+async function querySeason(timeoutOrOptions = 20000) {
   const body = Buffer.from(types.GetSeasonInfoRequest.encode(types.GetSeasonInfoRequest.create({})).finish());
-  const { body: replyBody } = await sendMsgAsync("gamepb.seasonpb.SeasonService", "GetSeasonInfo", body);
+  const { body: replyBody } = await sendMsgAsync("gamepb.seasonpb.SeasonService", "GetSeasonInfo", body, timeoutOrOptions);
   return types.GetSeasonInfoReply.decode(replyBody);
 }
-async function querySolarTerms() {
+async function querySolarTerms(timeoutOrOptions = 20000) {
   const body = Buffer.from(types.GetSolarTermsRequest.encode(types.GetSolarTermsRequest.create({})).finish());
-  const { body: replyBody } = await sendMsgAsync("gamepb.solartermspb.SolarTermsService", "GetSolarTerms", body);
+  const { body: replyBody } = await sendMsgAsync("gamepb.solartermspb.SolarTermsService", "GetSolarTerms", body, timeoutOrOptions);
   return types.GetSolarTermsReply.decode(replyBody);
 }
 function findSeasonActivity(seasonReply, typeCode) {
@@ -544,13 +548,13 @@ function normalizeShopFromReply(seasonReply, shopActivity, reply, balances) {
     }
   };
 }
-async function queryShopCatalog(shopActivity) {
+async function queryShopCatalog(shopActivity, timeoutOrOptions = 20000) {
   const request = types.QueryActivityRequest.create({
     activity_id: shopActivity.activity_id,
     operate_type: QUERY_SHOP_OPERATE_TYPE
   });
   const body = Buffer.from(types.QueryActivityRequest.encode(request).finish());
-  const { body: replyBody } = await sendMsgAsync("gamepb.activitypb.ActivityService", "Operate", body);
+  const { body: replyBody } = await sendMsgAsync("gamepb.activitypb.ActivityService", "Operate", body, timeoutOrOptions);
   const reply = types.ActivityOperateReply.decode(replyBody);
   if (int64String(reply.activity_id) !== int64String(shopActivity.activity_id)) {
     throw businessError("SHOP_RESPONSE_INVALID", "\u6D3B\u52A8\u5546\u5E97\u67E5\u8BE2\u8FD4\u56DE\u4E86\u4E0D\u5339\u914D\u7684\u6D3B\u52A8 ID");
@@ -563,15 +567,15 @@ async function queryShopCatalog(shopActivity) {
   }
   return reply;
 }
-async function queryShopFromSeason(seasonReply) {
+async function queryShopFromSeason(seasonReply, bagReply = null, timeoutOrOptions = 20000) {
   const shopActivity = findSeasonActivity(seasonReply, SHOP_ACTIVITY_TYPE);
   if (!shopActivity) throw businessError("SHOP_UNAVAILABLE", "\u5F53\u524D\u8D5B\u5B63\u672A\u53D1\u73B0\u6D3B\u52A8\u5546\u5E97");
-  const reply = await queryShopCatalog(shopActivity);
+  const reply = await queryShopCatalog(shopActivity, timeoutOrOptions);
   const goods = reply.data.catalog.goods;
   const currencyIds = Array.from(new Set(goods.map((entry) => int64String(entry?.cost?.item_id)).filter((id) => id !== "0")));
   let balances = null;
   try {
-    balances = readBagBalances(await getBag(), currencyIds);
+    balances = readBagBalances(bagReply || await getBag(), currencyIds);
   } catch {
   }
   return normalizeShopFromReply(seasonReply, shopActivity, reply, balances);
@@ -624,16 +628,28 @@ function buildActions(season, solarTerms, constellation = null, shop = null) {
     }
   };
 }
-async function getActivityCenterSnapshot(shopOverride = null) {
-  const [seasonResult, solarResult] = await Promise.allSettled([querySeason(), querySolarTerms()]);
+let snapshotInFlight = null;
+async function buildActivityCenterSnapshot(shopOverride = null) {
+  const bagPromise = getBag(SNAPSHOT_REQUEST_TIMEOUT_MS);
+  const [seasonResult, solarResult, qingMeiResult, bagResult] = await Promise.allSettled([
+    querySeason(SNAPSHOT_REQUEST_TIMEOUT_MS),
+    querySolarTerms(SNAPSHOT_REQUEST_TIMEOUT_MS),
+    qingmei.getCurrentQingMeiActivity(bagPromise, SNAPSHOT_REQUEST_TIMEOUT_MS),
+    bagPromise
+  ]);
   const rawSeason = settledValue(seasonResult);
+  if (!rawSeason && solarResult.status === "rejected" && qingMeiResult.status === "rejected") {
+    throw seasonResult.reason || solarResult.reason || qingMeiResult.reason || bagResult.reason;
+  }
   const season = rawSeason ? normalizeSeason(rawSeason) : null;
   const solarTerms = solarResult.status === "fulfilled" ? normalizeSolarTerms(solarResult.value) : null;
   let shopResult;
   if (shopOverride) {
     shopResult = { status: "fulfilled", value: shopOverride };
   } else if (rawSeason) {
-    [shopResult] = await Promise.allSettled([queryShopFromSeason(rawSeason)]);
+    [shopResult] = await Promise.allSettled([
+      queryShopFromSeason(rawSeason, settledValue(bagResult), SNAPSHOT_REQUEST_TIMEOUT_MS)
+    ]);
   } else {
     shopResult = { status: "rejected", reason: new Error("\u8D5B\u5B63\u67E5\u8BE2\u5931\u8D25\uFF0C\u65E0\u6CD5\u53D1\u73B0\u6D3B\u52A8\u5546\u5E97 ID") };
   }
@@ -647,11 +663,13 @@ async function getActivityCenterSnapshot(shopOverride = null) {
     loadMergedConstellationState(rawSeason, constellationActivity)
   ) : null;
   const actions = buildActions(season, solarTerms, constellation, shop);
+  const qingMei = settledValue(qingMeiResult);
   return {
     season,
     constellation,
     shop,
     solarTerms,
+    qingMei,
     capabilities: {
       claimPass: actions.claimPass.supported,
       lightConstellation: actions.lightConstellation.supported,
@@ -662,9 +680,27 @@ async function getActivityCenterSnapshot(shopOverride = null) {
     errors: {
       season: settledError(seasonResult),
       shop: settledError(shopResult),
-      solarTerms: settledError(solarResult)
+      solarTerms: settledError(solarResult),
+      qingMei: settledError(qingMeiResult)
     }
   };
+}
+const runSnapshotSingleFlight = createSingleFlight(buildActivityCenterSnapshot);
+function getSnapshotSingleFlight(shopOverride = null) {
+  const request = runSnapshotSingleFlight(shopOverride);
+  snapshotInFlight = request;
+  request.finally(() => {
+    if (snapshotInFlight === request) snapshotInFlight = null;
+  }).catch(() => null);
+  return request;
+}
+function getActivityCenterSnapshot(shopOverride = null) {
+  return mutationTail.then(() => getSnapshotSingleFlight(shopOverride));
+}
+async function getFreshActivityCenterSnapshot(shopOverride = null) {
+  const current = snapshotInFlight;
+  if (current) await current.catch(() => null);
+  return getSnapshotSingleFlight(shopOverride);
 }
 async function getCurrentSeasonEvent() {
   const seasonReply = await querySeason();
@@ -688,14 +724,22 @@ async function getCurrentSolarTerms() {
   const actions = buildActions(null, solarTerms);
   return { ...solarTerms, capabilities: { claimSolar: true }, actions };
 }
+async function getCurrentQingMeiActivity() {
+  return qingmei.getCurrentQingMeiActivity();
+}
 function serializeMutation(operation) {
-  const result = mutationTail.then(operation, operation);
+  const run = async () => {
+    const currentSnapshot = snapshotInFlight;
+    if (currentSnapshot) await currentSnapshot.catch(() => null);
+    return operation();
+  };
+  const result = mutationTail.then(run, run);
   mutationTail = result.then(() => void 0, () => void 0);
   return result;
 }
 async function claimBattlePassRewards() {
   return serializeMutation(async () => {
-    const seasonReply = await querySeason();
+    const seasonReply = await querySeason(ACTIVITY_READ_TIMEOUT_MS);
     const pass = passDto(seasonReply?.season_info?.pass);
     if (!pass) throw new Error("\u670D\u52A1\u7AEF\u672A\u53D1\u73B0\u53EF\u7528\u6E38\u8BB0");
     if (!pass.nodes.some((node) => node.claimable)) {
@@ -714,7 +758,7 @@ async function claimBattlePassRewards() {
       rewards: (Array.isArray(reply.rewards) ? reply.rewards : []).map(itemDto),
       field2Codes: (Array.isArray(reply.field_2) ? reply.field_2 : []).map(int64String),
       pass: passDto(reply.pass),
-      snapshot: await getActivityCenterSnapshot()
+      snapshot: await getFreshActivityCenterSnapshot()
     };
   });
 }
@@ -722,10 +766,10 @@ async function exchangeStarSandGoods(goodsIdInput, countInput) {
   const goodsId = positiveDecimal(goodsIdInput, "INVALID_SHOP_GOODS_ID", "goodsId");
   const count = positiveDecimal(countInput, "INVALID_EXCHANGE_COUNT", "count");
   return serializeMutation(async () => {
-    const seasonReply = await querySeason();
+    const seasonReply = await querySeason(ACTIVITY_READ_TIMEOUT_MS);
     const shopActivity = findSeasonActivity(seasonReply, SHOP_ACTIVITY_TYPE);
     if (!shopActivity) throw businessError("SHOP_UNAVAILABLE", "\u5F53\u524D\u8D5B\u5B63\u672A\u53D1\u73B0\u6D3B\u52A8\u5546\u5E97");
-    const catalogReply = await queryShopCatalog(shopActivity);
+    const catalogReply = await queryShopCatalog(shopActivity, ACTIVITY_READ_TIMEOUT_MS);
     const catalogGoods = catalogReply.data.catalog.goods;
     const rawGoods = catalogGoods.find((entry) => int64String(entry?.goods_id) === goodsId);
     if (!rawGoods) throw businessError("SHOP_GOODS_NOT_FOUND", "\u6D3B\u52A8\u5546\u5E97\u4E2D\u672A\u627E\u5230\u6307\u5B9A\u5546\u54C1");
@@ -737,7 +781,7 @@ async function exchangeStarSandGoods(goodsIdInput, countInput) {
     }
     let balances;
     try {
-      balances = readBagBalances(await getBag(), [currencyId]);
+      balances = readBagBalances(await getBag(ACTIVITY_READ_TIMEOUT_MS), [currencyId]);
     } catch {
       throw businessError("SHOP_BALANCE_UNAVAILABLE", "\u65E0\u6CD5\u786E\u8BA4\u5F53\u524D\u661F\u7802\u4F59\u989D\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5");
     }
@@ -776,11 +820,11 @@ async function exchangeStarSandGoods(goodsIdInput, countInput) {
     const responseCurrencyIds = Array.from(new Set(reply.data.catalog.goods.map((entry) => int64String(entry?.cost?.item_id)).filter((id) => id !== "0")));
     let latestBalances = null;
     try {
-      latestBalances = readBagBalances(await getBag(), responseCurrencyIds);
+      latestBalances = readBagBalances(await getBag(ACTIVITY_READ_TIMEOUT_MS), responseCurrencyIds);
     } catch {
     }
     const shop = normalizeShopFromReply(seasonReply, shopActivity, reply, latestBalances);
-    const snapshot = await getActivityCenterSnapshot(shop);
+    const snapshot = await getFreshActivityCenterSnapshot(shop);
     const unitItemCount = BigInt(int64String(rawGoods?.item?.count));
     const totalItemCount = (unitItemCount > 0n ? unitItemCount * purchaseCount : 0n).toString();
     const receivedItem = itemDto({
@@ -802,7 +846,7 @@ async function exchangeStarSandGoods(goodsIdInput, countInput) {
 }
 async function lightConstellation() {
   return serializeMutation(async () => {
-    const seasonReply = await querySeason();
+    const seasonReply = await querySeason(ACTIVITY_READ_TIMEOUT_MS);
     const activity = findSeasonActivity(seasonReply, CONSTELLATION_ACTIVITY_TYPE);
     if (!activity) throw new Error("\u670D\u52A1\u7AEF\u672A\u53D1\u73B0\u661F\u5EA7\u6D3B\u52A8");
     const identity = constellationStateIdentity(seasonReply, activity);
@@ -844,7 +888,7 @@ async function lightConstellation() {
       } catch (persistenceError) {
         persistenceWarning2 = String(persistenceError?.message || persistenceError || "\u89C2\u661F\u72B6\u6001\u6301\u4E45\u5316\u5931\u8D25");
       }
-      const snapshot2 = await getActivityCenterSnapshot();
+      const snapshot2 = await getFreshActivityCenterSnapshot();
       return {
         outcome: "nothingToClaim",
         noClaimable: true,
@@ -875,7 +919,7 @@ async function lightConstellation() {
     } catch (persistenceError) {
       persistenceWarning = String(persistenceError?.message || persistenceError || "\u89C2\u661F\u72B6\u6001\u6301\u4E45\u5316\u5931\u8D25");
     }
-    const snapshot = await getActivityCenterSnapshot();
+    const snapshot = await getFreshActivityCenterSnapshot();
     return {
       outcome: "lighted",
       rewards: [],
@@ -889,7 +933,7 @@ async function lightConstellation() {
 async function claimSolarTerm(termId) {
   return serializeMutation(async () => {
     if (!/^[1-9]\d*$/.test(termId)) throw new Error("termId \u5FC5\u987B\u662F\u6B63\u5341\u8FDB\u5236\u6574\u6570");
-    const solarReply = await querySolarTerms();
+    const solarReply = await querySolarTerms(ACTIVITY_READ_TIMEOUT_MS);
     const term = (Array.isArray(solarReply?.terms) ? solarReply.terms : []).find((entry) => int64String(entry?.term_id) === termId);
     if (!term) throw new Error("\u670D\u52A1\u7AEF\u672A\u53D1\u73B0\u6307\u5B9A\u8282\u4EE4");
     if (int64String(term.status) !== "2") throw new Error("\u6307\u5B9A\u8282\u4EE4\u5F53\u524D\u4E0D\u53EF\u9886\u53D6");
@@ -905,17 +949,34 @@ async function claimSolarTerm(termId) {
     return {
       rewards: (Array.isArray(reply.rewards) ? reply.rewards : []).map(itemDto),
       term: solarTermDto(reply.term),
-      snapshot: await getActivityCenterSnapshot()
+      snapshot: await getFreshActivityCenterSnapshot()
     };
   });
+}
+async function claimQingMeiDailySeed() {
+  return serializeMutation(async () => ({ ...await qingmei.claimDailySeed(), snapshot: await getFreshActivityCenterSnapshot() }));
+}
+async function startQingMeiBrew(ingredients) {
+  return serializeMutation(async () => ({ ...await qingmei.startBrew(ingredients), snapshot: await getFreshActivityCenterSnapshot() }));
+}
+async function continueQingMeiBrew() {
+  return serializeMutation(async () => ({ ...await qingmei.continueBrew(), snapshot: await getFreshActivityCenterSnapshot() }));
+}
+async function settleQingMeiBrew() {
+  return serializeMutation(async () => ({ ...await qingmei.settleBrew(), snapshot: await getFreshActivityCenterSnapshot() }));
 }
 module.exports = {
   getActivityCenterSnapshot,
   getCurrentSeasonEvent,
   getCurrentStarSandShop,
   getCurrentSolarTerms,
+  getCurrentQingMeiActivity,
   claimBattlePassRewards,
   exchangeStarSandGoods,
   lightConstellation,
-  claimSolarTerm
+  claimSolarTerm,
+  claimQingMeiDailySeed,
+  startQingMeiBrew,
+  continueQingMeiBrew,
+  settleQingMeiBrew
 };

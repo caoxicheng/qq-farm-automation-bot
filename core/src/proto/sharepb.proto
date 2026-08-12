@@ -15,7 +15,8 @@ message CheckCanShareReply {
 
 // --- 报告分享 ---
 message ReportShareRequest {
-    bool shared = 1;  // 是否已分享
+    int32 source = 1;
+    int32 scene = 4;
 }
 
 message ReportShareReply {

@@ -3,7 +3,6 @@
  * 协议说明：BagReply 使用 item_bag（ItemBag），item_bag.items 才是背包物品列表
  */
 
-const protobuf = require('protobufjs');
 const { getFruitName, getPlantByFruitId, getPlantBySeedId, getItemById, getItemDisplayById, getItemImageById, getSeedImageBySeedId } = require('../config/gameConfig');
 const { isAutomationOn } = require('../models/store');
 const { sendMsgAsync, networkEvents, getUserState } = require('../utils/network');
@@ -57,9 +56,9 @@ function getDateKey() {
 
 // ============ API ============
 
-async function getBag() {
+async function getBag(timeoutOrOptions = 20000) {
     const body = types.BagRequest.encode(types.BagRequest.create({})).finish();
-    const { body: replyBody } = await sendMsgAsync('gamepb.itempb.ItemService', 'Bag', body);
+    const { body: replyBody } = await sendMsgAsync('gamepb.itempb.ItemService', 'Bag', body, timeoutOrOptions);
     return types.BagReply.decode(replyBody);
 }
 
@@ -76,11 +75,34 @@ function toSellItem(item) {
     return payload;
 }
 
+function getSellEligibility(itemOrId) {
+    const id = toNum(typeof itemOrId === 'object' ? itemOrId && itemOrId.id : itemOrId);
+    const info = getItemById(id);
+    const display = getItemDisplayById(id);
+    // 展示目录只能辅助显示分类，出售权限必须来自业务配置。
+    const businessItemType = Number((info && info.type) || 0);
+    const displayItemType = Number((display && display.itemType) || 0);
+    const price = Number((info && info.price) || 0);
+    const sellableType = businessItemType === 6 || businessItemType === 17;
+    const displayLooksSellable = displayItemType === 6 || displayItemType === 17;
+    return {
+        sellable: sellableType && price > 0,
+        status: sellableType && price > 0 ? 'available' : (sellableType || displayLooksSellable) ? 'conditional' : 'unavailable',
+        price,
+    };
+}
+
 async function sellItems(items) {
     // 服务器限制单次 Sell 请求 items 数量（>19 报错）——分批卖出。
     // SELL_BATCH_SIZE=15 为自动卖果实实测安全值；面板批量卖出（一次全发）也走这里分批。
     const list = Array.isArray(items) ? items : [];
     if (list.length === 0) return null;
+    for (const item of list) {
+        const id = toNum(item && item.id);
+        const count = toNum(item && item.count);
+        if (id <= 0 || count <= 0) throw new Error('出售物品参数无效');
+        if (!getSellEligibility(id).sellable) throw new Error(`物品 ${id} 当前不可直接出售`);
+    }
     let lastReply = null;
     for (let i = 0; i < list.length; i += SELL_BATCH_SIZE) {
         const batch = list.slice(i, i + SELL_BATCH_SIZE);
@@ -94,9 +116,7 @@ async function sellItems(items) {
 
 async function useItem(itemId, count = 1, landIds = []) {
     const body = types.UseRequest.encode(types.UseRequest.create({
-        item_id: toLong(itemId),
-        count: toLong(count),
-        land_ids: (landIds || []).map((id) => toLong(id)),
+        item: { id: toLong(itemId), count: toLong(count) },
     })).finish();
     try {
         const { body: replyBody } = await sendMsgAsync('gamepb.itempb.ItemService', 'Use', body);
@@ -106,13 +126,19 @@ async function useItem(itemId, count = 1, landIds = []) {
         const isParamError = msg.includes('code=1000020') || msg.includes('请求参数错误');
         if (!isParamError) throw e;
 
-        // 兼容另一种 UseRequest 编码: { item: { id, count } }
-        const writer = protobuf.Writer.create();
-        const itemWriter = writer.uint32(10).fork(); // field 1: item
-        itemWriter.uint32(8).int64(toLong(itemId));  // item.id
-        itemWriter.uint32(16).int64(toLong(count));  // item.count
-        itemWriter.ldelim();
-        const fallbackBody = writer.finish();
+        // 兼容旧服务端平铺编码，待协议稳定后移除。
+        const fallbackType = require('protobufjs').Type.fromJSON('LegacyUseRequest', {
+            fields: {
+                item_id: { type: 'int64', id: 1 },
+                count: { type: 'int64', id: 2 },
+                land_ids: { rule: 'repeated', type: 'int64', id: 3 },
+            },
+        });
+        const fallbackBody = fallbackType.encode(fallbackType.create({
+            item_id: toLong(itemId),
+            count: toLong(count),
+            land_ids: (landIds || []).map((id) => toLong(id)),
+        })).finish();
 
         const { body: fallbackReplyBody } = await sendMsgAsync('gamepb.itempb.ItemService', 'Use', fallbackBody);
         return types.UseReply.decode(fallbackReplyBody);
@@ -392,6 +418,7 @@ async function getBagDetail() {
                     itemId: id,
                 });
             }
+            const sellEligibility = getSellEligibility(id);
             merged.set(id, {
                 id,
                 count: 0,
@@ -402,6 +429,8 @@ async function getBagDetail() {
                 priceId,
                 price: info ? (Number(info.price) || 0) : (Number(displayPrice && displayPrice.amount) || 0),
                 priceUnit,
+                sellable: sellEligibility.sellable,
+                sellStatus: sellEligibility.status,
                 level: info ? (Number(info.level) || 0) : (Number(display && display.level) || 0),
                 interactionType,
                 hoursText: '',
@@ -459,7 +488,7 @@ async function sellAllFruits() {
         for (const item of items) {
             const id = toNum(item.id);
             const count = toNum(item.count);
-            if (isFruitItemId(id) && count > 0) {
+            if (isFruitItemId(id) && count > 0 && getSellEligibility(id).sellable) {
                 toSell.push(item);
                 names.push(`${getFruitName(id)}x${count}`);
             }
@@ -611,4 +640,5 @@ module.exports = {
     getCurrentTotalsFromBag,
     getBagSeeds,
     getContainerHoursFromBagItems,
+    getSellEligibility,
 };
