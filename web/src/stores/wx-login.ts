@@ -219,9 +219,10 @@ export const useWxLoginStore = defineStore('wx-login', () => {
         }
       }
       else {
-        // 使用本地 API 模式（原有逻辑）；微信扫码接口是长轮询（~15s），超时给 25s 兜底
+        // 使用本地 API 模式（原有逻辑）；微信扫码接口是长轮询（~15s），
+        // 超时给 60s 兜底（MMTLS 冷启动握手可能 30-48s，25s 会误报失败导致轮询停止）
         const controller = new AbortController()
-        const timer = setTimeout(() => controller.abort(), 25000)
+        const timer = setTimeout(() => controller.abort(), 60000)
         try {
           const response = await fetch(`${config.value.apiBase}/Login/LoginCheckQR?uuid=${uuid.value}`, {
             method: 'POST',
@@ -257,8 +258,17 @@ export const useWxLoginStore = defineStore('wx-login', () => {
       }
     }
     catch (e: any) {
+      // 请求超时/中断（abort）：MMTLS 冷启动握手慢，后端仍在处理——不算失败，
+      // 恢复 qr_ready 保持等待（checkLogin 开头置了 scanning，不恢复会导致轮询守卫停止轮询），
+      // 避免误弹"重新扫码"
+      if (e?.name === 'AbortError' || /aborted|timeout/i.test(String(e?.message || ''))) {
+        status.value = 'qr_ready'
+        statusMessage.value = '网络较慢，持续等待中...'
+        return { success: false }
+      }
       status.value = 'error'
       errorMessage.value = `请求失败: ${e.message}`
+      statusMessage.value = '' // 清掉等待提示残留，避免状态不一致
       return { success: false }
     }
   }

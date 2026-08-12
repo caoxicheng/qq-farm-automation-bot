@@ -31,36 +31,46 @@ const form = reactive({
   platform: 'qq' as 'qq' | 'wx',
 })
 
-// 微信扫码轮询
+// 微信扫码轮询（串行：上一次完成才发下一次；2s 间隔 + 60s 超时下并发堆积会拖慢页面/过期响应覆盖状态，加锁防重叠）
+let pollingLock = false
 const { pause: stopWxCheck, resume: startWxCheck } = useIntervalFn(async () => {
+  if (pollingLock) {
+    return
+  }
   if (wxLoginStore.status !== 'qr_ready' && wxLoginStore.status !== 'confirming') {
     return
   }
-  const result = await wxLoginStore.checkLogin()
-  if (result.success && result.wxid) {
-    stopWxCheck()
-    // 获取Code并添加账号
-    const codeResult = await wxLoginStore.getFarmCode()
-    if (codeResult.success && codeResult.code) {
-      const name = wxAccountName.value.trim() || result.nickname || `微信账号${Date.now()}`
-      // 检查是否启用自动添加账号
-      if (wxLoginStore.config.autoAddAccount) {
-        await addAccount({
-          id: props.editData?.id,
-          name: props.editData ? (props.editData.name || name) : name,
-          code: codeResult.code,
-          platform: 'wx',
-          loginType: 'wx_qr',
-          wxid: result.wxid,
-        })
-      }
-      else {
-        // 不自动添加，只显示 code 让用户手动复制
-        form.code = codeResult.code
-        form.platform = 'wx'
-        activeTab.value = 'manual'
+  pollingLock = true
+  try {
+    const result = await wxLoginStore.checkLogin()
+    if (result.success && result.wxid) {
+      stopWxCheck()
+      // 获取Code并添加账号
+      const codeResult = await wxLoginStore.getFarmCode()
+      if (codeResult.success && codeResult.code) {
+        const name = wxAccountName.value.trim() || result.nickname || `微信账号${Date.now()}`
+        // 检查是否启用自动添加账号
+        if (wxLoginStore.config.autoAddAccount) {
+          await addAccount({
+            id: props.editData?.id,
+            name: props.editData ? (props.editData.name || name) : name,
+            code: codeResult.code,
+            platform: 'wx',
+            loginType: 'wx_qr',
+            wxid: result.wxid,
+          })
+        }
+        else {
+          // 不自动添加，只显示 code 让用户手动复制
+          form.code = codeResult.code
+          form.platform = 'wx'
+          activeTab.value = 'manual'
+        }
       }
     }
+  }
+  finally {
+    pollingLock = false
   }
 }, 2000, { immediate: false })
 

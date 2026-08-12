@@ -183,7 +183,9 @@ class WxLoginService {
   }
   async refreshLoginBuffer(session) {
     if (!session || !session.openid || !session.refreshtoken) throw new Error("缺少刷新凭证（refreshtoken），请重新扫码登录");
-    const payload = JSON.stringify({ user_info: { openid: session.openid, refreshtoken: session.refreshtoken, accesstoken: session.accesstoken || "", logintype: "WX" } });
+    // 字段必须 camelCase（yyb-go refreshTokenRequest：userInfo/openId/refreshToken/accessToken/loginType），
+    // 用 snake_case 服务器解析不到 refreshtoken → code=-109 "RefreshToken empty token"
+    const payload = JSON.stringify({ userInfo: { openId: session.openid, refreshToken: session.refreshtoken, accessToken: session.accesstoken || "", loginType: "WX" } });
     const timestamp = String(Date.now());
     const nonce = String(import_node_crypto.default.randomInt(1e3, 1e4));
     const signature = import_node_crypto.default.createHash("md5").update(`${payload}${timestamp}${LOGIN_BUFFER_ACCESS_KEY}${nonce}`).digest("hex");
