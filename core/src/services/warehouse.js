@@ -77,10 +77,19 @@ function toSellItem(item) {
 }
 
 async function sellItems(items) {
-    const payload = items.map(toSellItem);
-    const body = types.SellRequest.encode(types.SellRequest.create({ items: payload })).finish();
-    const { body: replyBody } = await sendMsgAsync('gamepb.itempb.ItemService', 'Sell', body);
-    return types.SellReply.decode(replyBody);
+    // 服务器限制单次 Sell 请求 items 数量（>19 报错）——分批卖出。
+    // SELL_BATCH_SIZE=15 为自动卖果实实测安全值；面板批量卖出（一次全发）也走这里分批。
+    const list = Array.isArray(items) ? items : [];
+    if (list.length === 0) return null;
+    let lastReply = null;
+    for (let i = 0; i < list.length; i += SELL_BATCH_SIZE) {
+        const batch = list.slice(i, i + SELL_BATCH_SIZE);
+        const payload = batch.map(toSellItem);
+        const body = types.SellRequest.encode(types.SellRequest.create({ items: payload })).finish();
+        const { body: replyBody } = await sendMsgAsync('gamepb.itempb.ItemService', 'Sell', body);
+        lastReply = types.SellReply.decode(replyBody);
+    }
+    return lastReply;
 }
 
 async function useItem(itemId, count = 1, landIds = []) {
