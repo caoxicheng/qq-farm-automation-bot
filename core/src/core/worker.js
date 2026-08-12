@@ -423,6 +423,11 @@ function applyRuntimeConfig(snapshot, syncNow = false) {
 // 接收主进程指令
 onMasterMessage(async (msg) => {
     try {
+        if (msg.type === 'ping') {
+            // 主进程 watchdog 探活：事件循环活着立即回 pong（卡死时收不到）
+            sendToMaster({ type: 'pong' });
+            return;
+        }
         if (msg.type === 'start') {
             await startBot(msg.config);
         } else if (msg.type === 'stop') {

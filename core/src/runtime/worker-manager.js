@@ -129,7 +129,7 @@ function createWorkerManager(options) {
         });
         // 与 child_process 保持同形接口
         worker.send = (payload) => worker.postMessage(payload);
-        worker.kill = () => worker.terminate();
+        worker.kill = () => worker.terminate().catch(() => {}); // terminate 返回 Promise，吞掉罕见 rejection
         return worker;
     }
 
@@ -153,9 +153,13 @@ function createWorkerManager(options) {
         return createForkWorker(account);
     }
 
+    // watchdog 卡死重启计数（连续 3 次停止自动重启；手动启动清零）
+    const watchdogRestartCounts = new Map();
+
     function startWorker(account) {
         if (!account || !account.id) return false;
         if (workers[account.id]) return false; // 已运行
+        watchdogRestartCounts.delete(account.id); // 手动/自动启动都重置计数
 
         log('系统', `正在启动账号: ${account.name}`, { accountId: String(account.id), accountName: account.name });
 
@@ -195,7 +199,41 @@ function createWorkerManager(options) {
 
         // 监听消息
         child.on('message', (msg) => {
+            // watchdog pong：主线程探活响应（worker 事件循环活着）
+            if (msg && msg.type === 'pong') {
+                lastPongAt = Date.now();
+                return;
+            }
             handleWorkerMessage(account.id, msg);
+        });
+
+        // watchdog：worker 卡死检测（事件循环同步阻塞时，worker 内的心跳/日志全停，主线程 ping 兜底）
+        // 每 30s ping 一次；90s 无 pong 判定卡死 → 终止并自动重启（挂机自愈；连续 3 次卡死重启后停止，防死循环）
+        let lastPongAt = Date.now();
+        const watchdogKey = `watchdog_${account.id}`;
+        managerScheduler.clear(watchdogKey);
+        managerScheduler.setIntervalTask(watchdogKey, 30000, () => {
+            const current = workers[account.id];
+            if (!current || current.stopping || current.process !== child) return;
+            const idleMs = Date.now() - lastPongAt;
+            if (idleMs >= 90000) {
+                const cnt = (watchdogRestartCounts.get(account.id) || 0) + 1;
+                watchdogRestartCounts.set(account.id, cnt);
+                log('系统', `账号 ${account.name} worker 无响应 ${Math.round(idleMs / 1000)}s，判定卡死（第 ${cnt} 次），强制重启`, { accountId: String(account.id), accountName: account.name });
+                current.stopping = true; // 避免 exit 处理误判自动重登失败
+                try { child.kill(); } catch {}
+                delete workers[account.id];
+                managerScheduler.setTimeoutTask(`watchdog_restart_${account.id}`, 3000, () => {
+                    if ((watchdogRestartCounts.get(account.id) || 0) > 3) {
+                        log('系统', `账号 ${account.name} 卡死重启超过 3 次，停止自动重启（请检查网络/凭证或手动启动）`, { accountId: String(account.id), accountName: account.name });
+                        watchdogRestartCounts.delete(account.id);
+                        return;
+                    }
+                    startWorker(account);
+                });
+            } else {
+                try { child.send({ type: 'ping' }); } catch {}
+            }
         });
 
         child.on('error', (err) => {
@@ -213,6 +251,10 @@ function createWorkerManager(options) {
 
             managerScheduler.clear(`force_kill_${account.id}`);
             managerScheduler.clear(`restart_fallback_${account.id}`);
+            // 仅当退出的是当前 worker 时才清 watchdog（旧 child 的 exit 延迟到达时不能清新 worker 的）
+            if (current && current.process === child) {
+                managerScheduler.clear(`watchdog_${account.id}`);
+            }
 
             // 自动重登失败检测：自动重登启动后短时间内进程异常退出（登录失败），禁用当天自动重登
             // 正常停止（stopWorker 设置 stopping=true）不会触发；被踢后 worker 自身退出也是 stopping=true
@@ -247,6 +289,8 @@ function createWorkerManager(options) {
     }
 
     function stopWorker(accountId) {
+        // 取消 watchdog 待重启（worker 可能已被 watchdog 删除——提前 return 也要清，否则 3s 内用户停止会被重启覆盖）
+        managerScheduler.clear(`watchdog_restart_${accountId}`);
         const worker = workers[accountId];
         if (!worker) return;
 
