@@ -13,6 +13,7 @@ const { recordOperation } = require('../services/stats');
 const { types } = require('./proto');
 const { toLong, toNum, syncServerTime, log, logWarn } = require('./utils');
 const cryptoWasm = require('./crypto-wasm');
+const { encodeGatewayRequest } = require('./gateway-request');
 const { canReserveRequest } = require('./request-coordination');
 const { startAceRuntime } = require('../services/ace');
 
@@ -77,19 +78,7 @@ async function encodeMsg(serviceName, methodName, bodyBytes, clientSeqValue) {
     if (finalBody.length > 0) {
         finalBody = await cryptoWasm.encryptBuffer(finalBody);
     }
-    const msg = types.GateMessage.create({
-        meta: {
-            service_name: serviceName,
-            method_name: methodName,
-            message_type: 1,
-            // client_seq: toLong(clientSeq),
-            client_seq: toLong(clientSeqValue),
-            server_seq: toLong(serverSeq),
-        },
-        body: finalBody,
-    });
-    // clientSeq++;
-    return types.GateMessage.encode(msg).finish();
+    return encodeGatewayRequest(serviceName, methodName, finalBody, clientSeqValue, serverSeq);
 }
 
 async function sendMsg(serviceName, methodName, bodyBytes, callback) {
