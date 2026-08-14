@@ -67,9 +67,21 @@ pnpm dev:core
 常用开发命令：
 
 ```bash
-pnpm lint
-pnpm build:web
-pnpm game-data check
+pnpm lint                         # Core 与 Web lint
+pnpm -C core typecheck           # Core 源码与 TypeScript 测试类型检查
+pnpm -C core test                # 编译后运行 Core 回归测试
+pnpm build                       # 构建 Web 与 Core
+pnpm game-data check             # 校验随版本发布的游戏资源
+```
+
+本地多平台可执行文件打包命令为 `pnpm package:win`、`pnpm package:linux`、`pnpm package:mac`；一次生成全部发布目标使用 `pnpm package:release`。这些命令都会先构建 Web，再编译 TypeScript Core。
+
+Docker 修改后的完整验收可执行：
+
+```bash
+docker compose up -d --build
+docker compose ps
+docker compose logs -f qq-farm-bot
 ```
 
 资源同步仅供项目维护者在 macOS 上使用。普通用户只需运行 Bot，静态资源已经包含在仓库和镜像中。
@@ -80,7 +92,7 @@ pnpm game-data check
 qq-farm-automation-bot/
 ├── .agents/skills/                 # 仓库共享的 Codex Skills
 ├── core/                           # Node.js 后端与机器人引擎
-│   ├── client.js                   # 服务入口
+│   ├── client.ts                   # TypeScript 服务入口
 │   ├── Dockerfile                  # 多阶段生产镜像
 │   ├── resources/game-data/        # 随版本发布的物品目录和内容寻址图片
 │   ├── src/
@@ -126,7 +138,7 @@ qq-farm-automation-bot/
 
 ## 技术栈
 
-- 后端：Node.js 20、Express、Socket.io
+- 后端：Node.js 20、TypeScript、Express、Socket.io
 - 前端：Vue 3、Vite、TypeScript、Pinia、UnoCSS
 - 工程：pnpm workspace、Docker Compose
 
