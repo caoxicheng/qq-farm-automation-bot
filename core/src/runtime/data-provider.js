@@ -4,6 +4,7 @@ const { getSchedulerRegistrySnapshot } = require('../services/scheduler');
 function createDataProvider(options) {
     const {
         workers,
+        reauthRequiredStates = new Map(),
         globalLogs,
         accountLogs,
         store,
@@ -45,11 +46,12 @@ function createDataProvider(options) {
             const accountId = resolveAccountRefId(accountRef);
             if (!accountId) return buildDefaultStatus('');
             const w = workers[accountId];
-            if (!w || !w.status) return buildDefaultStatus(accountId);
+            const wsError = (w && w.wsError) || reauthRequiredStates.get(String(accountId)) || null;
+            if (!w || !w.status) return { ...buildDefaultStatus(accountId), wsError };
             return {
                 ...buildDefaultStatus(accountId),
                 ...normalizeStatusForPanel(w.status, accountId, w.name),
-                wsError: w.wsError || null,
+                wsError,
             };
         },
 

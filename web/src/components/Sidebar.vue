@@ -38,7 +38,9 @@ const formattedTime = useDateFormat(now, 'YYYY-MM-DD HH:mm:ss')
 
 async function checkConnection() {
   try {
-    const res = await api.get('/api/ping')
+    const res = await api.get('/api/ping', {
+      skipErrorToast: true,
+    } as any)
     systemConnected.value = true
     if (res.data.ok && res.data.data) {
       if (res.data.data.uptime) {

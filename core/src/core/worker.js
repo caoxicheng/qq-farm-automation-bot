@@ -25,6 +25,7 @@ const { cleanupTaskSystem, checkAndClaimTasks, initTaskSystem, getTaskClaimDaily
 const { sellAllFruits, getBag, getBagItems, openFertilizerGiftPacksSilently } = require('../services/warehouse');
 const { connect, reconnect, cleanup, getWs, getUserState, networkEvents } = require('../utils/network');
 const { setClientVersionPrefix } = require('../config/config');
+const { flushWorkerMessage, sendWorkerMessage } = require('../runtime/worker-channel');
 const { loadProto } = require('../utils/proto');
 const { setLogHook, log, toNum } = require('../utils/utils');
 
@@ -43,13 +44,7 @@ let masterCredentialRequestId = 0;
 const masterCredentialRequests = new Map();
 
 function sendToMaster(payload) {
-    if (process.send) {
-        process.send(payload);
-        return;
-    }
-    if (parentPort) {
-        parentPort.postMessage(payload);
-    }
+    sendWorkerMessage(process, parentPort, payload);
 }
 
 function onMasterMessage(handler) {
@@ -164,8 +159,19 @@ let onBattlePassNotify = null;
 let harvestSellRunning = false;
 let onWsError = null;
 let wsErrorHandledAt = 0;
+let reauthRequiredNotified = false;
 let lastDailyRunDate = '';
 const workerScheduler = createScheduler('worker');
+
+async function notifyReauthRequired(message) {
+    if (reauthRequiredNotified) return;
+    reauthRequiredNotified = true;
+    await flushWorkerMessage(process, parentPort, {
+        type: 'reauth_required',
+        code: 400,
+        message,
+    });
+}
 
 function isDailyRoutineEnabled(_auto) {
     // 每日任务默认启用，不再检查开关
@@ -555,6 +561,7 @@ async function startBot(config) {
             const accounts = typeof getAccounts === 'function' ? getAccounts() : { accounts: [] };
             const acc = (accounts.accounts || []).find((a) => String(a.id) === accountId);
             if (!acc || !acc.wxid) {
+                await notifyReauthRequired('登录 Code 已失效，且当前账号缺少可用于自动刷新的微信凭证');
                 log('系统', '刷新 code 失败：找不到当前账号 wxid，5 秒后用旧 code 重连');
                 workerScheduler.setTimeoutTask('season_ws_retry_old_code', 5000, () => reconnect(null));
                 return;
@@ -568,6 +575,7 @@ async function startBot(config) {
             } else {
                 codeRefreshFailCount += 1;
                 if (codeRefreshFailCount >= 3) {
+                    await notifyReauthRequired(refresh.Message || '微信登录凭证已失效');
                     log('系统', `账号 ${acc.name} 刷新 code 连续失败 ${codeRefreshFailCount} 次（${refresh.Message || '未知'}），停止重连，请重新扫码登录后手动启动`, { accountId: String(accountId) });
                     exitWorker(0);
                     return;
@@ -579,6 +587,7 @@ async function startBot(config) {
             if (!isRunning) return;
             codeRefreshFailCount += 1;
             if (codeRefreshFailCount >= 3) {
+                await notifyReauthRequired(e.message || '微信登录凭证刷新异常');
                 log('系统', `刷新 code 异常连续 ${codeRefreshFailCount} 次（${e.message}），停止重连，请重新扫码登录后手动启动`, { accountId: String(process.env.FARM_ACCOUNT_ID || '') });
                 exitWorker(0);
                 return;
@@ -598,6 +607,7 @@ async function startBot(config) {
     const onLoginSuccess = async () => {
         if (!isLifecycleActive()) return;
         loginReady = true;
+        reauthRequiredNotified = false;
         if (onSellGain) {
             networkEvents.off('sell', onSellGain);
         }

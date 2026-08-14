@@ -181,7 +181,8 @@ export const useStatusStore = defineStore('status', () => {
     try {
       const { data } = await api.get('/api/status', {
         headers: { 'x-account-id': accountId },
-      })
+        skipErrorToast: true,
+      } as any)
       if (data.ok) {
         status.value = normalizeStatusPayload(data.data)
         error.value = ''

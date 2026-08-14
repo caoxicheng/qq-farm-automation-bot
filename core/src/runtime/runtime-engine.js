@@ -30,6 +30,7 @@ function createRuntimeEngine(options = {}) {
   const startAdminServer = typeof options.startAdminServer === 'function' ? options.startAdminServer : null
 
   const workerControls = { startWorker: null, restartWorker: null }
+  const reauthRequiredStates = new Map()
   const runtimeState = createRuntimeState({
     store,
     operationKeys: OPERATION_KEYS,
@@ -83,6 +84,7 @@ function createRuntimeEngine(options = {}) {
     deleteAccount: store.deleteAccount,
     getAutoRelogin: store.getAutoRelogin,
     getAccounts: store.getAccounts,
+    reauthRequiredStates,
     onStatusSync: (accountId, status, accountName) => {
       runtimeEvents.emit('status', { accountId, status, accountName })
       if (onStatusSync) onStatusSync(accountId, status, accountName)
@@ -99,6 +101,7 @@ function createRuntimeEngine(options = {}) {
     workers,
     globalLogs: GLOBAL_LOGS,
     accountLogs: ACCOUNT_LOGS,
+    reauthRequiredStates,
     store,
     getAccounts: store.getAccounts,
     callWorkerApi,

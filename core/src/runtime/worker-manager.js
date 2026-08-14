@@ -21,6 +21,7 @@ function createWorkerManager(options) {
         deleteAccount,
         getAutoRelogin,
         getAccounts,
+        reauthRequiredStates = new Map(),
         onStatusSync,
         onWorkerLog,
     } = options;
@@ -184,7 +185,7 @@ function createWorkerManager(options) {
             stopping: false,
             disconnectedSince: 0,
             autoDeleteTriggered: false,
-            wsError: null,
+            wsError: reauthRequiredStates.get(String(account.id)) || null,
         };
 
         // 发送启动指令
@@ -352,6 +353,17 @@ function createWorkerManager(options) {
         if (msg.type === 'status_sync') {
             // 合并状态
             worker.status = normalizeStatusForPanel(msg.data, accountId, worker.name);
+            const connected = !!(msg.data && msg.data.connection && msg.data.connection.connected);
+            if (connected) {
+                worker.disconnectedSince = 0;
+                worker.autoDeleteTriggered = false;
+                worker.wsError = null;
+                reauthRequiredStates.delete(String(accountId));
+            }
+            worker.status = {
+                ...worker.status,
+                wsError: worker.wsError || reauthRequiredStates.get(String(accountId)) || null,
+            };
             if (typeof onStatusSync === 'function') {
                 onStatusSync(accountId, worker.status, worker.name);
             }
@@ -377,12 +389,7 @@ function createWorkerManager(options) {
                 }
             }
 
-            const connected = !!(msg.data && msg.data.connection && msg.data.connection.connected);
-            if (connected) {
-                worker.disconnectedSince = 0;
-                worker.autoDeleteTriggered = false;
-                worker.wsError = null;
-            } else if (!worker.stopping) {
+            if (!connected && !worker.stopping) {
                 const now = Date.now();
                 if (!worker.disconnectedSince) worker.disconnectedSince = now;
                 const offlineMs = now - worker.disconnectedSince;
@@ -471,14 +478,28 @@ function createWorkerManager(options) {
         } else if (msg.type === 'ws_error') {
             const code = Number(msg.code) || 0;
             const message = msg.message || '';
+            log('系统', `账号 ${worker.name} 网关连接异常，正在自动恢复${code ? ` (${code})` : ''}${message ? `: ${message}` : ''}`, {
+                accountId: String(accountId),
+                accountName: worker.name,
+                code,
+            });
+        } else if (msg.type === 'reauth_required') {
+            const code = Number(msg.code) || 400;
+            const message = msg.message || '登录凭证已失效';
             worker.wsError = { code, message, at: Date.now() };
-            if (code === 400) {
-                addAccountLog(
-                    'ws_400',
-                    `账号 ${worker.name} 登录失效，请更新 Code`,
-                    accountId,
-                    worker.name,
-                );
+            reauthRequiredStates.set(String(accountId), worker.wsError);
+            addAccountLog(
+                'reauth_required',
+                `账号 ${worker.name} 自动恢复失败，请更新登录凭证`,
+                accountId,
+                worker.name,
+                { reason: message },
+            );
+            if (typeof onStatusSync === 'function') {
+                onStatusSync(accountId, {
+                    ...(worker.status || {}),
+                    wsError: worker.wsError,
+                }, worker.name);
             }
         } else if (msg.type === 'account_kicked') {
             const reason = msg.reason || '未知';
