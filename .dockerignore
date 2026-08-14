@@ -13,6 +13,8 @@ core/data/logs/*
 !core/data/logs/.gitkeep
 core/data/*.json
 !core/data/.gitkeep
+core/build
+core/dist
 web/dist
 web/node_modules
 coverage

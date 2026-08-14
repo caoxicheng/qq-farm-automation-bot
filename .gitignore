@@ -10,6 +10,8 @@ web/pnpm-lock.yaml
 # 构建产物
 web/dist/
 web/stats.html
+core/build/
+core/dist/
 
 # 运行时数据（账号凭证、日志，勿提交）
 core/data/

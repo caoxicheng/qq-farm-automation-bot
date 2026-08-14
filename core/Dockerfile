@@ -14,7 +14,7 @@ RUN pnpm install --frozen-lockfile
 COPY core ./core
 COPY web ./web
 
-RUN pnpm build:web
+RUN pnpm build:web && pnpm -C core build:core
 
 # ==========================================
 FROM node:20-alpine AS prod-deps
@@ -59,4 +59,4 @@ EXPOSE 3007
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
     CMD wget -q --spider http://127.0.0.1:3007/api/game-version || exit 1
 
-CMD ["node", "client.js"]
+CMD ["node", "build/client.js"]
