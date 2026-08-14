@@ -4322,7 +4322,7 @@
   },
   {
     "id": 29003,
-    "name": "梅酒种子",
+    "name": "星语铃花种子",
     "kind": "seed",
     "itemType": 5,
     "imageHash": "8f6264712b9004b90d8a3e12d069a7553a2ccff2c0080e911333471d3ab24a73",
@@ -4334,7 +4334,7 @@
       "id": 1001,
       "amount": 12000
     },
-    "source": "override"
+    "source": "official"
   },
   {
     "id": 29998,
@@ -8320,7 +8320,7 @@
   },
   {
     "id": 49003,
-    "name": "梅酒果实",
+    "name": "星语铃花",
     "kind": "fruit",
     "itemType": 6,
     "imageHash": "8f6264712b9004b90d8a3e12d069a7553a2ccff2c0080e911333471d3ab24a73",
@@ -8332,7 +8332,7 @@
       "id": 1001,
       "amount": 320
     },
-    "source": "override"
+    "source": "official"
   },
   {
     "id": 80001,
@@ -9673,7 +9673,10 @@
     "relatedSeedId": null,
     "relatedFruitId": 204003,
     "level": 1,
-    "price": null,
+    "price": {
+      "id": 1005,
+      "amount": 110
+    },
     "source": "official"
   },
   {
@@ -10875,7 +10878,10 @@
     "relatedSeedId": null,
     "relatedFruitId": 1040416,
     "level": 31,
-    "price": null,
+    "price": {
+      "id": 1005,
+      "amount": 60
+    },
     "source": "official"
   },
   {
@@ -11144,7 +11150,10 @@
     "relatedSeedId": null,
     "relatedFruitId": 1049001,
     "level": 41,
-    "price": null,
+    "price": {
+      "id": 1005,
+      "amount": 6
+    },
     "source": "official"
   },
   {

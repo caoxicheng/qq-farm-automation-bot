@@ -268,6 +268,10 @@ function getItemDisplayById(itemId) {
     return resourceBundle ? resourceBundle.getItemDisplay(itemId) : null;
 }
 
+function getItemSalePolicyById(itemId) {
+    return resourceBundle ? resourceBundle.getItemSalePolicy(itemId) : null;
+}
+
 function getPlantDisplayById(plantId) {
     return resourceBundle ? resourceBundle.getPlantDisplay(plantId) : null;
 }
@@ -309,6 +313,7 @@ module.exports = {
     getPlantByFruitId,
     getItemById,
     getItemDisplayById,
+    getItemSalePolicyById,
     getPlantDisplayById,
     getItemImageById,
     getSeedPrice,

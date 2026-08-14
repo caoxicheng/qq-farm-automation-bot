@@ -3,6 +3,11 @@
   "counts": {
     "items": 751,
     "plants": 255,
+    "salePolicies": 262,
+    "availableRegularFruitSales": 201,
+    "availableSuperFruitSales": 56,
+    "conditionalSales": 5,
+    "unparsedSalePrices": 0,
     "logicalAssets": 542,
     "uniqueAssets": 531
   },
@@ -13,6 +18,11 @@
       "disappearedIds": []
     },
     "plants": {
+      "addedIds": [],
+      "changedIds": [],
+      "disappearedIds": []
+    },
+    "sales": {
       "addedIds": [],
       "changedIds": [],
       "disappearedIds": []
@@ -164,7 +174,8 @@
     ],
     "unresolvedRelationshipIds": [],
     "duplicateItemIds": [],
-    "duplicatePlantIds": []
+    "duplicatePlantIds": [],
+    "unparsedSaleItemIds": []
   },
   "addedSinceLegacyIds": [
     1016,
@@ -240,6 +251,7 @@
     21474,
     26032,
     26127,
+    29003,
     40069,
     40101,
     40102,
@@ -280,6 +292,7 @@
     46127,
     49001,
     49002,
+    49003,
     90011,
     90021,
     100014,
@@ -435,16 +448,6 @@
       "id": 2157,
       "name": "月光营地头像框",
       "evidence": "活动奖励实测"
-    },
-    {
-      "id": 29003,
-      "name": "梅酒种子",
-      "evidence": "背包实测确认"
-    },
-    {
-      "id": 49003,
-      "name": "梅酒果实",
-      "evidence": "背包实测确认"
     },
     {
       "id": 201008,

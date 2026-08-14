@@ -1,0 +1,3706 @@
+[
+  {
+    "id": 40001,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 56
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40002,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 2
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40003,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 2
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40004,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 21
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40005,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 22
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40006,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 28
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40007,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 32
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40008,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 35
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40009,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 44
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40010,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 49
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40011,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 84
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40013,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 86
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40014,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 70
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40015,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 210
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40016,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 117
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "legacy"
+  },
+  {
+    "id": 40018,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 78
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40019,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 234
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40022,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 351
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40023,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 96
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40025,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 240
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40026,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 288
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40027,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 79
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40029,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 43
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40031,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 261
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40033,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 287
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40034,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 104
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40035,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 313
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40036,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 118
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40037,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 52
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40038,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 114
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40039,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 61
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40041,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 105
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40042,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 370
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40043,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 237
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40044,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 129
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40045,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 47
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40046,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 320
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40047,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 117
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40048,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 134
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40049,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 87
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40050,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 39
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40051,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 43
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40052,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 130
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40053,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 171
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40054,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 95
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40055,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 52
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40056,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 123
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40057,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 67
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40058,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 201
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40059,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 2
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40060,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 14
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40061,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 15
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40062,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 168
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40063,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 234
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40064,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 7
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40065,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 5
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40066,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 18
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40067,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 57
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40068,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 84
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40069,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 180
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40070,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 105
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40071,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 20
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40072,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 259
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40073,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 28
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40074,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 504
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40075,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 185
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40076,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 434
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40077,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 144
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40078,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 252
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40079,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 402
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40080,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 342
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40083,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 90
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40084,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 270
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40085,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 96
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40086,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 289
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40087,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 103
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40088,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 309
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40089,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 109
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40090,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 329
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40091,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 148
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40092,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 2473
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40095,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 144
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40096,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 25
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40097,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 66
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40098,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 48
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40099,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 14
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40100,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 39
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40101,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 372
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40102,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 745
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40103,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 24
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40104,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 31
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40105,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 17
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40106,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 248
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40107,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 206
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40108,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 240
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40109,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 240
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40110,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 39
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40111,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 117
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40112,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 240
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40113,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 95
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "legacy"
+  },
+  {
+    "id": 40114,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 144
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40115,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 791
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40116,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 78
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40118,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 143
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40120,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 86
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40121,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 240
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40122,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 240
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40123,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 309
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40124,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 395
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40126,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 156
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40128,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 43
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40129,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 280
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40130,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 309
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40131,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 279
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40132,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 418
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40133,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 240
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40134,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 240
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40135,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 62
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40136,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 78
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40139,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 240
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40140,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 240
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40141,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 93
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40142,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 187
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40143,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 59
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40144,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 240
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40145,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 35
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40147,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 118
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40154,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 240
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40161,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 19
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40162,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 22
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40165,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 103
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40167,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 240
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40172,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 837
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40174,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 117
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40176,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 240
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40182,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 131
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40184,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 240
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40185,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 240
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40186,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 240
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40187,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 139
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40188,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 124
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40193,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 240
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40199,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 280
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40201,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 618
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40202,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 219
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40204,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 234
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40218,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 72
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40219,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 1148
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40220,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 217
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40221,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 468
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40222,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 168
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40223,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 280
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40224,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 280
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40225,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 263
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40226,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 540
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40227,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 192
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40228,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 578
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40229,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 658
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40235,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 206
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40242,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 702
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40243,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 280
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40249,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 280
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40251,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 240
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40256,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 240
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40257,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 280
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40258,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 280
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40259,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 16
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40261,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 240
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40262,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 280
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40263,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 240
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40264,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 240
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40265,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 342
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "legacy"
+  },
+  {
+    "id": 40266,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 504
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "legacy"
+  },
+  {
+    "id": 40267,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 280
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40269,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 240
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40304,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 280
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40305,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 96
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40306,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 133
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40308,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 74
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40329,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1002,
+        "amount": 10
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40375,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 280
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40396,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 48
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40413,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 156
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40416,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 702
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40442,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 143
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 40804,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 2
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 41032,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 320
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 41037,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 280
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 41038,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 280
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 41044,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 280
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 41050,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 280
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 41134,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 280
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 41135,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 240
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 41221,
+    "itemType": 6,
+    "status": "conditional",
+    "rewards": [],
+    "condition": "活动区间外:2026081202",
+    "conditionalRewards": [
+      {
+        "id": 1001,
+        "amount": 240
+      }
+    ],
+    "source": "official"
+  },
+  {
+    "id": 41251,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 240
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 41353,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 280
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 41380,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 280
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 41404,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 280
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 41474,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 280
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 41542,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 100
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 46032,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 240
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 46109,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 280
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 46127,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 280
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 49001,
+    "itemType": 17,
+    "status": "conditional",
+    "rewards": [
+      {
+        "id": 1017,
+        "amount": 2
+      }
+    ],
+    "condition": "活动结束后:2026030202",
+    "conditionalRewards": [
+      {
+        "id": 1001,
+        "amount": 4000
+      }
+    ],
+    "source": "official"
+  },
+  {
+    "id": 49002,
+    "itemType": 6,
+    "status": "conditional",
+    "rewards": [
+      {
+        "id": 1017,
+        "amount": 10
+      }
+    ],
+    "condition": "活动结束后:2026030202",
+    "conditionalRewards": [
+      {
+        "id": 1001,
+        "amount": 20000
+      }
+    ],
+    "source": "official"
+  },
+  {
+    "id": 49003,
+    "itemType": 6,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1001,
+        "amount": 320
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 1040025,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 1
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 1040046,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 16
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 1040108,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 3
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 1040109,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 1
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 1040112,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 1
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 1040121,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 1
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 1040122,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 2
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 1040129,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 6
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 1040133,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 3
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 1040134,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 2
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 1040139,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 3
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 1040140,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 3
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 1040144,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 1
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 1040154,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 1
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 1040167,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 2
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 1040176,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 3
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 1040184,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 3
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 1040185,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 3
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 1040186,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 3
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 1040193,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 3
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 1040199,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 2
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 1040223,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 6
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 1040224,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 2
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 1040243,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 6
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 1040249,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 2
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 1040251,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 3
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 1040256,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 3
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 1040257,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 6
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 1040258,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 6
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 1040261,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 3
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 1040262,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 4
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 1040263,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 2
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 1040264,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 3
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 1040267,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 6
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 1040269,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 2
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 1040304,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 6
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 1040375,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 6
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 1040416,
+    "itemType": 17,
+    "status": "conditional",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 60
+      },
+      {
+        "id": 1017,
+        "amount": 10
+      }
+    ],
+    "condition": "活动结束后:2026030202",
+    "conditionalRewards": [
+      {
+        "id": 1005,
+        "amount": 60
+      },
+      {
+        "id": 1001,
+        "amount": 20000
+      }
+    ],
+    "source": "official"
+  },
+  {
+    "id": 1041032,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 30
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 1041037,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 6
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 1041038,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 6
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 1041044,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 6
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 1041050,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 6
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 1041134,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 6
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 1041135,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 3
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 1041221,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 3
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 1041251,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 3
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 1041353,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 6
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 1041380,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 6
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 1041404,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 6
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 1041474,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 6
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 1046032,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 3
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 1046109,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 6
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 1046127,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 6
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  },
+  {
+    "id": 1049001,
+    "itemType": 17,
+    "status": "conditional",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 6
+      },
+      {
+        "id": 1017,
+        "amount": 2
+      }
+    ],
+    "condition": "活动结束后:2026030202",
+    "conditionalRewards": [
+      {
+        "id": 1005,
+        "amount": 6
+      },
+      {
+        "id": 1001,
+        "amount": 4000
+      }
+    ],
+    "source": "official"
+  },
+  {
+    "id": 1049003,
+    "itemType": 17,
+    "status": "available",
+    "rewards": [
+      {
+        "id": 1005,
+        "amount": 30
+      }
+    ],
+    "condition": null,
+    "conditionalRewards": [],
+    "source": "official"
+  }
+]

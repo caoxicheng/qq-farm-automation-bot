@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 export const APPID = 'wx5306c5978fdb76e4';
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 export const TEXT_ASSET_KEY = Buffer.from('NQF_SHANGXIANDAMAI_#2026_SECURE');
 const CDN_ROOT = 'https://cdn-resource.nqf.qq.com/release/remote';
 const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
@@ -176,17 +176,88 @@ export function extractPlantImage(spec, config, tempDir, astcenc) {
 
 function itemKind(item, id, seedIds, fruitIds) {
   if (seedIds.has(id) || Number(item?.type) === 5 || (id >= 20000 && id < 30000)) return 'seed';
-  if (fruitIds.has(id) || Number(item?.type) === 6 || (id >= 40000 && id < 50000)) return 'fruit';
+  if (fruitIds.has(id) || [6, 17].includes(Number(item?.type)) || (id >= 40000 && id < 50000)) return 'fruit';
   if ([1, 1001, 1002, 1004, 1005, 1014, 1023, 1101].includes(id)) return 'currency';
   if (Number(item?.type) === 10 || id >= 200000) return 'decoration';
   return String(item?.interaction_type || '').trim() ? 'tool' : item ? 'item' : 'unknown';
 }
 
-function parsePrice(item) {
-  const sell = String(item?.sells || '').match(/^(\d+):(\d+)$/);
-  if (sell) return { id: Number(sell[1]), amount: Number(sell[2]) };
+export function parseSaleRewards(value, itemId = 0) {
+  const text = String(value || '').trim();
+  if (!text) return [];
+  const merged = new Map();
+  for (const part of text.split(';')) {
+    const match = part.trim().match(/^(\d+):(\d+)$/);
+    if (!match) throw new Error(`物品 ${itemId || '?'} 的出售奖励格式无效: ${text}`);
+    const id = Number(match[1]);
+    const amount = Number(match[2]);
+    if (!Number.isSafeInteger(id) || id <= 0 || !Number.isSafeInteger(amount) || amount <= 0) {
+      throw new Error(`物品 ${itemId || '?'} 的出售奖励数值无效: ${text}`);
+    }
+    merged.set(id, (merged.get(id) || 0) + amount);
+  }
+  return [...merged.entries()].map(([id, amount]) => ({ id, amount }));
+}
+
+function directSaleRewards(item) {
+  const sells = String(item?.sells || '').trim();
+  if (sells) return parseSaleRewards(sells, item?.id);
   const amount = Number(item?.price) || 0;
-  return amount ? { id: Number(item?.price_id) || 1001, amount } : null;
+  if (!amount) return [];
+  const id = Number(item?.price_id) || 1001;
+  if (!Number.isSafeInteger(id) || id <= 0 || !Number.isSafeInteger(amount) || amount <= 0) {
+    throw new Error(`物品 ${item?.id || '?'} 的旧版出售价格无效`);
+  }
+  return [{ id, amount }];
+}
+
+function parsePrice(item) {
+  return directSaleRewards(item)[0] || null;
+}
+
+function buildItemSources(officialItems, legacyItems) {
+  return {
+    official: new Map(officialItems.map((row) => [Number(row.id), row])),
+    legacy: new Map(legacyItems.map((row) => [Number(row.id), row])),
+  };
+}
+
+export function buildSalePolicies({ officialItems, legacyItems }) {
+  const { official, legacy } = buildItemSources(officialItems, legacyItems);
+  const ids = new Set([...official.keys(), ...legacy.keys()]);
+  const sales = [];
+  for (const id of [...ids].filter((value) => value > 0).sort((a, b) => a - b)) {
+    const raw = official.get(id) || legacy.get(id);
+    const itemType = Number(raw?.type) || 0;
+    if (itemType !== 6 && itemType !== 17) continue;
+    const rewards = directSaleRewards(raw);
+    const condition = String(raw?.sell_cond || '').trim() || null;
+    const conditionalRewards = parseSaleRewards(raw?.cond_sells, id);
+    if (!rewards.length && !conditionalRewards.length) continue;
+    sales.push({
+      id,
+      itemType,
+      status: condition || !rewards.length ? 'conditional' : 'available',
+      rewards,
+      condition,
+      conditionalRewards,
+      source: official.has(id) ? 'official' : 'legacy',
+    });
+  }
+  return sales;
+}
+
+export function findUnparsedSaleItemIds({ officialItems, legacyItems, sales }) {
+  const { official, legacy } = buildItemSources(officialItems, legacyItems);
+  const policyIds = new Set(sales.map((row) => Number(row.id)));
+  const ids = new Set([...official.keys(), ...legacy.keys()]);
+  return [...ids]
+    .filter((id) => {
+      if (id <= 0 || policyIds.has(id)) return false;
+      const itemType = Number((official.get(id) || legacy.get(id))?.type) || 0;
+      return itemType === 6 || itemType === 17;
+    })
+    .sort((a, b) => a - b);
 }
 
 export function buildCatalogs({ officialItems, officialPlants, legacyItems, overrides, assets }) {
@@ -209,5 +280,6 @@ export function buildCatalogs({ officialItems, officialPlants, legacyItems, over
     const directAsset = assetById.get(id); const namedAsset = assetByName.get(String(raw?.asset_name || '').trim());
     return { id, name, kind, itemType: Number(raw?.type) || (kind === 'seed' ? 5 : kind === 'fruit' ? 6 : null), imageHash: (directAsset || namedAsset)?.contentHash || null, assetName: String(raw?.asset_name || '').trim() || null, relatedSeedId: plant?.seedId || null, relatedFruitId: plant?.fruitId || null, level: Number(raw?.level ?? plant?.level) || null, price: parsePrice(raw), source: patch ? 'override' : official.has(id) ? 'official' : legacy.has(id) ? 'legacy' : 'inferred' };
   });
-  return { items, plants };
+  const sales = buildSalePolicies({ officialItems, legacyItems });
+  return { items, plants, sales };
 }

@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const Long = require('long');
 const { loadProto, types } = require('../src/utils/proto');
 const { ingredientsFromBag, buildQuoteHistory } = require('../src/services/qingmei');
-const { getSellEligibility } = require('../src/services/warehouse');
+const { getSellEligibility, isAutoSellEligible } = require('../src/services/warehouse');
 
 test.before(async () => loadProto());
 
@@ -70,10 +70,35 @@ test('新版物品使用与活动分享协议保留数量和场景参数', () =>
 });
 
 test('活动青梅不可直接出售，普通果实仍可出售', () => {
-    assert.deepEqual(getSellEligibility(41221), { sellable: false, status: 'conditional', price: 0 });
-    assert.deepEqual(getSellEligibility(40002), { sellable: true, status: 'available', price: 2 });
+    const activityFruit = getSellEligibility(41221);
+    assert.equal(activityFruit.sellable, false);
+    assert.equal(activityFruit.status, 'conditional');
+    assert.deepEqual(activityFruit.rewards, []);
+
+    const regularFruit = getSellEligibility(40002);
+    assert.equal(regularFruit.sellable, true);
+    assert.equal(regularFruit.status, 'available');
+    assert.equal(regularFruit.itemType, 6);
+    assert.deepEqual(regularFruit.rewards, [{ id: 1001, amount: 2, unit: '金币' }]);
 });
 
 test('展示目录中的价格不能授权出售业务配置缺失的物品', () => {
-    assert.deepEqual(getSellEligibility(40069), { sellable: false, status: 'conditional', price: 0 });
+    const eligibility = getSellEligibility(20002);
+    assert.equal(eligibility.sellable, false);
+    assert.equal(eligibility.status, 'unavailable');
+    assert.deepEqual(eligibility.rewards, []);
+});
+
+test('黄金果实只允许手动出售，不进入自动卖果实', () => {
+    const regularFruit = getSellEligibility(49003);
+    assert.equal(regularFruit.sellable, true);
+    assert.equal(isAutoSellEligible(regularFruit), true);
+
+    const superFruit = getSellEligibility(1049003);
+    assert.equal(superFruit.sellable, true);
+    assert.equal(superFruit.itemType, 17);
+    assert.deepEqual(superFruit.rewards, [{ id: 1005, amount: 30, unit: '金豆豆' }]);
+    assert.equal(isAutoSellEligible(superFruit), false);
+
+    assert.equal(isAutoSellEligible({ sellable: true, itemType: 6, rewards: [{ id: 1002, amount: 5 }] }), false);
 });

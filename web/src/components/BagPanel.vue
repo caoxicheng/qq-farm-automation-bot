@@ -22,6 +22,7 @@ const imageErrors = ref<Record<string | number, boolean>>({})
 const CATEGORY_OPTIONS = [
   { label: '全部', value: 'all' },
   { label: '果实', value: 'fruit' },
+  { label: '超变果实', value: 'superFruit' },
   { label: '种子', value: 'seed' },
   { label: '道具', value: 'tool' },
   { label: '其他', value: 'other' },
@@ -33,7 +34,9 @@ const selectedCategory = ref<CategoryValue>('fruit')
 
 function getItemCategory(item: any): CategoryValue {
   const itemType = Number(item?.itemType || 0)
-  if (itemType === 17 || itemType === 6)
+  if (itemType === 17)
+    return 'superFruit'
+  if (itemType === 6)
     return 'fruit'
   if (itemType === 5)
     return 'seed'
@@ -49,7 +52,7 @@ const filteredItems = computed(() => {
 })
 
 const categoryCounts = computed(() => {
-  const counts: Record<CategoryValue, number> = { all: items.value.length, fruit: 0, seed: 0, tool: 0, other: 0 }
+  const counts: Record<CategoryValue, number> = { all: items.value.length, fruit: 0, superFruit: 0, seed: 0, tool: 0, other: 0 }
   for (const item of items.value) {
     const cat = getItemCategory(item)
     counts[cat]++
@@ -70,7 +73,12 @@ const confirmModal = ref({
 
 const batchMode = ref(false)
 const selectedForBatch = ref<Set<number>>(new Set())
-const batchSellResult = ref<{ gold: number, goldBean: number } | null>(null)
+
+interface SellReward {
+  id: number
+  amount: number
+  unit: string
+}
 
 const selectedSellableCount = computed(() => {
   return selectedForBatch.value.size
@@ -99,6 +107,44 @@ function canUse(item: any) {
   return itemType === 11
 }
 
+function getSellRewards(item: any): SellReward[] {
+  const rewards = Array.isArray(item?.sellRewards) ? item.sellRewards : []
+  const normalized = rewards
+    .map((reward: any) => ({ id: Number(reward?.id) || 0, amount: Number(reward?.amount) || 0, unit: String(reward?.unit || '') }))
+    .filter((reward: SellReward) => reward.id > 0 && reward.amount > 0)
+  if (normalized.length > 0)
+    return normalized
+  const id = Number(item?.priceId) || 0
+  const amount = Number(item?.price) || 0
+  return id > 0 && amount > 0 ? [{ id, amount, unit: String(item?.priceUnit || `物品 #${id}`) }] : []
+}
+
+function aggregateSellRewards(selectedItems: any[]): SellReward[] {
+  const totals = new Map<number, SellReward>()
+  for (const item of selectedItems) {
+    const count = Math.max(0, Number(item?.count) || 0)
+    for (const reward of getSellRewards(item)) {
+      const current = totals.get(reward.id) || { id: reward.id, amount: 0, unit: reward.unit }
+      current.amount += reward.amount * count
+      totals.set(reward.id, current)
+    }
+  }
+  return [...totals.values()]
+}
+
+function selectedDisplayItems(selectedItems: any[]) {
+  const ids = new Set(selectedItems.map((item: any) => Number(item?.id) || 0))
+  return items.value.filter((item: any) => ids.has(Number(item?.id) || 0))
+}
+
+function rewardLines(rewards: SellReward[]) {
+  return rewards.map(reward => `${reward.unit}：${reward.amount}`)
+}
+
+function rewardSummary(rewards: SellReward[]) {
+  return rewards.map(reward => `${reward.amount} ${reward.unit}`).join('，')
+}
+
 function handleSellClick(item: any) {
   if (batchMode.value) {
     const isSelected = selectedForBatch.value.has(Number(item.id))
@@ -110,15 +156,13 @@ function handleSellClick(item: any) {
     }
     return
   }
-  const totalPrice = (Number(item.count) || 0) * (Number(item.price) || 0)
-  const priceUnit = item.priceUnit || '金'
+  const rewards = aggregateSellRewards([item])
   const messages = [
     `确定要出售全部${item.name || `物品${item.id}`}吗?`,
     `数量：${item.count || 0}`,
   ]
-  if (totalPrice > 0) {
-    messages.push(`售出总金币：${totalPrice}${priceUnit}`)
-  }
+  if (rewards.length > 0)
+    messages.push('预计获得：', ...rewardLines(rewards))
   confirmModal.value = {
     show: true,
     title: '确认出售',
@@ -183,30 +227,17 @@ async function handleConfirm() {
 
       const res = await bagStore.sellItems(currentAccountId.value, itemsToSell)
       if (res.ok) {
-        let totalGold = 0
-        let totalGoldBean = 0
-        for (const si of selectedItems) {
-          const fi = filteredItems.value.find((f: any) => Number(f.id) === Number(si.id))
-          if (fi) {
-            const price = Number(fi.price) || 0
-            const count = Number(fi.count) || 0
-            const priceId = Number(fi.priceId) || 0
-            if (priceId === 1005) {
-              totalGoldBean += price * count
-            }
-            else {
-              totalGold += price * count
-            }
-          }
-        }
-        batchSellResult.value = { gold: totalGold, goldBean: totalGoldBean }
-        toastStore.success(`已批量出售 ${selectedItems.length} 种物品，获得 ${totalGold} 金币, ${totalGoldBean} 金豆豆`)
+        const displayItems = selectedDisplayItems(selectedItems)
+        const rewards = aggregateSellRewards(displayItems)
+        const rewardText = rewardSummary(rewards)
+        toastStore.success(`已批量出售 ${displayItems.length} 种物品${rewardText ? `，获得 ${rewardText}` : ''}`)
         selectedForBatch.value.clear()
         batchMode.value = false
         await loadBag()
       }
       else {
         toastStore.error(`批量出售失败: ${res.error || '未知错误'}`)
+        await loadBag()
       }
     }
     else if (action === 'use' && item) {
@@ -222,6 +253,8 @@ async function handleConfirm() {
   }
   catch (e: any) {
     toastStore.error(`操作失败: ${e.message || '未知错误'}`)
+    if (action === 'sell' || action === 'batchSell')
+      await loadBag()
   }
   finally {
     confirmModal.value.loading = false
@@ -237,7 +270,6 @@ function toggleBatchMode() {
   batchMode.value = !batchMode.value
   if (!batchMode.value) {
     selectedForBatch.value.clear()
-    batchSellResult.value = null
   }
 }
 
@@ -266,32 +298,13 @@ function handleBatchSellClick() {
     .filter((it: any) => selectedList.includes(Number(it.id)))
     .map((it: any) => ({ id: it.id, count: it.count, uid: it.uid || 0 }))
 
-  let totalGold = 0
-  let totalGoldBean = 0
-  for (const it of itemsToSell) {
-    const item = filteredItems.value.find((f: any) => Number(f.id) === Number(it.id))
-    if (item) {
-      const price = Number(item.price) || 0
-      const count = Number(item.count) || 0
-      const priceId = Number(item.priceId) || 0
-      if (priceId === 1005) {
-        totalGoldBean += price * count
-      }
-      else {
-        totalGold += price * count
-      }
-    }
-  }
+  const rewards = aggregateSellRewards(selectedDisplayItems(itemsToSell))
 
   const messages = [
     `确定要批量出售选中的 ${selectedList.length} 种物品吗?`,
   ]
-  if (totalGold > 0) {
-    messages.push(`金币：${totalGold}`)
-  }
-  if (totalGoldBean > 0) {
-    messages.push(`金豆豆：${totalGoldBean}`)
-  }
+  if (rewards.length > 0)
+    messages.push('预计获得：', ...rewardLines(rewards))
 
   confirmModal.value = {
     show: true,
@@ -328,6 +341,11 @@ onMounted(() => {
 
 watch(currentAccountId, () => {
   loadBag()
+})
+
+watch(selectedCategory, () => {
+  batchMode.value = false
+  selectedForBatch.value.clear()
 })
 
 useIntervalFn(loadBag, 60000)
@@ -395,7 +413,7 @@ useIntervalFn(loadBag, 60000)
 
         <div class="flex-1" />
 
-        <template v-if="selectedCategory === 'fruit' || selectedCategory === 'all'">
+        <template v-if="selectedCategory === 'fruit' || selectedCategory === 'superFruit' || selectedCategory === 'all'">
           <button
             class="rounded-lg px-3 py-1.5 text-sm font-medium transition"
             :class="batchMode
@@ -452,6 +470,13 @@ useIntervalFn(loadBag, 60000)
               >
                 售
               </button>
+              <span
+                v-else-if="item.sellStatus === 'conditional'"
+                class="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
+                :title="item.sellCondition || '当前物品存在条件售价，暂不支持直接出售'"
+              >
+                条件售
+              </span>
               <button
                 v-if="canUse(item)"
                 class="rounded bg-green-500 px-1.5 py-0.5 text-[10px] text-white opacity-70 transition dark:bg-green-600 hover:opacity-100"

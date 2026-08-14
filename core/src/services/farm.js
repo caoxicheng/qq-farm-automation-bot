@@ -1080,7 +1080,7 @@ async function getLandsDetail() {
             const seedId = toNum(plantCfg && plantCfg.seed_id) || deriveSeedIdFromPlantId(plantId);
             const seedImage = seedId > 0 ? getSeedImageBySeedId(seedId) : '';
             let plantSize = Math.max(1, toNum(plantCfg && plantCfg.size) || 1);
-            // 本地配置缺失的活动种子（如 29003 梅酒）：用主格占用格数推断尺寸（4 格 → 2x2）
+            // 本地配置缺失的活动种子（如 29003 星语铃花）：用主格占用格数推断尺寸（4 格 → 2x2）
             if (plantSize <= 1 && occupiedLandIds.length > 1 && !occupiedByMaster) {
                 plantSize = Math.round(Math.sqrt(occupiedLandIds.length));
             }

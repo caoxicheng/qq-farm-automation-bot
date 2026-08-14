@@ -3,7 +3,7 @@
  * 协议说明：BagReply 使用 item_bag（ItemBag），item_bag.items 才是背包物品列表
  */
 
-const { getFruitName, getPlantByFruitId, getPlantBySeedId, getItemById, getItemDisplayById, getItemImageById, getSeedImageBySeedId } = require('../config/gameConfig');
+const { getFruitName, getPlantByFruitId, getPlantBySeedId, getItemById, getItemDisplayById, getItemSalePolicyById, getItemImageById, getSeedImageBySeedId } = require('../config/gameConfig');
 const { isAutomationOn } = require('../models/store');
 const { sendMsgAsync, networkEvents, getUserState } = require('../utils/network');
 const { types } = require('../utils/proto');
@@ -77,19 +77,39 @@ function toSellItem(item) {
 
 function getSellEligibility(itemOrId) {
     const id = toNum(typeof itemOrId === 'object' ? itemOrId && itemOrId.id : itemOrId);
-    const info = getItemById(id);
-    const display = getItemDisplayById(id);
-    // 展示目录只能辅助显示分类，出售权限必须来自业务配置。
-    const businessItemType = Number((info && info.type) || 0);
-    const displayItemType = Number((display && display.itemType) || 0);
-    const price = Number((info && info.price) || 0);
-    const sellableType = businessItemType === 6 || businessItemType === 17;
-    const displayLooksSellable = displayItemType === 6 || displayItemType === 17;
+    const policy = getItemSalePolicyById(id);
+    const rewards = (policy && Array.isArray(policy.rewards) ? policy.rewards : []).map((reward) => ({
+        id: Number(reward.id) || 0,
+        amount: Number(reward.amount) || 0,
+        unit: getRewardUnit(reward.id),
+    }));
+    const primary = rewards[0] || null;
     return {
-        sellable: sellableType && price > 0,
-        status: sellableType && price > 0 ? 'available' : (sellableType || displayLooksSellable) ? 'conditional' : 'unavailable',
-        price,
+        sellable: policy?.status === 'available',
+        status: policy?.status || 'unavailable',
+        itemType: Number(policy?.itemType) || 0,
+        rewards,
+        condition: policy?.condition || null,
+        priceId: primary?.id || 0,
+        price: primary?.amount || 0,
     };
+}
+
+function getRewardUnit(rewardId) {
+    const id = Number(rewardId) || 0;
+    if (id === 1 || id === 1001) return '金币';
+    if (id === 1002) return '点券';
+    if (id === 1005) return '金豆豆';
+    const display = getItemDisplayById(id);
+    return display?.name && display.name !== `物品 #${id}` ? display.name : `物品 #${id}`;
+}
+
+function isAutoSellEligible(eligibility) {
+    return eligibility?.sellable === true
+        && eligibility.itemType === 6
+        && Array.isArray(eligibility.rewards)
+        && eligibility.rewards.length > 0
+        && eligibility.rewards.every((reward) => reward.id === 1 || reward.id === 1001);
 }
 
 async function sellItems(items) {
@@ -154,10 +174,6 @@ async function batchUseItems(items) {
     const body = types.BatchUseRequest.encode(types.BatchUseRequest.create({ items: payload })).finish();
     const { body: replyBody } = await sendMsgAsync('gamepb.itempb.ItemService', 'BatchUse', body);
     return types.BatchUseReply.decode(replyBody);
-}
-
-function isFruitItemId(id) {
-    return !!getPlantByFruitId(Number(id));
 }
 
 function getBagItems(bagReply) {
@@ -403,9 +419,12 @@ async function getBagDetail() {
         }
         if (!name) name = `物品 #${id}`;
         const interactionType = info && info.interaction_type ? String(info.interaction_type) : '';
+        const sellEligibility = getSellEligibility(id);
+        const primaryReward = sellEligibility.rewards[0] || null;
         const displayPrice = display && display.price;
-        const priceId = info ? (Number(info.price_id) || 0) : (Number(displayPrice && displayPrice.id) || 0);
-        const priceUnit = priceId === 1005 ? '金豆豆' : priceId === 1002 ? '点券' : '金';
+        const priceId = primaryReward?.id || (info ? (Number(info.price_id) || 0) : (Number(displayPrice && displayPrice.id) || 0));
+        const price = primaryReward?.amount || (info ? (Number(info.price) || 0) : (Number(displayPrice && displayPrice.amount) || 0));
+        const priceUnit = primaryReward?.unit || (priceId ? getRewardUnit(priceId) : '');
 
         if (!merged.has(id)) {
             const image = getItemImageById(id);
@@ -418,7 +437,6 @@ async function getBagDetail() {
                     itemId: id,
                 });
             }
-            const sellEligibility = getSellEligibility(id);
             merged.set(id, {
                 id,
                 count: 0,
@@ -427,10 +445,12 @@ async function getBagDetail() {
                 category,
                 itemType: display && display.itemType ? display.itemType : (category === 'seed' ? 5 : (category === 'fruit' ? 6 : (info ? (Number(info.type) || 0) : 0))),
                 priceId,
-                price: info ? (Number(info.price) || 0) : (Number(displayPrice && displayPrice.amount) || 0),
+                price,
                 priceUnit,
                 sellable: sellEligibility.sellable,
                 sellStatus: sellEligibility.status,
+                sellRewards: sellEligibility.rewards,
+                sellCondition: sellEligibility.condition,
                 level: info ? (Number(info.level) || 0) : (Number(display && display.level) || 0),
                 interactionType,
                 hoursText: '',
@@ -488,9 +508,12 @@ async function sellAllFruits() {
         for (const item of items) {
             const id = toNum(item.id);
             const count = toNum(item.count);
-            if (isFruitItemId(id) && count > 0 && getSellEligibility(id).sellable) {
+            const eligibility = getSellEligibility(id);
+            if (isAutoSellEligible(eligibility) && count > 0) {
                 toSell.push(item);
-                names.push(`${getFruitName(id)}x${count}`);
+                const display = getItemDisplayById(id);
+                const name = display?.name && display.name !== `物品 #${id}` ? display.name : getFruitName(id);
+                names.push(`${name}x${count}`);
             }
         }
 
@@ -641,4 +664,5 @@ module.exports = {
     getBagSeeds,
     getContainerHoursFromBagItems,
     getSellEligibility,
+    isAutoSellEligible,
 };

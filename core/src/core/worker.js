@@ -723,7 +723,7 @@ async function startBot(config) {
             }
         }, { preventOverlap: true });
 
-        // 观星自动点亮：每日星宿奖励含梅酒种子（29003 等返场作物），点亮当日星宿奖励即自动入包。
+        // 观星自动点亮：每日星宿奖励含星语铃花种子（29003 等返场作物），点亮当日星宿奖励即自动入包。
         // 每 6 小时尝试一次（当日已领则幂等跳过 nothingToClaim，次日自动点亮下一宿）
         workerScheduler.setIntervalTask('constellation_auto_light', 6 * 60 * 60 * 1000, async () => {
             if (!isRunning) return;
