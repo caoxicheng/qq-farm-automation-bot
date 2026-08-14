@@ -19,6 +19,7 @@ const OPERATE_SETTLE = 16;
 const SHARED_SETTLEMENT_MODE = 2;
 const ALREADY_CLAIMED_CODE = 1034014;
 let claimedDateKey = '';
+const knownQuotes = new Map();
 
 function int64String(value) {
     if (value == null) return '0';
@@ -29,6 +30,69 @@ function int64String(value) {
         return /^-?\d+$/.test(text) ? text : '0';
     }
     return '0';
+}
+
+function positiveBigInt(value) {
+    const text = int64String(value);
+    return /^[1-9]\d*$/.test(text) ? BigInt(text) : null;
+}
+
+function quoteTotalMatches(totalGold, unitPrice, baseGold, basePrice) {
+    const total = positiveBigInt(totalGold);
+    const unit = positiveBigInt(unitPrice);
+    const baseTotal = positiveBigInt(baseGold);
+    const baseUnit = positiveBigInt(basePrice);
+    if (total === null || unit === null || baseTotal === null || baseUnit === null) return false;
+    return baseTotal * unit / baseUnit === total;
+}
+
+function deriveUnitPrice(totalGold, baseGold, basePrice) {
+    const total = positiveBigInt(totalGold);
+    const baseTotal = positiveBigInt(baseGold);
+    const baseUnit = positiveBigInt(basePrice);
+    if (total === null || baseTotal === null || baseUnit === null) return '0';
+    const numerator = total * baseUnit;
+    if (numerator % baseTotal !== 0n) return '0';
+    return (numerator / baseTotal).toString();
+}
+
+function normalizeQuote(quote) {
+    if (!quote) return null;
+    const round = toNum(quote.round);
+    const unitPrice = int64String(quote.unit_price ?? quote.unitPrice);
+    const totalGold = int64String(quote.total_gold ?? quote.totalGold);
+    if (round <= 0 || unitPrice === '0' || totalGold === '0') return null;
+    return { round, unitPrice, totalGold, doubled: !!quote.doubled };
+}
+
+function rememberQuote(quote) {
+    const normalized = normalizeQuote(quote);
+    if (normalized) knownQuotes.set(normalized.round, normalized);
+    return normalized;
+}
+
+function buildQuoteHistory(brew, directQuote = null) {
+    const totals = (Array.isArray(brew && brew.quote_totals) ? brew.quote_totals : []).map(int64String);
+    const rawPrices = (Array.isArray(brew && brew.quote_prices) ? brew.quote_prices : []).map(int64String);
+    const baseGold = int64String(brew && brew.base_gold);
+    const basePrice = int64String(brew && brew.base_price);
+    const currentRound = Math.max(0, toNum(brew && brew.current_round));
+    const exactQuote = rememberQuote(directQuote);
+    if (currentRound === 0 && totals.length === 0) knownQuotes.clear();
+    for (const round of [...knownQuotes.keys()]) {
+        if (currentRound > 0 && round > currentRound) knownQuotes.delete(round);
+    }
+
+    return totals.map((totalGold, index) => {
+        const round = index + 1;
+        const captured = exactQuote && exactQuote.round === round ? exactQuote : knownQuotes.get(round);
+        if (captured && captured.totalGold === totalGold) return captured;
+        const rawUnitPrice = rawPrices[index] || '0';
+        const unitPrice = quoteTotalMatches(totalGold, rawUnitPrice, baseGold, basePrice)
+            ? rawUnitPrice
+            : deriveUnitPrice(totalGold, baseGold, basePrice);
+        return { round, unitPrice, totalGold, doubled: false };
+    });
 }
 
 function positiveInt64(value, fieldName) {
@@ -76,7 +140,8 @@ function normalize(reply, ingredients = null) {
     const brew = reply && reply.data && reply.data.qingmei_brew || {};
     const dailySeed = reply && reply.data && reply.data.qingmei_daily_seed;
     const quote = reply && (reply.qingmei_quote || reply.data && reply.data.qingmei_quote);
-    const quoteTotals = (Array.isArray(brew.quote_totals) ? brew.quote_totals : []).map(int64String);
+    const quotes = buildQuoteHistory(brew, quote);
+    const normalizedQuote = normalizeQuote(quote);
     const currentRound = toNum(brew.current_round);
     const maxRounds = Math.max(1, toNum(brew.max_rounds) || 3);
     const started = toNum(brew.base_gold) > 0;
@@ -100,15 +165,16 @@ function normalize(reply, ingredients = null) {
         maxRounds,
         started,
         finished: !!brew.finished,
-        quotePrices: (Array.isArray(brew.quote_prices) ? brew.quote_prices : []).map(int64String),
-        quoteTotals,
-        quote: quote ? { round: toNum(quote.round), unitPrice: int64String(quote.unit_price), totalGold: int64String(quote.total_gold), doubled: !!quote.doubled } : null,
+        quotes,
+        quotePrices: quotes.map((entry) => entry.unitPrice),
+        quoteTotals: quotes.map((entry) => entry.totalGold),
+        quote: normalizedQuote,
         dailySeed: { claimed, grantId: int64String(dailySeed && dailySeed.grant && dailySeed.grant.grant_id) || String(DAILY_GRANT_ID) },
         actions: {
             claimSeed: { enabled: !claimed, available: !claimed },
             start: { enabled: !started && balanceKnown && availableIngredients.length > 0, available: !started && balanceKnown && availableIngredients.length > 0 },
             continue: { enabled: started && !brew.finished && currentRound < maxRounds, available: started && !brew.finished && currentRound < maxRounds },
-            settle: { enabled: started && (quoteTotals.length > 0 || !!brew.finished), available: started && (quoteTotals.length > 0 || !!brew.finished) },
+            settle: { enabled: started && (quotes.length > 0 || !!brew.finished), available: started && (quotes.length > 0 || !!brew.finished) },
         },
     };
 }
@@ -151,13 +217,15 @@ async function startBrew(input) {
         return { uid: toLong(uid), count: toLong(count) };
     });
     await operate(types.StartQingMeiBrewRequest, { activity_id: toLong(BREW_ACTIVITY_ID), operate_type: OPERATE_START, params: { ingredients } });
+    knownQuotes.clear();
     return { message: `已投入 ${ingredients.reduce((sum, item) => sum + toNum(item.count), 0)} 个青梅` };
 }
 
 async function continueBrew() {
     const reply = await operate(types.ContinueQingMeiBrewRequest, { activity_id: toLong(BREW_ACTIVITY_ID), operate_type: OPERATE_CONTINUE, params: {} });
     const quote = reply.qingmei_quote || reply.data && reply.data.qingmei_quote;
-    return { message: quote ? `第 ${toNum(quote.round)} 轮报价：${int64String(quote.total_gold)} 金币` : '酿造进度已更新' };
+    const normalizedQuote = rememberQuote(quote);
+    return { message: normalizedQuote ? `第 ${normalizedQuote.round} 轮报价：${normalizedQuote.totalGold} 金币` : '酿造进度已更新' };
 }
 
 async function settleBrew() {
@@ -166,10 +234,11 @@ async function settleBrew() {
         activity_id: toLong(BREW_ACTIVITY_ID), operate_type: OPERATE_SETTLE, params: { settlement_mode: SHARED_SETTLEMENT_MODE },
     });
     const settlement = reply.qingmei_settlement;
+    knownQuotes.clear();
     return {
         rewards: settlement && settlement.reward ? [itemDto(settlement.reward)] : (Array.isArray(reply.rewards) ? reply.rewards : []).map(itemDto),
         message: settlement ? `分享出售成功，获得 ${int64String(settlement.total_gold)} 金币` : '青梅已按分享奖励结算',
     };
 }
 
-module.exports = { getCurrentQingMeiActivity, claimDailySeed, startBrew, continueBrew, settleBrew, ingredientsFromBag };
+module.exports = { getCurrentQingMeiActivity, claimDailySeed, startBrew, continueBrew, settleBrew, ingredientsFromBag, buildQuoteHistory };

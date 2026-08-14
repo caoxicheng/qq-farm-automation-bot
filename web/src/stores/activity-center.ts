@@ -197,6 +197,13 @@ export interface QingMeiIngredientDto extends ActivityItemDto {
   mutantTypes: string[]
 }
 
+export interface QingMeiQuoteDto {
+  round: number
+  unitPrice: string
+  totalGold: string
+  doubled: boolean
+}
+
 export interface QingMeiActivityDto {
   activityId: string
   name: string
@@ -213,6 +220,7 @@ export interface QingMeiActivityDto {
   maxRounds: number
   started: boolean
   finished: boolean
+  quotes: QingMeiQuoteDto[]
   quotePrices: string[]
   quoteTotals: string[]
   dailySeed: { claimed: boolean, grantId: string }
@@ -242,6 +250,12 @@ export interface ActivityCenterSnapshotDto {
   constellation: ConstellationDto | null
   qingMei: QingMeiActivityDto | null
   actions: ActivityActionsDto
+  errors: {
+    season: string | null
+    shop: string | null
+    solarTerms: string | null
+    qingMei: string | null
+  }
 }
 
 export type ActivityMutationKey = 'claimPass' | 'lightConstellation' | 'claimSolar' | 'exchange' | 'qingMeiSeed' | 'qingMeiStart' | 'qingMeiContinue' | 'qingMeiSettle'
@@ -674,6 +688,7 @@ export function normalizeActivitySnapshot(value: unknown): ActivityCenterSnapsho
   const seasonRecord = record(seasonRaw)
   const actionsRaw = record(first(root.actions, seasonRecord.actions))
   const capabilitiesRaw = record(first(root.capabilities, seasonRecord.capabilities, record(root.shop).capabilities, record(first(root.solarTerms, root.solar)).capabilities))
+  const errorsRaw = record(root.errors)
   return {
     season: normalizeSeason(seasonRaw),
     shop: normalizeShop(first(root.shop, root.starSandShop, root.star_sand_shop)),
@@ -686,6 +701,12 @@ export function normalizeActivitySnapshot(value: unknown): ActivityCenterSnapsho
       claimSolar: normalizeAction(actionsRaw, capabilitiesRaw, ['claimSolar', 'solarClaim', 'solar_claim']),
       exchange: normalizeAction(actionsRaw, capabilitiesRaw, ['exchange', 'shopExchange', 'shop_exchange']),
     },
+    errors: {
+      season: text(errorsRaw.season) || null,
+      shop: text(errorsRaw.shop) || null,
+      solarTerms: text(errorsRaw.solarTerms, errorsRaw.solar_terms) || null,
+      qingMei: text(errorsRaw.qingMei, errorsRaw.qingmei, errorsRaw.qing_mei) || null,
+    },
   }
 }
 
@@ -695,6 +716,14 @@ function normalizeQingMei(value: unknown): QingMeiActivityDto | null {
   const raw = record(value)
   const actionRaw = record(raw.actions)
   const capabilities = { claimSeed: true, start: true, continue: true, settle: true }
+  const quoteTotals = Array.isArray(raw.quoteTotals) ? raw.quoteTotals.map(String) : []
+  const quotePrices = Array.isArray(raw.quotePrices) ? raw.quotePrices.map(String) : []
+  const quotes = records(raw.quotes).map((quote, index) => ({
+    round: finiteNumber(first(quote.round, index + 1)) || index + 1,
+    unitPrice: text(quote.unitPrice, quote.unit_price, '0'),
+    totalGold: text(quote.totalGold, quote.total_gold, '0'),
+    doubled: bool(quote.doubled),
+  }))
   return {
     activityId: text(raw.activityId, raw.activity_id),
     name: text(raw.name, '青酿换万金'),
@@ -711,8 +740,11 @@ function normalizeQingMei(value: unknown): QingMeiActivityDto | null {
     maxRounds: finiteNumber(first(raw.maxRounds, raw.max_rounds)) || 3,
     started: bool(raw.started),
     finished: bool(raw.finished),
-    quotePrices: Array.isArray(raw.quotePrices) ? raw.quotePrices.map(String) : [],
-    quoteTotals: Array.isArray(raw.quoteTotals) ? raw.quoteTotals.map(String) : [],
+    quotes: quotes.length > 0
+      ? quotes
+      : quoteTotals.map((totalGold, index) => ({ round: index + 1, unitPrice: quotePrices[index] || '0', totalGold, doubled: false })),
+    quotePrices,
+    quoteTotals,
     dailySeed: { claimed: bool(record(raw.dailySeed).claimed), grantId: text(record(raw.dailySeed).grantId, record(raw.dailySeed).grant_id) },
     actions: {
       claimSeed: normalizeAction(actionRaw, capabilities, ['claimSeed']),
@@ -836,13 +868,43 @@ export const useActivityCenterStore = defineStore('activity-center', () => {
     return requestVersion.value === version && storedAccountId === accountId
   }
 
-  function applySnapshot(value: unknown, clientStartedAt = Date.now()) {
+  function disableQingMeiActions(activity: QingMeiActivityDto): QingMeiActivityDto {
+    const disabledAction = (action: ActivityActionDto): ActivityActionDto => ({ ...action, enabled: false, available: false })
+    return {
+      ...activity,
+      actions: {
+        claimSeed: disabledAction(activity.actions.claimSeed),
+        start: disabledAction(activity.actions.start),
+        continue: disabledAction(activity.actions.continue),
+        settle: disabledAction(activity.actions.settle),
+      },
+    }
+  }
+
+  function preserveQingMeiAfterUnknownMutation() {
+    if (snapshot.value.qingMei) {
+      snapshot.value = {
+        ...snapshot.value,
+        qingMei: disableQingMeiActions(snapshot.value.qingMei),
+      }
+    }
+    return '青酿操作已提交，但最新状态暂未取回，请点击右上角刷新确认，不要重复操作'
+  }
+
+  function applySnapshot(value: unknown, clientStartedAt = Date.now(), preserveFailedQingMei = false) {
+    const previousQingMei = snapshot.value.qingMei
     const normalized = normalizeActivitySnapshot(value)
+    let warning = ''
+    if (preserveFailedQingMei && !normalized.qingMei && normalized.errors.qingMei && previousQingMei) {
+      normalized.qingMei = disableQingMeiActions(previousQingMei)
+      warning = '青酿操作已提交，但最新状态暂未取回，请点击右上角刷新确认，不要重复操作'
+    }
     snapshot.value = normalized
     const serverTime = [normalized.season?.serverTime, normalized.shop?.serverTime, normalized.solarTerms?.serverTime, normalized.constellation?.serverTime]
       .find(value => value !== null && value !== undefined)
     if (serverTime !== undefined && serverTime !== null)
       serverClockOffset.value = serverTime - Math.round((clientStartedAt + Date.now()) / 2)
+    return warning
   }
 
   async function fetchSnapshot(accountId: string) {
@@ -943,13 +1005,19 @@ export const useActivityCenterStore = defineStore('activity-center', () => {
         return false
       const resultRecord = record(result)
       const mutationSnapshot = first(resultRecord.snapshot, resultRecord.activityCenter, resultRecord.activity_center)
+      const mutationSnapshotError = text(resultRecord.snapshotError, resultRecord.snapshot_error)
+      let snapshotWarning = ''
       if (mutationSnapshot)
-        applySnapshot(mutationSnapshot)
+        snapshotWarning = applySnapshot(mutationSnapshot, Date.now(), key.startsWith('qingMei'))
+      else if (key.startsWith('qingMei') && mutationSnapshotError)
+        snapshotWarning = preserveQingMeiAfterUnknownMutation()
       else
         await load(requestedAccountId, true)
       const rewards = records(resultRecord.rewards).map(normalizeItem).filter(item => item.id || item.name)
       const rewardSummary = rewards.map(item => `${item.name || item.id}${item.count ? ` ×${item.count}` : ''}`).join('、')
       notice.value = text(resultRecord.message, record(response.data).message, rewardSummary ? `获得 ${rewardSummary}` : '操作成功')
+      if (snapshotWarning)
+        actionError.value = snapshotWarning
       return true
     }
     catch (mutationError) {

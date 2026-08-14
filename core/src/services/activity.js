@@ -24,7 +24,7 @@ const import_constellation_2026072701 = __toESM(require("../activity-data/conste
 const LongModule = require("long");
 const { sendMsgAsync, GatewayError } = require("../utils/network");
 const { types } = require("../utils/proto");
-const { createSingleFlight } = require("../utils/request-coordination");
+const { capturePostMutationSnapshot, createSingleFlight, retryFailedSnapshotSection } = require("../utils/request-coordination");
 const { getItemById, getItemDisplayById, getItemImageById } = require("../config/gameConfig");
 const { getBag, getBagItems } = require("./warehouse");
 const qingmei = require("./qingmei");
@@ -702,6 +702,19 @@ async function getFreshActivityCenterSnapshot(shopOverride = null) {
   if (current) await current.catch(() => null);
   return getSnapshotSingleFlight(shopOverride);
 }
+async function captureFreshQingMeiMutationSnapshot() {
+  return capturePostMutationSnapshot(async () => {
+    const snapshot = await getFreshActivityCenterSnapshot();
+    return retryFailedSnapshotSection(
+      snapshot,
+      "qingMei",
+      () => qingmei.getCurrentQingMeiActivity(null, ACTIVITY_READ_TIMEOUT_MS)
+    );
+  });
+}
+async function withFreshQingMeiMutationSnapshot(result) {
+  return { ...result, ...await captureFreshQingMeiMutationSnapshot() };
+}
 async function getCurrentSeasonEvent() {
   const seasonReply = await querySeason();
   const season = normalizeSeason(seasonReply);
@@ -954,16 +967,16 @@ async function claimSolarTerm(termId) {
   });
 }
 async function claimQingMeiDailySeed() {
-  return serializeMutation(async () => ({ ...await qingmei.claimDailySeed(), snapshot: await getFreshActivityCenterSnapshot() }));
+  return serializeMutation(async () => withFreshQingMeiMutationSnapshot(await qingmei.claimDailySeed()));
 }
 async function startQingMeiBrew(ingredients) {
-  return serializeMutation(async () => ({ ...await qingmei.startBrew(ingredients), snapshot: await getFreshActivityCenterSnapshot() }));
+  return serializeMutation(async () => withFreshQingMeiMutationSnapshot(await qingmei.startBrew(ingredients)));
 }
 async function continueQingMeiBrew() {
-  return serializeMutation(async () => ({ ...await qingmei.continueBrew(), snapshot: await getFreshActivityCenterSnapshot() }));
+  return serializeMutation(async () => withFreshQingMeiMutationSnapshot(await qingmei.continueBrew()));
 }
 async function settleQingMeiBrew() {
-  return serializeMutation(async () => ({ ...await qingmei.settleBrew(), snapshot: await getFreshActivityCenterSnapshot() }));
+  return serializeMutation(async () => withFreshQingMeiMutationSnapshot(await qingmei.settleBrew()));
 }
 module.exports = {
   getActivityCenterSnapshot,

@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const Long = require('long');
 const { loadProto, types } = require('../src/utils/proto');
-const { ingredientsFromBag } = require('../src/services/qingmei');
+const { ingredientsFromBag, buildQuoteHistory } = require('../src/services/qingmei');
 const { getSellEligibility } = require('../src/services/warehouse');
 
 test.before(async () => loadProto());
@@ -27,6 +27,36 @@ test('背包青梅原料保留 UID 并排除无 UID 系统项', () => {
     ] } });
     assert.deepEqual(result.map(item => ({ uid: item.uid, count: item.count, mutantTypes: item.mutantTypes })), [
         { uid: '101', count: '4', mutantTypes: ['7'] },
+    ]);
+});
+
+test('青酿历史报价按总金币反推单价，不直接错配协议价格数组', () => {
+    buildQuoteHistory({ current_round: 0, quote_totals: [] });
+    const quotes = buildQuoteHistory({
+        base_gold: 9202320,
+        base_price: 10000,
+        current_round: 3,
+        quote_prices: [30000, 10000, 20000],
+        quote_totals: [9202320, 9202320, 18404640],
+    });
+    assert.deepEqual(quotes, [
+        { round: 1, unitPrice: '10000', totalGold: '9202320', doubled: false },
+        { round: 2, unitPrice: '10000', totalGold: '9202320', doubled: false },
+        { round: 3, unitPrice: '20000', totalGold: '18404640', doubled: false },
+    ]);
+});
+
+test('青酿操作回包中的精确报价优先于快照推导结果', () => {
+    buildQuoteHistory({ current_round: 0, quote_totals: [] });
+    const quotes = buildQuoteHistory({
+        base_gold: 9202320,
+        base_price: 10000,
+        current_round: 1,
+        quote_prices: [30000],
+        quote_totals: [9202320],
+    }, { round: 1, unit_price: 10000, total_gold: 9202320, doubled: true });
+    assert.deepEqual(quotes, [
+        { round: 1, unitPrice: '10000', totalGold: '9202320', doubled: true },
     ]);
 });
 

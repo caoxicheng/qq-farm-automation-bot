@@ -25,4 +25,39 @@ function createSingleFlight(operation) {
     };
 }
 
-module.exports = { canReserveRequest, createSingleFlight };
+async function retryFailedSnapshotSection(snapshot, section, loader) {
+    if (!snapshot || snapshot[section] || !snapshot.errors?.[section]) return snapshot;
+    try {
+        const value = await loader();
+        if (value == null) throw new Error(`${section} 补读未返回数据`);
+        return {
+            ...snapshot,
+            [section]: value,
+            errors: { ...snapshot.errors, [section]: null },
+        };
+    } catch (error) {
+        const retryError = String(error?.message || error || '未知错误');
+        return {
+            ...snapshot,
+            errors: { ...snapshot.errors, [section]: `${snapshot.errors[section]}; 补读失败: ${retryError}` },
+        };
+    }
+}
+
+async function capturePostMutationSnapshot(loader) {
+    try {
+        return { snapshot: await loader(), snapshotError: null };
+    } catch (error) {
+        return {
+            snapshot: null,
+            snapshotError: String(error?.message || error || '操作后状态刷新失败'),
+        };
+    }
+}
+
+module.exports = {
+    canReserveRequest,
+    capturePostMutationSnapshot,
+    createSingleFlight,
+    retryFailedSnapshotSection,
+};

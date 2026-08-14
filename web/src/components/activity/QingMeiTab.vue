@@ -21,7 +21,7 @@ const counts = ref<Record<string, number>>({})
 const ingredients = computed(() => props.activity?.ingredients || [])
 const busy = computed(() => props.pendingSeed || props.pendingStart || props.pendingContinue || props.pendingSettle)
 const allSelected = computed(() => ingredients.value.length > 0 && selected.value.size === ingredients.value.length)
-const quotes = computed(() => (props.activity?.quoteTotals || []).map((total, index) => ({ total, unit: props.activity?.quotePrices[index] || '0', round: index + 1 })))
+const quotes = computed(() => props.activity?.quotes || [])
 
 watch(ingredients, (items) => {
   const available = new Set(items.map(item => item.uid))
@@ -44,6 +44,14 @@ function setCount(uid: string, value: unknown) {
 function start() {
   emit('start', ingredients.value.filter(item => selected.value.has(item.uid)).map(item => ({ uid: item.uid, count: counts.value[item.uid] || 1 })))
 }
+function formatGold(value: string) {
+  try {
+    return BigInt(value).toLocaleString('zh-CN')
+  }
+  catch {
+    return value
+  }
+}
 </script>
 
 <template>
@@ -60,7 +68,7 @@ function start() {
       </header>
       <div class="card daily">
         <div><strong>每日青梅种子</strong><small>领取后种植并收获青梅</small></div>
-        <button :disabled="busy || activity.dailySeed.claimed" @click="emit('claimSeed')">
+        <button :disabled="busy || activity.dailySeed.claimed || !activity.actions.claimSeed.enabled" @click="emit('claimSeed')">
           {{ activity.dailySeed.claimed ? '今日已领取' : '领取种子' }}
         </button>
       </div>
@@ -89,7 +97,7 @@ function start() {
         <template v-else>
           <div class="quotes">
             <article v-for="quote in quotes" :key="quote.round">
-              <small>第 {{ quote.round }} 轮</small><strong>{{ Number(quote.total).toLocaleString() }}</strong><span>单价 {{ quote.unit }}</span>
+              <small>第 {{ quote.round }} 轮</small><strong>{{ formatGold(quote.totalGold) }}</strong><span>{{ quote.unitPrice === '0' ? '单价待确认' : `单价 ${quote.unitPrice}` }}</span>
             </article><article v-for="round in Math.max(0, activity.maxRounds - quotes.length)" :key="`pending-${round}`" class="pending">
               <small>第 {{ quotes.length + round }} 轮</small><strong>待报价</strong>
             </article>
