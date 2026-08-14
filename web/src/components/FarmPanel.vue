@@ -84,6 +84,14 @@ watch(currentAccountId, () => {
   refresh()
 })
 
+watch(
+  () => [currentAccount.value?.running, status.value?.connection?.connected] as const,
+  ([running, connected], [wasRunning, wasConnected]) => {
+    if (running && connected && (!wasRunning || !wasConnected) && currentAccountId.value)
+      void farmStore.fetchLands(currentAccountId.value)
+  },
+)
+
 const { pause, resume } = useIntervalFn(() => {
   if (lands.value) {
     lands.value = lands.value.map((l: any) =>
