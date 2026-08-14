@@ -14,6 +14,7 @@ import SolarTermsTab from '@/components/activity/SolarTermsTab.vue'
 import StarSandExchangeDialog from '@/components/activity/StarSandExchangeDialog.vue'
 import StarSandShopTab from '@/components/activity/StarSandShopTab.vue'
 import TravelPassTab from '@/components/activity/TravelPassTab.vue'
+import { activityTabByKey } from '@/features/activity-center/registry'
 import { useAccountStore } from '@/stores/account'
 import { useActivityCenterStore } from '@/stores/activity-center'
 
@@ -30,7 +31,8 @@ let clockTimer: number | undefined
 const currentData = computed(() => activeTab.value === 'shop' ? shop.value : activeTab.value === 'solar' ? solarTerms.value : activeTab.value === 'constellation' ? constellation.value : activeTab.value === 'qingmei' ? qingMei.value : season.value)
 const serverNow = computed(() => clockNow.value + serverClockOffset.value)
 const pageTitle = computed(() => activeTab.value === 'qingmei' ? (qingMei.value?.name || '青酿换万金') : currentData.value && 'title' in currentData.value ? currentData.value.title : (season.value?.title || '—'))
-const theme = computed(() => activeTab.value === 'solar' ? 'day' : 'night')
+const activeTabDefinition = computed(() => activityTabByKey[activeTab.value])
+const theme = computed(() => activeTabDefinition.value.theme)
 const endTime = computed(() => {
   if (activeTab.value === 'shop')
     return shop.value?.endTime
@@ -53,8 +55,8 @@ const remaining = computed(() => {
   const minutes = Math.floor(diff % 3600000 / 60000)
   return days > 0 ? `剩余：${days}天${hours}小时` : `剩余：${hours}小时${minutes}分钟`
 })
-const balanceVisible = computed(() => activeTab.value === 'travel' || activeTab.value === 'shop')
-const constellationBrandImage = computed(() => activeTab.value === 'constellation' ? '/activity-center/stellar/activity-title.png' : undefined)
+const balanceVisible = computed(() => activeTabDefinition.value.showBalance)
+const brandImage = computed(() => activeTabDefinition.value.brandImage)
 
 function accountId() { return String(currentAccountId.value || '') }
 function load(force = false) { return force ? activityStore.refresh(accountId()) : activityStore.lazyLoad(accountId()) }
@@ -92,7 +94,7 @@ onUnmounted(() => {
 <template>
   <ActivityShell :theme="theme">
     <div class="activity-center">
-      <ActivityHeader :title="pageTitle" :brand-image="constellationBrandImage" :remaining="remaining" :balance="balanceVisible ? (shop?.balanceKnown ? (shop.balance ?? '0') : '--') : undefined" :currency-image="shop?.currency.image" :currency-name="shop?.currency.name" :loading="loading" :show-refresh="activeTab !== 'constellation'" @back="goBack" @refresh="load(true)" />
+      <ActivityHeader :title="pageTitle" :brand-image="brandImage" :remaining="remaining" :balance="balanceVisible ? (shop?.balanceKnown ? (shop.balance ?? '0') : '--') : undefined" :currency-image="shop?.currency.image" :currency-name="shop?.currency.name" :loading="loading" :show-refresh="activeTabDefinition.showRefresh" @back="goBack" @refresh="load(true)" />
       <div v-if="!currentAccountId" class="activity-state">
         <strong>请先选择账号</strong><span>活动数据按当前账号加载</span>
       </div>

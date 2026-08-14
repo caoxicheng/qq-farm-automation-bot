@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import type { ActivityTabKey } from '@/stores/activity-center'
+import type { ActivityTabKey } from '@/features/activity-center/types'
+import { activityTabs } from '@/features/activity-center/registry'
 
 export type ActivityTab = ActivityTabKey
 
@@ -12,13 +13,7 @@ defineEmits<{
   'update:modelValue': [value: ActivityTab]
 }>()
 
-const items: Array<{ key: ActivityTab, label: string }> = [
-  { key: 'travel', label: '千星游记' },
-  { key: 'constellation', label: '观星礼录' },
-  { key: 'shop', label: '星砂商店' },
-  { key: 'solar', label: '节令小礼' },
-  { key: 'qingmei', label: '青酿换万金' },
-]
+const items = activityTabs
 </script>
 
 <template>
