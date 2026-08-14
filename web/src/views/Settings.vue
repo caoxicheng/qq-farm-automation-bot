@@ -13,6 +13,7 @@ import BaseSwitch from '@/components/ui/BaseSwitch.vue'
 import { getPlatformClass, getPlatformLabel, useAccountStore } from '@/stores/account'
 import { useFarmStore } from '@/stores/farm'
 import { useSettingStore } from '@/stores/setting'
+import { useStatusStore } from '@/stores/status'
 import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
@@ -20,6 +21,8 @@ const accountStore = useAccountStore()
 const userStore = useUserStore()
 const settingStore = useSettingStore()
 const farmStore = useFarmStore()
+const statusStore = useStatusStore()
+const { status } = storeToRefs(statusStore)
 
 const activeTab = ref<'account' | 'strategy' | 'automation' | 'user'>(
   (localStorage.getItem('settings-active-tab') as 'account' | 'strategy' | 'automation' | 'user') || 'account',
@@ -55,7 +58,7 @@ function showAlert(message: string, type: 'primary' | 'danger' = 'primary') {
 }
 
 // ==================== 账号管理 ====================
-const { accounts, loading: accountsLoading, currentAccountId } = storeToRefs(accountStore)
+const { accounts, loading: accountsLoading, currentAccount, currentAccountId } = storeToRefs(accountStore)
 
 const showModal = ref(false)
 const showDeleteConfirm = ref(false)
@@ -257,6 +260,17 @@ const bagSeeds = ref<BagSeedItem[]>([])
 const bagSeedsLoading = ref(false)
 const bagSeedsError = ref<string | null>(null)
 const draggingBagSeedId = ref<number | null>(null)
+let bagSeedsRequestSequence = 0
+let bagSeedsLoadedAccountId = ''
+let bagSeedsWatchKey = ''
+
+function resetBagSeedsState(error: string | null = null) {
+  bagSeedsRequestSequence += 1
+  bagSeedsLoadedAccountId = ''
+  bagSeeds.value = []
+  bagSeedsLoading.value = false
+  bagSeedsError.value = error
+}
 
 const sortedBagSeeds = computed(() => {
   const priority = localStrategySettings.value.bagSeedPriority || []
@@ -274,24 +288,39 @@ const sortedBagSeeds = computed(() => {
   })
 })
 
-async function fetchBagSeeds() {
-  if (!currentAccountId.value)
+async function fetchBagSeeds(accountId: string) {
+  if (!accountId)
     return
+  const requestSequence = ++bagSeedsRequestSequence
   bagSeedsLoading.value = true
   bagSeedsError.value = null
   try {
     const res = await api.get('/api/bag/seeds', {
-      headers: { 'x-account-id': currentAccountId.value },
-    })
+      headers: { 'x-account-id': accountId },
+      skipErrorToast: true,
+    } as any)
+    if (requestSequence !== bagSeedsRequestSequence || accountId !== currentAccountId.value)
+      return
     if (res.data.ok) {
       bagSeeds.value = (res.data.data || []).filter((s: BagSeedItem) => s.plantSize === 1)
+      bagSeedsLoadedAccountId = accountId
+    }
+    else {
+      bagSeeds.value = []
+      bagSeedsLoadedAccountId = ''
+      bagSeedsError.value = res.data.error || '加载背包种子失败'
     }
   }
   catch (e: any) {
-    bagSeedsError.value = e.message || '加载失败'
+    if (requestSequence !== bagSeedsRequestSequence || accountId !== currentAccountId.value)
+      return
+    bagSeeds.value = []
+    bagSeedsLoadedAccountId = ''
+    bagSeedsError.value = e.response?.data?.error || e.message || '加载背包种子失败'
   }
   finally {
-    bagSeedsLoading.value = false
+    if (requestSequence === bagSeedsRequestSequence)
+      bagSeedsLoading.value = false
   }
 }
 
@@ -360,11 +389,36 @@ function dropBagSeed(seedId: number, event: DragEvent) {
   draggingBagSeedId.value = null
 }
 
-watchEffect(() => {
-  if (localStrategySettings.value.plantingStrategy === 'bag_priority' && currentAccountId.value) {
-    fetchBagSeeds()
-  }
-})
+watch(
+  () => [
+    localStrategySettings.value.plantingStrategy,
+    currentAccountId.value,
+    Boolean(currentAccount.value?.running),
+    status.value,
+  ] as const,
+  ([strategy, accountId, running, currentStatus]) => {
+    const watchKey = `${strategy}:${accountId}`
+    if (watchKey !== bagSeedsWatchKey) {
+      bagSeedsWatchKey = watchKey
+      resetBagSeedsState()
+    }
+
+    if (strategy !== 'bag_priority' || !accountId)
+      return
+    if (!running) {
+      resetBagSeedsState('账号未运行，请先启动账号')
+      return
+    }
+    if (!currentStatus?.connection?.connected) {
+      resetBagSeedsState('账号连接尚未就绪，请稍后重试')
+      return
+    }
+    if (bagSeedsLoadedAccountId === accountId || bagSeedsLoading.value)
+      return
+    fetchBagSeeds(accountId)
+  },
+  { immediate: true },
+)
 
 const preferredSeedOptions = computed(() => {
   const options: { label: string, value: number, disabled?: boolean }[] = [{ label: '自动选择', value: 0, disabled: false }]

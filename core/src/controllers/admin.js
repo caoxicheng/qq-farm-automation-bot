@@ -21,6 +21,7 @@ const { MiniProgramLoginSession } = require('../services/qrlogin');
 const wxLoginAdapter = require('../services/wx-login-adapter');
 const { versionChecker } = require('../services/version-checker');
 const { getSchedulerRegistrySnapshot } = require('../services/scheduler');
+const { isSoftRuntimeError } = require('../utils/runtime-errors');
 const userStore = require('../models/user-store');
 
 const adminLogger = createModuleLogger('admin');
@@ -670,11 +671,6 @@ function startAdminServer(dataProvider) {
         // 普通用户只能访问自己的账号
         const accounts = getAccountList(user.username);
         return accounts.map(a => a.id);
-    };
-
-    const isSoftRuntimeError = (err) => {
-        const msg = String((err && err.message) || '');
-        return msg === '账号未运行' || msg === 'API Timeout';
     };
 
     function handleApiError(res, err) {
