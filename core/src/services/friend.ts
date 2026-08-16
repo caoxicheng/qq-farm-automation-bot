@@ -2,30 +2,45 @@
  * 好友农场操作 - 进入/离开/帮忙/偷菜/巡查
  */
 
-const { CONFIG, PlantPhase, PHASE_NAMES } = require('../config/config');
-const { getPlantName, getPlantById, getSeedImageBySeedId, getPlantGrowTime, deriveSeedIdFromPlantId } = require('../config/gameConfig');
-const { parentPort } = require('node:worker_threads');
-const crypto = require('node:crypto');
-const { getDataFile } = require('../config/runtime-paths');
-const { readJsonFile, writeJsonFileAtomic } = require('./json-db');
+const { CONFIG, PlantPhase } = require('../config/config');
 const {
     isAutomationOn,
-    getFriendQuietHours,
     getFriendBlacklist,
     getPlantBlacklist,
-    getKnownFriendGids,
-    getKnownFriendGidSyncCooldownSec,
-    getFriendsListCacheTtlSec,
-    applyConfigSnapshot,
 } = require('../models/store');
 const { sendMsgAsync, getUserState, networkEvents } = require('../utils/network');
 const { types } = require('../utils/proto');
-const { toLong, toNum, toTimeSec, getServerTimeSec, log, logWarn, sleep, randomDelay } = require('../utils/utils');
-const { getCurrentPhase, setOperationLimitsCallback, buildLandMap, getDisplayLandContext, isOccupiedSlaveLand } = require('./farm');
-const { getInteractRecords } = require('./interact');
+const { toLong, toNum, log, logWarn, sleep, randomDelay } = require('../utils/utils');
+const { getCurrentPhase, setOperationLimitsCallback } = require('./farm');
 const { createScheduler } = require('./scheduler');
 const { recordOperation } = require('./stats');
 const { sellAllFruits } = require('./warehouse');
+const { BAD_SHARED_LIMIT_ID, friendOperationLimits } = require('./friend-operation-limits');
+const { analyzeFriendLands, buildFriendLandsDetail } = require('./friend-land-domain');
+const {
+    clearFriendDirectoryRuntimeState,
+    clearFriendsListCache,
+    extractReplyFriends,
+    getAllFriends,
+    getFriendsList,
+    handleFriendEnterError,
+    inFriendQuietHours,
+} = require('./friend-directory');
+
+const {
+    autoDisableHelpByExpLimit,
+    canGetExpByCandidates,
+    canGetHelpExperience,
+    canOperate,
+    checkDailyReset,
+    getOperationLimits,
+    getRemainingBadOperationTimes,
+    isBadOperationLimitReached,
+    isHelpExpLimitReached,
+    markBadOperationLimitReached,
+    resetHelpExpAvailability,
+    updateOperationLimits,
+} = friendOperationLimits;
 
 type DynamicRecord = Record<string, any>;
 type FriendOperationTotals = Record<string, number>;
@@ -38,469 +53,7 @@ function errorMessage(error: unknown): string {
 let isCheckingFriends = false;
 let friendLoopRunning = false;
 let externalSchedulerMode = false;
-let lastResetDate = '';  // 上次重置日期 (YYYY-MM-DD)
 const friendScheduler = createScheduler('friend');
-
-// 好友列表缓存
-let friendsListCache: DynamicRecord[] | null = null;
-let friendsListCacheTime = 0;
-
-function getFriendsListCacheTtlMs() {
-    const sec = Number(getFriendsListCacheTtlSec ? getFriendsListCacheTtlSec() : 0);
-    if (!Number.isFinite(sec) || sec <= 0) return 60 * 1000;
-    return Math.max(10 * 1000, sec * 1000);
-}
-
-const operationLimits = new Map<number, DynamicRecord>();
-
-// 捣乱共享额度：抓包确认放草/放虫都消耗 operation 10003（放虫额外报告 10004，共享每日额度是 10003）
-const BAD_SHARED_LIMIT_ID = 10003;
-const BAD_DAILY_STATE_VERSION = 1;
-let badOperationLimitReached = false; // 当日捣蛋已停用（吃 1001046 或额度满后置位，跨日重置）
-
-const QQ_FRIEND_LIST_BATCH_SIZE = 35;
-const DEFAULT_QQ_VISITOR_GID_SYNC_INTERVAL_MS = 10 * 60 * 1000;
-const MIN_QQ_VISITOR_GID_SYNC_RETRY_MS = 30 * 1000;
-const MAX_QQ_VISITOR_GID_SYNC_RETRY_MS = 2 * 60 * 1000;
-const INVALID_KNOWN_FRIEND_GID_COOLDOWN_MS = 24 * 60 * 60 * 1000;
-
-let canGetHelpExp = true;
-let helpAutoDisabledByLimit = false;
-let lastVisitorGidSyncAt = 0;
-const invalidKnownFriendGidCooldownUntil = new Map<number, number>();
-const OP_NAMES: Record<number, string> = {
-    10001: '收获',
-    10002: '铲除',
-    10003: '放草',
-    10004: '放虫',
-    10005: '除草',
-    10006: '除虫',
-    10007: '浇水',
-    10008: '偷菜',
-};
-
-function postToMaster(payload: unknown): boolean {
-    try {
-        if (process.send) {
-            process.send(payload);
-            return true;
-        }
-        if (parentPort && typeof parentPort.postMessage === 'function') {
-            parentPort.postMessage(payload);
-            return true;
-        }
-    } catch {}
-    return false;
-}
-
-function pruneInvalidKnownFriendGidCooldown(nowMs = Date.now()) {
-    for (const [gid, until] of invalidKnownFriendGidCooldownUntil.entries()) {
-        if (!gid || until <= nowMs) invalidKnownFriendGidCooldownUntil.delete(gid);
-    }
-}
-
-function clearInvalidKnownFriendGidMarks(gids: unknown): void {
-    for (const gid of normalizeFriendGids(gids)) {
-        invalidKnownFriendGidCooldownUntil.delete(gid);
-    }
-}
-
-function markKnownFriendGidInvalid(friendGid: unknown, nowMs = Date.now()): void {
-    const gid = toNum(friendGid);
-    if (!gid) return;
-    invalidKnownFriendGidCooldownUntil.set(gid, nowMs + INVALID_KNOWN_FRIEND_GID_COOLDOWN_MS);
-}
-
-function getInvalidKnownFriendGidSet(nowMs = Date.now()) {
-    pruneInvalidKnownFriendGidCooldown(nowMs);
-    return new Set(invalidKnownFriendGidCooldownUntil.keys());
-}
-
-function getKnownFriendGidSyncIntervalMs() {
-    const sec = Number(getKnownFriendGidSyncCooldownSec ? getKnownFriendGidSyncCooldownSec() : 0);
-    if (!Number.isFinite(sec) || sec <= 0) return DEFAULT_QQ_VISITOR_GID_SYNC_INTERVAL_MS;
-    return Math.max(30 * 1000, sec * 1000);
-}
-
-function getKnownFriendGidSyncRetryMs() {
-    const intervalMs = getKnownFriendGidSyncIntervalMs();
-    return Math.max(MIN_QQ_VISITOR_GID_SYNC_RETRY_MS, Math.min(intervalMs, MAX_QQ_VISITOR_GID_SYNC_RETRY_MS));
-}
-
-function normalizeFriendGids(values: unknown): number[] {
-    const normalized: number[] = [];
-    for (const item of (Array.isArray(values) ? values : [])) {
-        const value = toNum(item);
-        if (value <= 0) continue;
-        if (normalized.includes(value)) continue;
-        normalized.push(value);
-    }
-    return normalized;
-}
-
-function extractReplyFriends(reply: DynamicRecord | null | undefined): DynamicRecord[] {
-    if (Array.isArray(reply?.game_friends)) return reply.game_friends;
-    if (Array.isArray(reply?.gameFriends)) return reply.gameFriends;
-    return [];
-}
-
-function dedupeFriendsByGid(friends: unknown): DynamicRecord[] {
-    const result: DynamicRecord[] = [];
-    const seen = new Set<number>();
-    for (const friend of (Array.isArray(friends) ? friends : [])) {
-        const gid = toNum(friend && friend.gid);
-        if (gid <= 0 || seen.has(gid)) continue;
-        seen.add(gid);
-        result.push(friend);
-    }
-    return result;
-}
-
-function buildFriendReply(friends: unknown): DynamicRecord {
-    const list = dedupeFriendsByGid(friends);
-    return {
-        game_friends: list,
-        gameFriends: list,
-    };
-}
-
-function syncKnownFriendGidsFromFriends(friends: DynamicRecord[]): number[] {
-    const fetchedGids = normalizeFriendGids((Array.isArray(friends) ? friends : []).map(friend => friend && friend.gid));
-    if (fetchedGids.length === 0) return [];
-
-    clearInvalidKnownFriendGidMarks(fetchedGids);
-
-    const current = normalizeFriendGids(getKnownFriendGids());
-    const merged = normalizeFriendGids([...current, ...fetchedGids]);
-    if (merged.length === current.length && merged.every((gid, index) => gid === current[index])) {
-        return merged;
-    }
-
-    applyConfigSnapshot({ knownFriendGids: merged }, { persist: false });
-    const sent = postToMaster({
-        type: 'known_friend_gids_sync',
-        gids: merged,
-    });
-    if (!sent) {
-        applyConfigSnapshot({ knownFriendGids: merged }, { persist: true });
-    }
-    return merged;
-}
-
-function getEffectiveKnownQqFriendGids() {
-    const currentKnownGids = normalizeFriendGids(getKnownFriendGids());
-    clearInvalidKnownFriendGidMarks(currentKnownGids);
-    const accountId = process.env.FARM_ACCOUNT_ID || '';
-
-    const invalidGidSet = getInvalidKnownFriendGidSet();
-    const blacklistSet = new Set(getFriendBlacklist(accountId));
-    return normalizeFriendGids(currentKnownGids).filter(gid => !invalidGidSet.has(gid) && !blacklistSet.has(gid));
-}
-
-async function syncKnownFriendGidsFromRecentVisitors(force = false) {
-    const now = Date.now();
-    const interval = lastVisitorGidSyncAt > 0 ? getKnownFriendGidSyncIntervalMs() : 0;
-    if (!force && interval > 0 && now - lastVisitorGidSyncAt < interval) {
-        return getEffectiveKnownQqFriendGids();
-    }
-
-    const accountId = process.env.FARM_ACCOUNT_ID || '';
-
-    try {
-        const records = await getInteractRecords();
-        const invalidGidSet = getInvalidKnownFriendGidSet(now);
-        const visitorGids = normalizeFriendGids(
-            (Array.isArray(records) ? records : []).map(record => record && record.visitorGid),
-        ).filter(gid => !invalidGidSet.has(gid));
-        lastVisitorGidSyncAt = now;
-
-        if (visitorGids.length === 0) {
-            return getEffectiveKnownQqFriendGids();
-        }
-
-        const merged = normalizeFriendGids([
-            ...getKnownFriendGids(),
-            ...visitorGids,
-        ]);
-        const current = normalizeFriendGids(getKnownFriendGids());
-        const addedCount = merged.filter(gid => !current.includes(gid)).length;
-        if (addedCount > 0) {
-            applyConfigSnapshot({ knownFriendGids: merged }, { persist: false, accountId });
-            const sent = postToMaster({
-                type: 'known_friend_gids_sync',
-                gids: merged,
-            });
-            if (!sent) {
-                applyConfigSnapshot({ knownFriendGids: merged }, { persist: true, accountId });
-            }
-            log('好友', `已从最近访客自动补充 ${addedCount} 个 GID，当前已知好友 GID 共 ${merged.length} 个`, {
-                module: 'friend',
-                event: '访客补充好友GID',
-                result: 'ok',
-                addedFromVisitors: addedCount,
-                totalKnownGids: merged.length,
-            });
-        }
-        return normalizeFriendGids([
-            ...merged,
-            ...getFriendBlacklist(accountId),
-        ]);
-    } catch (e) {
-        const retryMs = getKnownFriendGidSyncRetryMs();
-        const intervalMs = getKnownFriendGidSyncIntervalMs();
-        if (now - lastVisitorGidSyncAt >= retryMs) {
-            lastVisitorGidSyncAt = now - (intervalMs - retryMs);
-        }
-        logWarn('好友', `同步最近访客 GID 失败: ${errorMessage(e)}`, {
-            module: 'friend',
-            event: '同步好友GID',
-            result: 'error',
-        });
-        return getEffectiveKnownQqFriendGids();
-    }
-}
-
-function removeKnownFriendGid(friendGid: unknown, friendName: unknown, reason = ''): boolean {
-    const gid = toNum(friendGid);
-    if (!gid) return false;
-
-    const current = normalizeFriendGids(getKnownFriendGids());
-    const next = current.filter(item => item !== gid);
-    markKnownFriendGidInvalid(gid);
-    if (next.length !== current.length) {
-        applyConfigSnapshot({ knownFriendGids: next }, { persist: false });
-    }
-
-    const sent = postToMaster({
-        type: 'known_friend_gid_remove',
-        gid,
-        friendName: friendName || `GID:${gid}`,
-        reason: String(reason || ''),
-    });
-    if (!sent && next.length !== current.length) {
-        applyConfigSnapshot({ knownFriendGids: next }, { persist: true });
-    }
-
-    logWarn('好友', `检测到失效好友 GID，已自动移除: ${friendName || `GID:${gid}`}`, {
-        module: 'friend',
-        event: '检测失效好友GID',
-        result: 'auto_removed',
-        friendName: friendName || `GID:${gid}`,
-        friendGid: gid,
-        reason: String(reason || ''),
-    });
-    return true;
-}
-
-function isEnterFarmBannedError(error: unknown): boolean {
-    const message = errorMessage(error);
-    if (!message) return false;
-    return message.includes('1002003');
-}
-
-function parseRpcErrorCode(error: unknown): number {
-    const message = errorMessage(error);
-    const match = message.match(/code=(\d+)/i);
-    return match ? (Number.parseInt(match[1], 10) || 0) : 0;
-}
-
-function isTransientNetworkError(error: unknown): boolean {
-    const message = errorMessage(error);
-    if (!message) return false;
-    return [
-        '连接未打开',
-        '请求超时',
-        '请求已中断',
-        '连接关闭',
-        '连接已在加密途中关闭',
-        'worker exited',
-    ].some(keyword => message.includes(keyword));
-}
-
-function isInvalidFriendAccessError(error: unknown): boolean {
-    const message = errorMessage(error);
-    if (!message || isEnterFarmBannedError(error) || isTransientNetworkError(error)) {
-        return false;
-    }
-
-    const lowerMessage = message.toLowerCase();
-    const hasInvalidKeyword = [
-        '无效',
-        '不存在',
-        '删除',
-        '关系',
-        'not found',
-        'invalid',
-        'not friend',
-        'friend',
-    ].some(keyword => lowerMessage.includes(keyword.toLowerCase()));
-
-    return hasInvalidKeyword && parseRpcErrorCode(error) > 0;
-}
-
-function addFriendToBlacklist(friendGid: unknown, friendName: unknown, reason = ''): boolean {
-    const gid = toNum(friendGid);
-    if (!gid) return false;
-    const accountId = process.env.FARM_ACCOUNT_ID || '';
-    const currentList = getFriendBlacklist(accountId);
-    const current = Array.isArray(currentList) ? currentList : [];
-    if (current.includes(gid)) return false;
-
-    const sent = postToMaster({
-        type: 'friend_blacklist_add',
-        gid,
-        friendName: friendName || `GID:${gid}`,
-        reason: String(reason || ''),
-    });
-    if (!sent) return false;
-
-    logWarn('好友', `检测到封禁好友，已自动加入黑名单: ${friendName || `GID:${gid}`}`, {
-        module: 'friend',
-        event: '加黑名单',
-        result: 'auto_blocked',
-        friendName: friendName || `GID:${gid}`,
-        friendGid: gid,
-        reason: String(reason || ''),
-    });
-    return true;
-}
-
-function handleFriendEnterError(friendGid: unknown, friendName: unknown, error: unknown): DynamicRecord {
-    const gid = toNum(friendGid);
-    const displayName = String(friendName || '').trim() || `GID:${gid}`;
-    const reason = errorMessage(error);
-    if (isEnterFarmBannedError(error)) {
-        addFriendToBlacklist(gid, displayName, reason);
-        return { handled: true, kind: 'blacklist' };
-    }
-    if (isInvalidFriendAccessError(error)) {
-        removeKnownFriendGid(gid, displayName, reason);
-        return { handled: true, kind: 'invalid_removed' };
-    }
-    return { handled: false, kind: 'error' };
-}
-
-async function fetchQqFriendsByKnownGids() {
-    if (!types.GetGameFriendsRequest || !types.GetAllFriendsReply) {
-        throw new Error('GetGameFriends 接口类型未加载');
-    }
-
-    const knownGids = getEffectiveKnownQqFriendGids();
-    if (knownGids.length === 0) {
-        return [];
-    }
-
-    const allFriends = [];
-    for (let i = 0; i < knownGids.length; i += QQ_FRIEND_LIST_BATCH_SIZE) {
-        const batch = knownGids.slice(i, i + QQ_FRIEND_LIST_BATCH_SIZE);
-        const body = types.GetGameFriendsRequest.encode(types.GetGameFriendsRequest.create({
-            gids: batch.map(gid => toLong(gid)),
-        })).finish();
-        try {
-            const { body: replyBody } = await sendMsgAsync('gamepb.friendpb.FriendService', 'GetGameFriends', body);
-            const reply = types.GetAllFriendsReply.decode(replyBody);
-            allFriends.push(...extractReplyFriends(reply));
-        } catch (e) {
-            logWarn('好友', `QQ 新好友接口分批请求失败(${i + 1}-${i + batch.length}/${knownGids.length}): ${errorMessage(e)}`, {
-                module: 'friend',
-                event: '好友列表接口',
-                result: 'error',
-                method: 'GetGameFriends',
-                batchSize: batch.length,
-            });
-        }
-        if (i + QQ_FRIEND_LIST_BATCH_SIZE < knownGids.length) {
-            await randomDelay(500, 1000);
-        }
-    }
-
-    return dedupeFriendsByGid(allFriends);
-}
-
-async function fetchQqFriendsByLegacyMethod() {
-    const errors = [];
-
-    try {
-        const syncReq = types.SyncAllRequest || types.SyncAllFriendsRequest;
-        const syncRep = types.SyncAllReply || types.SyncAllFriendsReply;
-        if (!syncReq || !syncRep) throw new Error('SyncAll 接口类型未加载');
-        const body = syncReq.encode(syncReq.create({ open_ids: [] })).finish();
-        const { body: replyBody } = await sendMsgAsync('gamepb.friendpb.FriendService', 'SyncAll', body);
-        return extractReplyFriends(syncRep.decode(replyBody));
-    } catch (e) {
-        errors.push(`SyncAll: ${errorMessage(e)}`);
-    }
-
-    try {
-        if (!types.GetAllFriendsRequest || !types.GetAllFriendsReply) throw new Error('GetAll 接口类型未加载');
-        const body = types.GetAllFriendsRequest.encode(types.GetAllFriendsRequest.create({})).finish();
-        const { body: replyBody } = await sendMsgAsync('gamepb.friendpb.FriendService', 'GetAll', body);
-        return extractReplyFriends(types.GetAllFriendsReply.decode(replyBody));
-    } catch (e) {
-        errors.push(`GetAll: ${errorMessage(e)}`);
-    }
-
-    throw new Error(errors.join(' | '));
-}
-
-function parseTimeToMinutes(timeStr: unknown): number | null {
-    const m = String(timeStr || '').match(/^(\d{1,2}):(\d{1,2})$/);
-    if (!m) return null;
-    const h = Number.parseInt(m[1], 10);
-    const min = Number.parseInt(m[2], 10);
-    if (Number.isNaN(h) || Number.isNaN(min) || h < 0 || h > 23 || min < 0 || min > 59) return null;
-    return h * 60 + min;
-}
-
-function inFriendQuietHours(now = new Date()) {
-    const cfg = getFriendQuietHours();
-    if (!cfg || !cfg.enabled) return false;
-
-    const start = parseTimeToMinutes(cfg.start);
-    const end = parseTimeToMinutes(cfg.end);
-    if (start === null || end === null) return false;
-
-    const cur = now.getHours() * 60 + now.getMinutes();
-    if (start === end) return true; // 起止相同视为全天静默
-    if (start < end) return cur >= start && cur < end;
-    return cur >= start || cur < end; // 跨天时段
-}
-
-// ============ 好友 API ============
-async function getAllFriends(forceSync = false) {
-    const isQQ = CONFIG.platform === 'qq';
-    if (isQQ) {
-        await syncKnownFriendGidsFromRecentVisitors(forceSync);
-        const friendsFromKnownGids = await fetchQqFriendsByKnownGids();
-        if (friendsFromKnownGids.length > 0) {
-            syncKnownFriendGidsFromFriends(friendsFromKnownGids);
-            return buildFriendReply(friendsFromKnownGids);
-        }
-
-        try {
-            const legacyFriends = dedupeFriendsByGid(await fetchQqFriendsByLegacyMethod());
-            if (legacyFriends.length > 0) {
-                syncKnownFriendGidsFromFriends(legacyFriends);
-            } else if (getEffectiveKnownQqFriendGids().length === 0) {
-                logWarn('好友', 'QQ 好友列表为空；若近期接口已切到 GetGameFriends，请先在好友页维护已知好友 GID 列表', {
-                    module: 'friend',
-                    event: '好友列表接口',
-                    result: 'empty',
-                });
-            }
-            return buildFriendReply(legacyFriends);
-        } catch (e) {
-            if (getEffectiveKnownQqFriendGids().length === 0) {
-                throw new Error(`QQ 好友列表获取失败，请先在好友页维护已知好友 GID 列表。${errorMessage(e)}`);
-            }
-            throw e;
-        }
-    }
-
-    const body = types.GetAllFriendsRequest.encode(types.GetAllFriendsRequest.create({})).finish();
-    const { body: replyBody } = await sendMsgAsync('gamepb.friendpb.FriendService', 'GetAll', body);
-    return types.GetAllFriendsReply.decode(replyBody);
-}
 
 async function acceptFriends(gids: unknown[]): Promise<DynamicRecord> {
     const body = types.AcceptFriendsRequest.encode(types.AcceptFriendsRequest.create({
@@ -526,185 +79,6 @@ async function leaveFriendFarm(friendGid: unknown): Promise<void> {
     try {
         await sendMsgAsync('gamepb.visitpb.VisitService', 'Leave', body);
     } catch { /* 离开失败不影响主流程 */ }
-}
-
-// 北京时间日期 YYYY-MM-DD（服务器时间 UTC+8，避免时区偏差）
-function getBeijingDateKey() {
-    const nowSec = getServerTimeSec();
-    const nowMs = nowSec > 0 ? nowSec * 1000 : Date.now();
-    const bjDate = new Date(nowMs + 8 * 3600 * 1000);
-    const y = bjDate.getUTCFullYear();
-    const m = String(bjDate.getUTCMonth() + 1).padStart(2, '0');
-    const d = String(bjDate.getUTCDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
-}
-
-// 当日捣蛋停用状态持久化（重启/跨日避免重复踩 1001046）
-function getBadDailyStateFile() {
-    const accountId = String(process.env.FARM_ACCOUNT_ID || 'default');
-    const token = crypto.createHash('sha256').update(accountId, 'utf8').digest('hex');
-    return getDataFile(`friend-bad-state-${token}.json`);
-}
-
-function loadBadDailyStop(today: string): boolean {
-    const state = readJsonFile(getBadDailyStateFile(), () => ({}));
-    return Number(state && state.version) === BAD_DAILY_STATE_VERSION
-        && String((state && state.date) || '') === today
-        && state && state.stopped === true;
-}
-
-function persistBadDailyStop(today: string): void {
-    try {
-        writeJsonFileAtomic(getBadDailyStateFile(), {
-            version: BAD_DAILY_STATE_VERSION,
-            date: today,
-            stopped: true,
-        });
-    } catch (e) {
-        logWarn('好友', `保存当日捣乱停用状态失败: ${errorMessage(e)}`);
-    }
-}
-
-/**
- * 检查是否需要重置每日限制 (0点刷新)
- */
-function checkDailyReset() {
-    const today = getBeijingDateKey();
-    if (lastResetDate !== today) {
-        if (lastResetDate !== '') {
-            log('系统', '跨日重置，清空操作限制缓存');
-        }
-        operationLimits.clear();
-        canGetHelpExp = true;
-        // 跨日/重启后恢复当日的捣蛋停用状态（吃到上限当天不再重复尝试）
-        badOperationLimitReached = loadBadDailyStop(today);
-        if (helpAutoDisabledByLimit) {
-            helpAutoDisabledByLimit = false;
-            log('好友', '新的一天已开始，自动恢复帮忙操作功能', {
-                module: 'friend',
-                event: '好友巡查循环',
-                result: 'ok',
-            });
-        }
-        lastResetDate = today;
-    }
-}
-
-function autoDisableHelpByExpLimit() {
-    if (!canGetHelpExp) return;
-    canGetHelpExp = false;
-    helpAutoDisabledByLimit = true;
-    log('好友', '今日帮助经验已达上限，自动停止帮忙', {
-        module: 'friend',
-        event: '好友巡查循环',
-        result: 'ok',
-    });
-}
-
-/**
- * 更新操作限制状态
- */
-function updateOperationLimits(limits: DynamicRecord[]): void {
-    if (!limits || limits.length === 0) return;
-    checkDailyReset();
-    for (const limit of limits) {
-        const id = toNum(limit.id);
-        if (id > 0) {
-            const data = {
-                dayTimes: toNum(limit.day_times),
-                dayTimesLimit: toNum(limit.day_times_lt),
-                dayExpTimes: toNum(limit.day_exp_times),
-                dayExpTimesLimit: toNum(limit.day_ex_times_lt), // 协议字段名为 day_ex_times_lt
-            };
-            operationLimits.set(id, data);
-            // 捣乱共享额度满额立即停用（无需等服务端 1001046）
-            if (id === BAD_SHARED_LIMIT_ID && data.dayTimesLimit > 0 && data.dayTimes >= data.dayTimesLimit) {
-                markBadOperationLimitReached('operation_limit');
-            }
-        }
-    }
-}
-
-function isBadOperationLimitReached() {
-    checkDailyReset();
-    return badOperationLimitReached;
-}
-
-function markBadOperationLimitReached(method = '') {
-    checkDailyReset();
-    if (badOperationLimitReached) return false;
-    badOperationLimitReached = true;
-    persistBadDailyStop(lastResetDate || getBeijingDateKey());
-    log('好友', '今日放虫/放草次数已达上限，停止两类操作', {
-        module: 'friend',
-        event: '放虫放草次数上限',
-        ...(method ? { method } : {}),
-    });
-    return true;
-}
-
-// 捣乱共享额度（10003）剩余次数
-function getRemainingBadOperationTimes() {
-    checkDailyReset();
-    if (badOperationLimitReached) return 0;
-    const limit = operationLimits.get(BAD_SHARED_LIMIT_ID);
-    if (!limit || limit.dayTimesLimit <= 0) return 999;
-    return Math.max(0, limit.dayTimesLimit - limit.dayTimes);
-}
-
-function canGetExpByCandidates(opIds: unknown[] = []): boolean {
-    const ids = Array.isArray(opIds) ? opIds : [opIds];
-    for (const id of ids) {
-        if (canGetExp(toNum(id))) return true;
-    }
-    return false;
-}
-
-/**
- * 检查某操作是否还能获得经验
- */
-function canGetExp(opId: unknown): boolean {
-    const limit = operationLimits.get(toNum(opId));
-    if (!limit) return false;  // 没有限制信息，保守起见不帮助（等待限制数据）
-    if (limit.dayExpTimesLimit <= 0) return true;  // 没有经验上限
-    return limit.dayExpTimes < limit.dayExpTimesLimit;
-}
-
-/**
- * 检查某操作是否还有次数
- */
-function canOperate(opId: unknown): boolean {
-    const limit = operationLimits.get(toNum(opId));
-    if (!limit) return true;
-    if (limit.dayTimesLimit <= 0) return true;
-    return limit.dayTimes < limit.dayTimesLimit;
-}
-
-/**
- * 获取某操作剩余次数
- */
-function getRemainingTimes(opId: unknown): number {
-    const limit = operationLimits.get(toNum(opId));
-    if (!limit || limit.dayTimesLimit <= 0) return 999;
-    return Math.max(0, limit.dayTimesLimit - limit.dayTimes);
-}
-
-/**
- * 获取操作限制详情 (供管理面板使用)
- */
-function getOperationLimits(): DynamicRecord {
-    const result: DynamicRecord = {};
-    for (const id of [10001, 10002, 10003, 10004, 10005, 10006, 10007, 10008]) {
-        const limit = operationLimits.get(id);
-        if (limit) {
-            result[id] = {
-                name: OP_NAMES[id] || `#${id}`,
-                ...limit,
-                remaining: getRemainingTimes(id),
-            };
-        }
-    }
-    return result;
 }
 
 async function helpWater(friendGid: unknown, landIds: unknown[], stopWhenExpLimit = false): Promise<DynamicRecord> {
@@ -897,157 +271,6 @@ async function checkCanOperateRemote(friendGid: unknown, operationId: unknown): 
 
 // ============ 好友土地分析 ============
 
-function analyzeFriendLands(
-    lands: DynamicRecord[],
-    myGid: unknown,
-    friendName = '',
-    options: { plantBlacklist?: unknown[] | null } = {},
-): DynamicRecord {
-    const { plantBlacklist = null } = options;
-    const result: DynamicRecord = {
-        stealable: [],   // 可偷
-        stealableInfo: [],  // 可偷植物信息 { landId, plantId, name }
-        needWater: [],   // 需要浇水
-        needWeed: [],    // 需要除草
-        needBug: [],     // 需要除虫
-        canPutWeed: [],  // 可以放草
-        canPutBug: [],   // 可以放虫
-    };
-    const landsMap = buildLandMap(lands);
-
-    for (const land of lands) {
-        const id = toNum(land.id);
-        if (isOccupiedSlaveLand(land, landsMap)) {
-            continue;
-        }
-        const plant = land.plant;
-
-        if (!plant || !plant.phases || plant.phases.length === 0) {
-            continue;
-        }
-
-        const currentPhase = getCurrentPhase(plant.phases, false, `[${friendName}]土地#${id}`);
-        if (!currentPhase) {
-            continue;
-        }
-        const phaseVal = currentPhase.phase;
-
-        if (phaseVal === PlantPhase.MATURE) {
-            if (plant.stealable) {
-                const plantId = toNum(plant.id);
-                const plantName = getPlantName(plantId) || plant.name || '未知';
-
-                // 获取种子ID用于黑名单检查（前端黑名单使用seedId）
-                const plantCfg = getPlantById(plantId);
-                const seedId = toNum(plantCfg && plantCfg.seed_id) || deriveSeedIdFromPlantId(plantId);
-
-                // 蔬菜黑名单过滤 - 使用seedId检查
-                if (plantBlacklist && seedId > 0 && plantBlacklist.includes(seedId)) {
-                    // log('好友', `${friendName} 土地#${id}: ${plantName}(${plantId},种子${seedId}) 被蔬菜黑名单过滤跳过`,
-                    //     {
-                    //     module: 'friend', event: '蔬菜黑名单跳过', friendName, landId: id, plantId, seedId, plantName
-                    // });
-                    continue;
-                }
-                result.stealable.push(id);
-                result.stealableInfo.push({ landId: id, plantId, name: plantName });
-            }
-            continue;
-        }
-
-        if (phaseVal === PlantPhase.DEAD) continue;
-
-        // 帮助操作
-        if (toNum(plant.dry_num) > 0) result.needWater.push(id);
-        if (plant.weed_owners && plant.weed_owners.length > 0) result.needWeed.push(id);
-        if (plant.insect_owners && plant.insect_owners.length > 0) result.needBug.push(id);
-
-        // 捣乱操作: 检查是否可以放草/放虫
-        // 条件: 植物未成熟 + 没有草/虫且我没放过 + 每块地最多2个草/虫
-        if (phaseVal !== PlantPhase.MATURE) {
-            const weedOwners = plant.weed_owners || [];
-            const insectOwners = plant.insect_owners || [];
-            const iAlreadyPutWeed = weedOwners.some((gid: unknown) => toNum(gid) === myGid);
-            const iAlreadyPutBug = insectOwners.some((gid: unknown) => toNum(gid) === myGid);
-
-            // 每块地最多2个草/虫，且我没放过
-            if (weedOwners.length < 2 && !iAlreadyPutWeed) {
-                result.canPutWeed.push(id);
-            }
-            if (insectOwners.length < 2 && !iAlreadyPutBug) {
-                result.canPutBug.push(id);
-            }
-        }
-    }
-    return result;
-}
-
-/**
- * 获取好友列表 (供面板)
- */
-async function getFriendsList(forceSync = false) {
-    try {
-        // 检查缓存
-        const now = Date.now();
-        if (!forceSync && friendsListCache && (now - friendsListCacheTime) < getFriendsListCacheTtlMs()) {
-
-            return friendsListCache;
-        }
-
-        log('好友', '开始获取好友列表', {
-            module: 'friend',
-            event: '获取好友列表',
-        });
-        const reply = await getAllFriends(forceSync);
-        const friends = reply.game_friends || [];
-        const state = getUserState();
-        const result = friends
-            .filter((friend: DynamicRecord) => toNum(friend.gid) !== state.gid && friend.name !== '小小农夫' && friend.remark !== '小小农夫')
-            .map((friend: DynamicRecord) => ({
-                gid: toNum(friend.gid),
-                name: friend.remark || friend.name || `GID:${toNum(friend.gid)}`,
-                avatarUrl: String(friend.avatar_url || '').trim(),
-                level: toNum(friend.level),
-                gold: toNum(friend.gold),
-                plant: friend.plant ? {
-                    stealNum: toNum(friend.plant.steal_plant_num),
-                    dryNum: toNum(friend.plant.dry_num),
-                    weedNum: toNum(friend.plant.weed_num),
-                    insectNum: toNum(friend.plant.insect_num),
-                } : null,
-            }))
-            .sort((a: DynamicRecord, b: DynamicRecord) => {
-                // 固定顺序：先按名称，再按 GID，避免刷新时顺序抖动
-                const an = String(a.name || '');
-                const bn = String(b.name || '');
-                const byName = an.localeCompare(bn, 'zh-CN');
-                if (byName !== 0) return byName;
-                return Number(a.gid || 0) - Number(b.gid || 0);
-            });
-        
-        // 更新缓存
-        friendsListCache = result;
-        friendsListCacheTime = now;
-        
-        log('好友', `获取好友列表成功，共 ${result.length} 位好友`, {
-            module: 'friend',
-            event: '获取好友列表',
-            result: 'ok',
-            count: result.length,
-        });
-        return result;
-    } catch (e) {
-        const message = errorMessage(e);
-        log('好友', `获取好友列表失败: ${message}`, {
-            module: 'friend',
-            event: '获取好友列表',
-            result: 'error',
-            error: message,
-        });
-        return [];
-    }
-}
-
 /**
  * 获取指定好友的农田详情 (进入-获取-离开)
  */
@@ -1060,115 +283,8 @@ async function getFriendLandsDetail(friendGid: unknown) {
         const analyzed = analyzeFriendLands(lands, state.gid, '', { plantBlacklist });
         await leaveFriendFarm(friendGid);
 
-        const landsList: DynamicRecord[] = [];
-        const nowSec = getServerTimeSec();
-        const landsMap = buildLandMap(lands);
-        for (const land of lands) {
-            const id = toNum(land.id);
-            const level = toNum(land.level);
-            const unlocked = !!land.unlocked;
-            const {
-                sourceLand,
-                occupiedByMaster,
-                masterLandId,
-                occupiedLandIds,
-            } = getDisplayLandContext(land, landsMap);
-            if (!unlocked) {
-                landsList.push({
-                    id,
-                    unlocked: false,
-                    status: 'locked',
-                    plantName: '',
-                    phaseName: '未解锁',
-                    level,
-                    needWater: false,
-                    needWeed: false,
-                    needBug: false,
-                    occupiedByMaster: false,
-                    masterLandId: 0,
-                    occupiedLandIds: [],
-                    plantSize: 1,
-                });
-                continue;
-            }
-            const plant = sourceLand && sourceLand.plant;
-            if (!plant || !plant.phases || plant.phases.length === 0) {
-                landsList.push({
-                    id,
-                    unlocked: true,
-                    status: 'empty',
-                    plantName: '',
-                    phaseName: '空地',
-                    level,
-                    occupiedByMaster,
-                    masterLandId,
-                    occupiedLandIds,
-                    plantSize: 1,
-                });
-                continue;
-            }
-            const currentPhase = getCurrentPhase(plant.phases, false, '');
-            if (!currentPhase) {
-                landsList.push({
-                    id,
-                    unlocked: true,
-                    status: 'empty',
-                    plantName: '',
-                    phaseName: '',
-                    level,
-                    occupiedByMaster,
-                    masterLandId,
-                    occupiedLandIds,
-                    plantSize: 1,
-                });
-                continue;
-            }
-            const phaseVal = currentPhase.phase;
-            const plantId = toNum(plant.id);
-            const plantName = getPlantName(plantId) || plant.name || '未知';
-            const plantCfg = getPlantById(plantId);
-            const seedId = toNum(plantCfg && plantCfg.seed_id) || deriveSeedIdFromPlantId(plantId);
-            const seedImage = seedId > 0 ? getSeedImageBySeedId(seedId) : '';
-            const plantSize = Math.max(1, toNum(plantCfg && plantCfg.size) || 1);
-            const totalSeason = Math.max(1, toNum(plantCfg && plantCfg.seasons) || 1);
-            const currentSeasonRaw = toNum(plant.season);
-            const currentSeason = currentSeasonRaw > 0 ? Math.min(currentSeasonRaw, totalSeason) : 1;
-            const phaseName = PHASE_NAMES[phaseVal] || '';
-            const maturePhase = Array.isArray(plant.phases)
-                ? plant.phases.find((phase: DynamicRecord) => phase && toNum(phase.phase) === PlantPhase.MATURE)
-                : null;
-            const matureBegin = maturePhase ? toTimeSec(maturePhase.begin_time) : 0;
-            const matureInSec = matureBegin > nowSec ? (matureBegin - nowSec) : 0;
-            const totalGrowTime = getPlantGrowTime(plantId);
-            let landStatus = 'growing';
-            if (phaseVal === PlantPhase.MATURE) landStatus = plant.stealable ? 'stealable' : 'harvested';
-            else if (phaseVal === PlantPhase.DEAD) landStatus = 'dead';
-
-            landsList.push({
-                id,
-                unlocked: true,
-                status: landStatus,
-                plantName,
-                seedId,
-                seedImage,
-                phaseName,
-                currentSeason,
-                totalSeason,
-                level,
-                matureInSec,
-                totalGrowTime,
-                needWater: toNum(plant.dry_num) > 0,
-                needWeed: (plant.weed_owners && plant.weed_owners.length > 0),
-                needBug: (plant.insect_owners && plant.insect_owners.length > 0),
-                occupiedByMaster,
-                masterLandId,
-                occupiedLandIds,
-                plantSize,
-            });
-        }
-
         return {
-            lands: landsList,
+            lands: buildFriendLandsDetail(lands),
             summary: analyzed,
         };
     } catch {
@@ -1368,10 +484,10 @@ async function visitFriend(
     // 1. 帮助操作 (除草/除虫/浇水)
     const helpEnabled = !!isAutomationOn('friend_help');
     const stopWhenExpLimit = !!isAutomationOn('friend_help_exp_limit');
-    if (!stopWhenExpLimit) canGetHelpExp = true;
+    if (!stopWhenExpLimit) resetHelpExpAvailability();
     if (!helpEnabled) {
         // 自动帮忙关闭，直接跳过帮助操作
-    } else if (stopWhenExpLimit && !canGetHelpExp) {
+    } else if (stopWhenExpLimit && !canGetHelpExperience()) {
         // 今日已达到经验上限后停止帮忙
     } else {
         const helpOps = [
@@ -1381,7 +497,7 @@ async function visitFriend(
         ];
 
         for (const op of helpOps) {
-            const allowByExp = (!stopWhenExpLimit) || (canGetExpByCandidates(op.expIds) && canGetHelpExp);
+            const allowByExp = (!stopWhenExpLimit) || (canGetExpByCandidates(op.expIds) && canGetHelpExperience());
             if (op.list.length > 0 && allowByExp) {
                 const precheck = await checkCanOperateRemote(gid, op.id);
                 if (precheck.canOperate) {
@@ -1600,8 +716,8 @@ async function visitFriendForHelp(
     const { gid, name } = friend;
 
     const stopWhenExpLimit = !!isAutomationOn('friend_help_exp_limit') && !ignoreExpLimit;
-    if (!stopWhenExpLimit) canGetHelpExp = true;
-    if (stopWhenExpLimit && !canGetHelpExp) {
+    if (!stopWhenExpLimit) resetHelpExpAvailability();
+    if (stopWhenExpLimit && !canGetHelpExperience()) {
         return { acted: false, entered: false };
     }
 
@@ -1636,7 +752,7 @@ async function visitFriendForHelp(
     ];
 
     for (const op of helpOps) {
-        const allowByExp = (!stopWhenExpLimit) || (canGetExpByCandidates(op.expIds) && canGetHelpExp);
+        const allowByExp = (!stopWhenExpLimit) || (canGetExpByCandidates(op.expIds) && canGetHelpExperience());
         if (op.list.length > 0 && allowByExp) {
             const precheck = await checkCanOperateRemote(gid, op.id);
             if (precheck.canOperate) {
@@ -1787,7 +903,7 @@ async function checkFriends(options: {
                 // 检查是否还能获得帮助经验
                 // const stopWhenExpLimit = !!isAutomationOn('friend_help_exp_limit');
                 const stopWhenExpLimit = !!isAutomationOn('friend_help_exp_limit') && !ignoreExpLimit;
-                if (stopWhenExpLimit && !canGetHelpExp) {
+                if (stopWhenExpLimit && !canGetHelpExperience()) {
                     log('好友', `批量帮助中断：经验已达上限`, { module: 'friend', event: '批量帮助中断', reason: 'exp_limit' });
                     break;
                 }
@@ -1921,7 +1037,7 @@ function startFriendCheckLoop(options: { externalScheduler?: boolean } = {}): vo
 function stopFriendCheckLoop(): void {
     friendLoopRunning = false;
     externalSchedulerMode = false;
-    invalidKnownFriendGidCooldownUntil.clear();
+    clearFriendDirectoryRuntimeState();
     networkEvents.off('friendApplicationReceived', onFriendApplicationReceived);
     friendScheduler.clearAll();
 }
@@ -2095,16 +1211,6 @@ async function runBadOnceOnStartup() {
     } catch (err) {
         logWarn('好友', `启动时放虫放草异常: ${errorMessage(err)}`);
     }
-}
-
-// 检查帮助经验是否已达上限（用于外部判断是否需要执行帮助巡查）
-function isHelpExpLimitReached(): boolean {
-    return helpAutoDisabledByLimit;
-}
-
-function clearFriendsListCache(): void {
-    friendsListCache = null;
-    friendsListCacheTime = 0;
 }
 
 export {

@@ -3,7 +3,7 @@
  * 协议说明：BagReply 使用 item_bag（ItemBag），item_bag.items 才是背包物品列表
  */
 
-const { getFruitName, getPlantByFruitId, getPlantBySeedId, getItemById, getItemDisplayById, getItemSalePolicyById, getItemImageById, getSeedImageBySeedId } = require('../config/gameConfig');
+const { getFruitName, getPlantByFruitId, getPlantBySeedId, getPlantSizeBySeedId, getItemById, getItemDisplayById, getItemSalePolicyById, getItemImageById, getSeedImageBySeedId } = require('../config/gameConfig');
 const { isAutomationOn } = require('../models/store');
 const { sendMsgAsync, networkEvents, getUserState } = require('../utils/network');
 const { types } = require('../utils/proto');
@@ -705,7 +705,7 @@ async function getBagSeeds(): Promise<BagSeedDto[]> {
             count: 0,
             requiredLevel: Math.max(0, Number((plant && plant.land_level_need) || 0)),
             image: getSeedImageBySeedId(seedId) || getItemImageById(seedId),
-            plantSize: Math.max(1, Number((plant && plant.size) || 1)),
+            plantSize: getPlantSizeBySeedId(seedId, plant && plant.size),
         };
         current.count += count;
         merged.set(seedId, current);

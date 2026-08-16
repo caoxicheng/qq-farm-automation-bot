@@ -30,6 +30,7 @@ interface LegacyPlant extends DataRecord {
     grow_phases?: string;
     exp?: number;
     land_level_need?: number;
+    size?: number;
 }
 
 interface LegacyItem extends DataRecord {
@@ -71,6 +72,10 @@ let plantConfig: LegacyPlant[] | null = null;
 const plantMap = new Map<number, LegacyPlant>();  // id -> plant
 const seedToPlant = new Map<number, LegacyPlant>();  // seed_id -> plant
 const fruitToPlant = new Map<number, LegacyPlant>();  // fruit_id -> plant (果实ID -> 植物)
+// 活动作物可能尚未进入旧版 Plant.json；这里仅补充已经由服务端行为确认的占地尺寸。
+const KNOWN_PLANT_SIZE_BY_SEED_ID = new Map<number, number>([
+    [29003, 2], // 星语铃花：2x2，多格请求需携带 auto_slave
+]);
 let itemInfoConfig: LegacyItem[] | null = null;
 const itemInfoMap = new Map<number, LegacyItem>();  // item_id -> item
 const seedItemMap = new Map<number, LegacyItem>();  // seed_id -> item(type=5)
@@ -215,6 +220,20 @@ function getPlantById(plantId: number): LegacyPlant | undefined {
  */
 function getPlantBySeedId(seedId: number): LegacyPlant | undefined {
     return seedToPlant.get(seedId);
+}
+
+/**
+ * 获取种子对应的单边占地格数，并兼容未进入旧版植物表的活动种子。
+ */
+function getPlantSizeBySeedId(seedId: unknown, hintedSize: unknown = 0): number {
+    const id = Number(seedId) || 0;
+    const plant = seedToPlant.get(id);
+    return Math.max(
+        1,
+        Number(hintedSize) || 0,
+        Number(plant && plant.size) || 0,
+        KNOWN_PLANT_SIZE_BY_SEED_ID.get(id) || 0,
+    );
 }
 
 /**
@@ -393,6 +412,7 @@ export {
     getPlantGrowTime,
     getPlantName,
     getPlantNameBySeedId,
+    getPlantSizeBySeedId,
     getSeedImageBySeedId,
     getSeedPrice,
     loadConfigs,

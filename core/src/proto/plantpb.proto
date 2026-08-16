@@ -117,12 +117,14 @@ message OperationLimit {
     int64 day_exp_share_id = 7;     // 经验分享ID
 }
 // 操作类型ID:
-//   10001 = 帮好友浇水
-//   10002 = 帮好友除虫
-//   10003 = 帮好友除草
-//   10004 = 偷菜
-//   10005 = 放虫
-//   10006 = 放草
+//   10001 = 收获
+//   10002 = 铲除
+//   10003 = 放草
+//   10004 = 放虫
+//   10005 = 除草
+//   10006 = 除虫
+//   10007 = 浇水
+//   10008 = 偷菜
 
 // ============ 请求/回复消息 ============
 
@@ -150,6 +152,26 @@ message HarvestReply {
     // repeated Item items = 2;     // corepb.Item
     // repeated Item lost_items = 3;
     repeated OperationLimit operation_limits = 4;
+}
+
+// --- 批量帮忙 ---
+// 小程序使用 Farming 一次提交多块土地，由服务端按土地状态执行浇水、除草或除虫。
+message FarmingRequest {
+    repeated int64 land_ids = 1;
+    int64 host_gid = 2;
+    bool is_all = 3;
+    int32 field_4 = 4;  // 抓包固定为 2，具体语义待确认
+}
+
+message FarmingOperationResult {
+    int64 land_id = 1;
+}
+
+message FarmingReply {
+    repeated LandInfo land = 1;
+    repeated OperationLimit operation_limits = 2;
+    // 同一土地执行了多种帮忙操作时可能出现多次。
+    repeated FarmingOperationResult operation_results = 3;
 }
 
 // --- 浇水 ---
