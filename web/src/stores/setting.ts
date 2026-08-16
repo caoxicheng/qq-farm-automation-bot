@@ -9,6 +9,7 @@ export interface AutomationConfig {
   friend?: boolean
   task?: boolean
   sell?: boolean
+  mystery_shop_buy?: boolean
   fertilizer?: string
   fertilizer_multi_season?: boolean
   fertilizer_land_types?: string[]

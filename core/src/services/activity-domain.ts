@@ -51,6 +51,11 @@ class ActivityBusinessError extends Error {
 function businessError(code: string, message: string): ActivityBusinessError {
   return new ActivityBusinessError(code, message);
 }
+function isNoBattlePassRewardError(error: unknown): boolean {
+  const candidate = error as { code?: unknown };
+  return String(candidate?.code || "") === "NO_PASS_REWARD"
+    || errorMessage(error) === "\u5F53\u524D\u6CA1\u6709\u53EF\u9886\u53D6\u7684\u6E38\u8BB0\u5956\u52B1";
+}
 function positiveDecimal(value: unknown, code: string, fieldName: string): string {
   let normalized = "";
   if (typeof value === "string" && /^[1-9]\d*$/.test(value)) {
@@ -190,6 +195,20 @@ function passDto(pass: DynamicRecord | null | undefined): DynamicRecord | null {
     rules: textContent(pass.rules_json),
     nodes
   };
+}
+function getBattlePassNotifyClaimability(pass: DynamicRecord | null | undefined): boolean | null {
+  if (!pass) return null;
+  const currentLevel = int64String(pass.current_level ?? pass.currentLevel ?? pass.field_2);
+  const claimedThroughLevel = int64String(pass.claimed_through_level ?? pass.claimedThroughLevel ?? pass.field_9);
+  if (currentLevel !== "0" && compareInt64(claimedThroughLevel, currentLevel) >= 0) return false;
+  const nodes = Array.isArray(pass.nodes) ? pass.nodes : [];
+  const claimable = nodes.some((node: DynamicRecord) => {
+    const level = int64String(node.node_id ?? node.level);
+    return level !== "0"
+      && compareInt64(level, currentLevel) <= 0
+      && compareInt64(level, claimedThroughLevel) > 0;
+  });
+  return claimable ? true : null;
 }
 function solarTermDto(term: DynamicRecord | null | undefined): DynamicRecord | null {
   if (!term) return null;
@@ -712,7 +731,7 @@ async function claimBattlePassRewards(): Promise<DynamicRecord> {
     const pass = passDto(seasonReply?.season_info?.pass);
     if (!pass) throw new Error("\u670D\u52A1\u7AEF\u672A\u53D1\u73B0\u53EF\u7528\u6E38\u8BB0");
     if (!pass.nodes.some((node: DynamicRecord) => node.claimable)) {
-      throw new Error("\u5F53\u524D\u6CA1\u6709\u53EF\u9886\u53D6\u7684\u6E38\u8BB0\u5956\u52B1");
+      throw businessError("NO_PASS_REWARD", "\u5F53\u524D\u6CA1\u6709\u53EF\u9886\u53D6\u7684\u6E38\u8BB0\u5956\u52B1");
     }
     const body = Buffer.from(types.ClaimBattlePassRewardsRequest.encode(
       types.ClaimBattlePassRewardsRequest.create({})
@@ -942,10 +961,12 @@ export {
   continueQingMeiBrew,
   exchangeStarSandGoods,
   getActivityCenterSnapshot,
+  getBattlePassNotifyClaimability,
   getCurrentQingMeiActivity,
   getCurrentSeasonEvent,
   getCurrentSolarTerms,
   getCurrentStarSandShop,
+  isNoBattlePassRewardError,
   lightConstellation,
   settleQingMeiBrew,
   startQingMeiBrew,

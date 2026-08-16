@@ -588,6 +588,7 @@ const localAutomationSettings = ref({
     farm: false,
     task: false,
     sell: false,
+    mystery_shop_buy: false,
     friend: false,
     farm_push: false,
     land_upgrade: false,
@@ -627,6 +628,7 @@ function syncLocalAutomationSettings() {
         farm: false,
         task: false,
         sell: false,
+        mystery_shop_buy: false,
         friend: false,
         farm_push: false,
         land_upgrade: false,
@@ -649,6 +651,7 @@ function syncLocalAutomationSettings() {
         farm: false,
         task: false,
         sell: false,
+        mystery_shop_buy: false,
         friend: false,
         farm_push: false,
         land_upgrade: false,
@@ -1376,6 +1379,7 @@ async function handleTestOffline() {
               <BaseSwitch v-model="localAutomationSettings.automation.farm" label="自动种植收获" />
               <BaseSwitch v-model="localAutomationSettings.automation.task" label="自动做任务" />
               <BaseSwitch v-model="localAutomationSettings.automation.sell" label="自动卖果实" />
+              <BaseSwitch v-model="localAutomationSettings.automation.mystery_shop_buy" label="自动购买神秘商品" />
               <BaseSwitch v-model="localAutomationSettings.automation.friend" label="自动好友互动" />
               <BaseSwitch v-model="localAutomationSettings.automation.farm_push" label="推送触发巡田" />
               <BaseSwitch v-model="localAutomationSettings.automation.land_upgrade" label="自动升级土地" />

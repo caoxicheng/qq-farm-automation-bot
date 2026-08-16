@@ -1,11 +1,10 @@
-// 神秘商人：MysteryShopService（GetActiveNPC 查询 + Buy 购买）
-// 协议抓包验证：GetActiveNPC 返回限时商品（ActiveNPC），Buy 传 npc_id + count
+// 神秘商人：推送驱动检测，出现后按账号自动化配置购买一次当前商品。
 import { getItemDisplayById } from '../config/gameConfig';
 import { sendMsgAsync } from '../utils/network';
 import { types } from '../utils/proto';
-import { toNum } from '../utils/utils';
 import { asRecord, recordArray } from './service-boundaries';
-const { getBag, getBagItems } = require('./warehouse');
+
+const MYSTERY_SHOP_SERVICE = 'gamepb.mysteryshoppb.MysteryShopService';
 
 export interface MysteryItemDto {
     id: string;
@@ -14,22 +13,21 @@ export interface MysteryItemDto {
     image: string;
 }
 
-export interface MysteryShopSnapshot {
-    active: boolean;
-    serverTime: number;
-    activeTime?: number;
-    expireTime?: number;
-    npc: null | {
+export interface MysteryShopOffer {
+    key: string;
+    npcId: string;
+    expireTime: number;
+    reward: MysteryItemDto;
+    currency: {
         id: string;
-        reward: MysteryItemDto;
-        stock: number;
-        price: { id: string; count: string; balance: string | number | null };
-        originalPrice: string;
-        discountPercent: number;
+        name: string;
+        unitPrice: string;
+        totalPrice: string;
+        originalUnitPrice: string;
+        originalTotalPrice: string;
     };
+    discountPercent: number;
 }
-
-const MYSTERY_SHOP_SERVICE = 'gamepb.mysteryshoppb.MysteryShopService';
 
 function int64String(value: unknown): string {
     if (value === undefined || value === null) return '0';
@@ -38,11 +36,22 @@ function int64String(value: unknown): string {
     return String(value);
 }
 
+function positiveInteger(value: unknown): number {
+    const parsed = Number(int64String(value));
+    return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : 0;
+}
+
+function multiplyDecimal(value: unknown, multiplier: number): string {
+    const raw = int64String(value);
+    if (!/^\d+$/.test(raw) || multiplier <= 0) return '0';
+    return (BigInt(raw) * BigInt(multiplier)).toString();
+}
+
 function itemDto(item: unknown): MysteryItemDto {
     const source = asRecord(item);
     const id = int64String(source.id ?? source.item_id);
     const numId = Number(id) || 0;
-    const display = numId ? getItemDisplayById(numId) : null;
+    const display = numId > 0 ? getItemDisplayById(numId) : null;
     return {
         id,
         count: int64String(source.count ?? source.item_count),
@@ -51,89 +60,65 @@ function itemDto(item: unknown): MysteryItemDto {
     };
 }
 
-function getServerTimeSec(): number {
-    return Math.floor(Date.now() / 1000);
+function currencyName(id: string): string {
+    if (id === '1' || id === '1001') return '金币';
+    if (id === '1002') return '点券';
+    if (id === '1005') return '金豆豆';
+    const display = getItemDisplayById(Number(id) || 0);
+    return display?.name ? String(display.name) : `物品#${id}`;
 }
 
-async function readBagBalances(currencyIds: unknown[]): Promise<Map<string, string | number>> {
-    const requested = new Set(currencyIds.map((id) => String(id)));
-    const balances = new Map<string, string | number>(currencyIds.map(id => [String(id), 0]));
-    try {
-        const bagReply = await getBag();
-        for (const item of getBagItems(bagReply)) {
-            const source = asRecord(item);
-            const id = int64String(source.id ?? source.item_id);
-            if (!requested.has(id)) continue;
-            const count = BigInt(int64String(source.count ?? source.item_count) || '0');
-            balances.set(id, (BigInt(balances.get(id) || '0') + (count > 0n ? count : 0n)).toString());
-        }
-    } catch { /* 余额读取失败则显示未知 */ }
-    return balances;
-}
+export function normalizeMysteryShopOffer(value: unknown): MysteryShopOffer | null {
+    const envelope = asRecord(value);
+    if (envelope.is_active === false) return null;
+    const npc = asRecord(envelope.npc ?? value);
+    const npcId = int64String(npc.npc_id);
+    const rewardItemId = int64String(npc.reward_item_id);
+    const rewardCount = positiveInteger(npc.reward_count);
+    const currencyId = int64String(npc.currency_item_id);
+    const unitPrice = int64String(npc.unit_price);
+    const originalUnitPrice = int64String(npc.original_unit_price);
+    const expireTime = positiveInteger(envelope.expire_time);
+    const purchasedCount = Math.max(0, Number(npc.purchased_count) || 0);
+    if (!/^[1-9]\d*$/.test(npcId) || !/^[1-9]\d*$/.test(rewardItemId) || rewardCount <= 0) return null;
+    if (!/^[1-9]\d*$/.test(currencyId) || !/^\d+$/.test(unitPrice) || purchasedCount > 0) return null;
 
-async function getActiveNPC() {
-    const body = Buffer.from(types.GetActiveNPCRequest.encode(types.GetActiveNPCRequest.create({})).finish());
-    const { body: replyBody } = await sendMsgAsync(MYSTERY_SHOP_SERVICE, 'GetActiveNPC', body);
-    return types.GetActiveNPCReply.decode(replyBody);
-}
-
-async function buyNpcGoods(npcId: unknown, count = 1) {
-    const req = types.BuyRequest.create({ npc_id: npcId, count });
-    const body = Buffer.from(types.BuyRequest.encode(req).finish());
-    const { body: replyBody } = await sendMsgAsync(MYSTERY_SHOP_SERVICE, 'Buy', body);
-    return types.BuyReply.decode(replyBody);
-}
-
-// 面板 DTO：当前神秘商人状态（商品/价格/余额/限时倒计时）
-async function getMysteryShopSnapshot(): Promise<MysteryShopSnapshot> {
-    const reply = asRecord(await getActiveNPC());
-    const npc = asRecord(reply.npc);
-    if (Object.keys(npc).length === 0 || !reply.is_active) {
-        return { active: false, serverTime: getServerTimeSec() * 1000, npc: null };
-    }
-    const currencyId = Math.max(0, toNum(npc.currency_item_id));
-    const balances = await readBagBalances([currencyId]);
-    const rewardItemId = Number(int64String(npc.reward_item_id)) || 0;
-    const rewardDisplay = rewardItemId ? getItemDisplayById(rewardItemId) : null;
+    const reward = itemDto({ id: rewardItemId, count: rewardCount });
     return {
-        active: true,
-        serverTime: getServerTimeSec() * 1000,
-        activeTime: Math.max(0, toNum(npc.active_time)) * 1000,
-        expireTime: Math.max(0, toNum(npc.expire_time)) * 1000,
-        npc: {
-            id: int64String(npc.npc_id),
-            reward: {
-                id: int64String(npc.reward_item_id),
-                count: int64String(npc.reward_count),
-                name: rewardDisplay ? String(rewardDisplay.name || '') : '',
-                image: rewardDisplay ? String(rewardDisplay.image || '') : '',
-            },
-            stock: Math.max(0, toNum(npc.stock_count)),
-            price: {
-                id: int64String(npc.currency_item_id),
-                count: int64String(npc.price),
-                balance: balances.get(String(currencyId)) ?? null,
-            },
-            originalPrice: int64String(npc.original_price),
-            discountPercent: Math.max(0, toNum(npc.discount_percent)),
+        key: `${npcId}:${expireTime || 0}`,
+        npcId,
+        expireTime,
+        reward,
+        currency: {
+            id: currencyId,
+            name: currencyName(currencyId),
+            unitPrice,
+            totalPrice: multiplyDecimal(unitPrice, rewardCount),
+            originalUnitPrice,
+            originalTotalPrice: multiplyDecimal(originalUnitPrice, rewardCount),
         },
+        discountPercent: Math.max(0, positiveInteger(npc.discount_percent)),
     };
 }
 
-// 购买：返回购买结果 + 最新快照
-async function buyMysteryGoods(npcId: unknown, count = 1): Promise<{
-    rewards: MysteryItemDto[];
-    snapshot: MysteryShopSnapshot;
-}> {
-    const reply = asRecord(await buyNpcGoods(npcId, count));
-    const rewards = recordArray(reply.rewards).map(item => itemDto(item));
-    const snapshot = await getMysteryShopSnapshot();
-    return { rewards, snapshot };
+export function mysteryRewards(value: unknown): MysteryItemDto[] {
+    const reply = asRecord(value);
+    return recordArray(reply.rewards).map(itemDto).filter(item => item.id !== '0' && item.count !== '0');
 }
 
-export {
-    buyMysteryGoods,
-    buyNpcGoods,
-    getActiveNPC,
-    getMysteryShopSnapshot,
-};
+export async function getActiveNPC(): Promise<unknown> {
+    const body = Buffer.from(types.GetActiveNPCRequest.encode(types.GetActiveNPCRequest.create({})).finish());
+    const { body: replyBody } = await sendMsgAsync(MYSTERY_SHOP_SERVICE, 'GetActiveNPC', body);
+    // 历史 GetActiveNPC 使用 is_active/npc/active_time/expire_time 包装；
+    // 新版推送使用 npc/expire_time。双解码兼容服务端逐步切换，避免登录补查漏掉已出现的商人。
+    const notifyEnvelope = types.MysteryShopNotify.decode(replyBody);
+    if (asRecord(asRecord(notifyEnvelope).npc).npc_id) return notifyEnvelope;
+    return types.GetActiveNPCReply.decode(replyBody);
+}
+
+export async function buyNpcGoods(npcId: unknown): Promise<unknown> {
+    const request = types.BuyRequest.create({ npc_id: npcId });
+    const body = Buffer.from(types.BuyRequest.encode(request).finish());
+    const { body: replyBody } = await sendMsgAsync(MYSTERY_SHOP_SERVICE, 'Buy', body);
+    return types.BuyReply.decode(replyBody);
+}

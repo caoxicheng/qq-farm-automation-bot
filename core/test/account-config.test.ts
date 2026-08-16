@@ -10,6 +10,7 @@ test('账号配置按白名单收窄并规范化区间、时间和列表', () =>
     const config = normalizeAccountConfig({
         automation: {
             farm: 0,
+            mystery_shop_buy: 1,
             fertilizer: 'invalid',
             fertilizer_land_types: ['RED', 'gold', 'red', 'invalid'],
             unknownFlag: true,
@@ -22,6 +23,7 @@ test('账号配置按白名单收窄并规范化区间、时间和列表', () =>
     });
 
     assert.equal(config.automation.farm, false);
+    assert.equal(config.automation.mystery_shop_buy, true);
     assert.equal(config.automation.fertilizer, 'smart');
     assert.deepEqual(config.automation.fertilizer_land_types, ['red', 'gold']);
     assert.equal(Object.hasOwn(config.automation, 'unknownFlag'), false);
@@ -49,6 +51,7 @@ test('默认账号配置克隆不会共享可变数组或嵌套对象', () => {
     assert.deepEqual(second.bagSeedPriority, []);
     assert.deepEqual(second.automation.fertilizer_land_types, ['gold', 'black', 'red', 'normal']);
     assert.equal(second.intervals.farm, 2);
+    assert.equal(second.automation.mystery_shop_buy, false);
 });
 
 test('旧版将推送渠道写入 endpoint 时继续完成兼容迁移', () => {

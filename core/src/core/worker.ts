@@ -1,38 +1,42 @@
 import process from 'node:process';
 import type { MasterToWorkerMessage, WorkerToMasterMessage, WxCredentialAction } from '../types/ipc';
+import type { WorkerBattlePassPushRuntime } from '../runtime/worker-battle-pass';
+import type { WorkerMysteryShopRuntime } from '../runtime/worker-mystery-shop';
 import { assertNever } from '../types/ipc';
+import { createWorkerApiHandler, createWorkerApiMethods } from '../runtime/worker-api';
+import { createWorkerAutomationScheduler } from '../runtime/worker-automation-scheduler';
+import { getDailyGiftOverview } from '../runtime/worker-daily-gifts';
+import { createWorkerStatusSynchronizer } from '../runtime/worker-status-sync';
 /**
  * 子进程 Worker - 负责运行单个账号的挂机逻辑
  */
 const { parentPort, workerData } = require('node:worker_threads');
 const { CONFIG } = require('../config/config');
-const { getLevelExpProgress } = require('../config/gameConfig');
-const { getAutomation, getPreferredSeed, getConfigSnapshot, applyConfigSnapshot } = require('../models/store');
+const { getAutomation, getConfigSnapshot, applyConfigSnapshot } = require('../models/store');
 const { checkAndClaimEmails } = require('../services/email');
-const { getEmailDailyState } = require('../services/email');
-const { checkFarm, startFarmCheckLoop, stopFarmCheckLoop, refreshFarmCheckLoop, getLandsDetail, getAvailableSeeds, runFarmOperation, runFertilizerByConfig } = require('../services/farm');
-const { checkFriends, startFriendCheckLoop, stopFriendCheckLoop, refreshFriendCheckLoop, runBadOnceOnStartup, isHelpExpLimitReached, getFriendsList, getFriendLandsDetail, doFriendOperation } = require('../services/friend');
-const { getInteractRecords } = require('../services/interact');
+const { checkFarm, startFarmCheckLoop, stopFarmCheckLoop, refreshFarmCheckLoop, runFertilizerByConfig } = require('../services/farm');
+const { checkFriends, startFriendCheckLoop, stopFriendCheckLoop, refreshFriendCheckLoop, runBadOnceOnStartup, isHelpExpLimitReached } = require('../services/friend');
 const { processInviteCodes } = require('../services/invite');
-const { autoBuyFertilizer, checkAndBuyFertilizerBoth, buyFreeGifts, getFreeGiftDailyState } = require('../services/mall');
-const { performDailyMonthCardGift, getMonthCardDailyState } = require('../services/monthcard');
-const { performDailyVipGift, getVipDailyState } = require('../services/qqvip');
-const { createScheduler, getSchedulerRegistrySnapshot } = require('../services/scheduler');
+const { buyFreeGifts } = require('../services/mall');
+const { performDailyMonthCardGift } = require('../services/monthcard');
+const { performDailyVipGift } = require('../services/qqvip');
+const { createScheduler } = require('../services/scheduler');
 const { stopAceRuntime } = require('../services/ace');
-const { performDailyShare, getShareDailyState } = require('../services/share');
+const { performDailyShare } = require('../services/share');
 const { resetSessionGains, recordOperation, initStatsWithPersistence, saveStats } = require('../services/stats');
-const { initStatusBar, setStatusPlatform, statusData } = require('../services/status');
+const { initStatusBar, setStatusPlatform } = require('../services/status');
 const { setRecordGoldExpHook } = require('../services/status');
-const { cleanupTaskSystem, checkAndClaimTasks, initTaskSystem, getTaskClaimDailyState, getTaskDailyStateLikeApp, getGrowthTaskStateLikeApp } = require('../services/task');
+const { cleanupTaskSystem, checkAndClaimTasks, initTaskSystem } = require('../services/task');
 const { sellAllFruits, getBag, getBagItems, openFertilizerGiftPacksSilently } = require('../services/warehouse');
 const { connect, reconnect, cleanup, getWs, getUserState, networkEvents } = require('../utils/network');
 const { setClientVersionPrefix } = require('../config/config');
+const { createWorkerBattlePassPushRuntime } = require('../runtime/worker-battle-pass');
+const { createWorkerMysteryShopRuntime } = require('../runtime/worker-mystery-shop');
 const { flushWorkerMessage, sendWorkerMessage } = require('../runtime/worker-channel');
 const { loadProto } = require('../utils/proto');
 const { setLogHook, log, toNum } = require('../utils/utils');
 
 type DynamicRecord = Record<string, any>;
-type ApiCallMessage = Extract<MasterToWorkerMessage, { type: 'api_call' }>;
 
 interface CredentialResult {
     Success?: boolean;
@@ -81,18 +85,10 @@ const masterCredentialRequests = new Map<number, PendingCredentialRequest>();
 let isRunning = false;
 let loginReady = false;
 let appliedConfigRevision = 0;
-let unifiedSchedulerRunning = false;
-let farmTaskRunning = false;
-let nextFarmRunAt = 0;
-let helpTaskRunning = false;
-let nextHelpRunAt = 0;
-let stealTaskRunning = false;
-let nextStealRunAt = 0;
-let lastStatusHash = '';
-let lastStatusSentAt = 0;
 let onSellGain: ((deltaGold: unknown) => void) | null = null;
 let onFarmHarvested: (() => Promise<void>) | null = null;
-let onBattlePassNotify: (() => Promise<void>) | null = null;
+let battlePassPushRuntime: WorkerBattlePassPushRuntime | null = null;
+let mysteryShopRuntime: WorkerMysteryShopRuntime | null = null;
 let harvestSellRunning = false;
 let onWsError: ((payload: DynamicRecord) => void) | null = null;
 let wsErrorHandledAt = 0;
@@ -100,10 +96,31 @@ let reauthRequiredNotified = false;
 let lastDailyRunDate = '';
 let workerStartupPromise: Promise<void> | null = null;
 const workerScheduler = createScheduler('worker');
+const automationScheduler = createWorkerAutomationScheduler({
+    checkAndClaimEmails,
+    checkAndClaimTasks,
+    checkFarm,
+    checkFriends,
+    config: CONFIG,
+    getAutomation,
+    isHelpExpLimitReached,
+    isLoginReady: () => loginReady,
+    log,
+    openFertilizerGiftPacksSilently,
+    scheduler: workerScheduler,
+});
 
 function sendToMaster(payload: WorkerToMasterMessage): void {
     sendWorkerMessage(process, parentPort, payload);
 }
+
+const syncStatus = createWorkerStatusSynchronizer({
+    canSend: () => !!(process.send || parentPort),
+    getConfigRevision: () => appliedConfigRevision,
+    getLoginReady: () => loginReady,
+    getScheduleTimes: automationScheduler.getScheduleTimes,
+    sendToMaster,
+});
 
 function onMasterMessage(handler: (message: MasterToWorkerMessage) => void | Promise<void>): void {
     const receive = (message: unknown): void => {
@@ -138,10 +155,14 @@ function cleanupWorkerResources(): void {
     isRunning = false;
     loginReady = false;
     try { saveStats(); } catch {}
-    try { stopUnifiedScheduler(); } catch {}
+    try { automationScheduler.stop(); } catch {}
     try { stopFarmCheckLoop(); } catch {}
     try { stopFriendCheckLoop(); } catch {}
     try { cleanupTaskSystem(); } catch {}
+    try { battlePassPushRuntime?.stop(); } catch {}
+    battlePassPushRuntime = null;
+    try { mysteryShopRuntime?.stop(); } catch {}
+    mysteryShopRuntime = null;
     try { stopAceRuntime(true); } catch {}
     try { cleanup('worker exit'); } catch {}
     try { workerScheduler.clearAll(); } catch {}
@@ -294,166 +315,6 @@ function applyIntervalsToRuntime(intervals: unknown): void {
     CONFIG.stealCheckIntervalMax = stealRange.max * 1000;
 }
 
-function randomIntervalMs(minMs: unknown, maxMs: unknown): number {
-    const minSec = Math.max(1, Math.floor(Math.max(1000, Number(minMs) || 1000) / 1000));
-    const maxSec = Math.max(minSec, Math.floor(Math.max(1000, Number(maxMs) || minSec * 1000) / 1000));
-    if (maxSec === minSec) return minSec * 1000;
-    const sec = minSec + Math.floor(Math.random() * (maxSec - minSec + 1));
-    return sec * 1000;
-}
-
-function resetUnifiedSchedule() {
-    const farmMs = randomIntervalMs(
-        CONFIG.farmCheckIntervalMin || CONFIG.farmCheckInterval || 2000,
-        CONFIG.farmCheckIntervalMax || CONFIG.farmCheckInterval || 2000
-    );
-    const helpMs = randomIntervalMs(
-        CONFIG.helpCheckIntervalMin || 10000,
-        CONFIG.helpCheckIntervalMax || 10000
-    );
-    const stealMs = randomIntervalMs(
-        CONFIG.stealCheckIntervalMin || 10000,
-        CONFIG.stealCheckIntervalMax || 10000
-    );
-    const now = Date.now();
-    nextFarmRunAt = now + farmMs;
-    nextHelpRunAt = now + helpMs;
-    nextStealRunAt = now + stealMs;
-}
-
-async function runFarmTick(auto: DynamicRecord): Promise<void> {
-    if (farmTaskRunning) return;
-    farmTaskRunning = true;
-    const farmMs = randomIntervalMs(
-        CONFIG.farmCheckIntervalMin || CONFIG.farmCheckInterval || 2000,
-        CONFIG.farmCheckIntervalMax || CONFIG.farmCheckInterval || 2000
-    );
-    try {
-        if (auto.farm) await checkFarm();
-        if (auto.task) await checkAndClaimTasks();
-        if (auto.email) await checkAndClaimEmails();
-        if (auto.fertilizer_gift) await openFertilizerGiftPacksSilently();
-    } catch {
-        // ignore
-    } finally {
-        nextFarmRunAt = Date.now() + farmMs;
-        farmTaskRunning = false;
-    }
-}
-
-// ============ 帮助巡查（独立调度） ============
-async function runHelpTick(auto: DynamicRecord): Promise<void> {
-    if (helpTaskRunning) {
-        return;
-    }
-    if (!auto.friend_help) {
-        return;
-    }
-    // 检查是否开启了经验满不帮忙，且经验已达上限
-    const stopWhenExpLimit = !!auto.friend_help_exp_limit;
-    if (stopWhenExpLimit && isHelpExpLimitReached()) {
-        // 计算下次调度时间，但不执行巡查
-        const helpMs = randomIntervalMs(
-            CONFIG.helpCheckIntervalMin || 10000,
-            CONFIG.helpCheckIntervalMax || 10000
-        );
-        nextHelpRunAt = Date.now() + helpMs;
-        return;
-    }
-    helpTaskRunning = true;
-    const helpMs = randomIntervalMs(
-        CONFIG.helpCheckIntervalMin || 10000,
-        CONFIG.helpCheckIntervalMax || 10000
-    );
-    //log('系统', `帮助巡查开始执行，下次间隔 ${helpMs}ms`, { module: 'system', event: '帮助巡查', result: 'start', intervalMs: helpMs });
-    try {
-        await checkFriends({ onlyHelp: true });
-    } catch (e) {
-        log('系统', `帮助巡查执行失败: ${errorMessage(e)}`, { module: 'system', event: '帮助巡查', result: 'error' });
-    } finally {
-        nextHelpRunAt = Date.now() + helpMs;
-        helpTaskRunning = false;
-       // log('系统', `帮助巡查执行完成，下次执行时间: ${new Date(nextHelpRunAt).toISOString()}`, { module: 'system', event: '帮助巡查', result: 'done', nextRunAt: nextHelpRunAt });
-    }
-}
-
-// ============ 偷菜巡查（独立调度） ============
-async function runStealTick(auto: DynamicRecord): Promise<void> {
-    if (stealTaskRunning) {
-        //log('系统', '偷菜巡查跳过：正在执行中', { module: 'system', event: '偷菜巡查', result: 'skipped', reason: 'running' });
-        return;
-    }
-    if (!auto.friend_steal) {
-       // log('系统', '偷菜巡查跳过：功能未开启', { module: 'system', event: '偷菜巡查', result: 'skipped', reason: 'disabled' });
-        return;
-    }
-    stealTaskRunning = true;
-    const stealMs = randomIntervalMs(
-        CONFIG.stealCheckIntervalMin || 10000,
-        CONFIG.stealCheckIntervalMax || 10000
-    );
-    try {
-        await checkFriends({ onlySteal: true });
-    } catch (e) {
-        log('系统', `偷菜巡查执行失败: ${errorMessage(e)}`, { module: 'system', event: '偷菜巡查', result: 'error' });
-    } finally {
-        nextStealRunAt = Date.now() + stealMs;
-        stealTaskRunning = false;
-    }
-}
-
-async function runUnifiedTick(): Promise<void> {
-    if (!unifiedSchedulerRunning || !loginReady) return;
-    const now = Date.now();
-    const dueFarm = now >= nextFarmRunAt;
-    const dueHelp = now >= nextHelpRunAt;
-    const dueSteal = now >= nextStealRunAt;
-    if (!dueFarm && !dueHelp && !dueSteal) return;
-
-    const auto = getAutomation();
-    // 串行执行而非并行，避免并发请求过多导致超时
-    if (dueFarm) await runFarmTick(auto);
-    if (dueHelp) await runHelpTick(auto);
-    if (dueSteal) await runStealTick(auto);
-}
-
-function scheduleUnifiedNextTick(): void {
-    if (!unifiedSchedulerRunning) return;
-    workerScheduler.clear('unified_next_tick');
-    if (!loginReady) return;
-
-    const now = Date.now();
-    const nextAt = Math.min(
-        Number(nextFarmRunAt) || (now + 1000),
-        Number(nextHelpRunAt) || (now + 1000),
-        Number(nextStealRunAt) || (now + 1000)
-    );
-    const delayMs = Math.max(1000, nextAt - now); // 最低 1 秒
-
-    workerScheduler.setTimeoutTask('unified_next_tick', delayMs, async () => {
-        try {
-            await runUnifiedTick();
-        } finally {
-            scheduleUnifiedNextTick();
-        }
-    });
-}
-
-function startUnifiedScheduler(): void {
-    if (unifiedSchedulerRunning) return;
-    unifiedSchedulerRunning = true;
-    resetUnifiedSchedule();
-    scheduleUnifiedNextTick();
-}
-
-function stopUnifiedScheduler(): void {
-    unifiedSchedulerRunning = false;
-    farmTaskRunning = false;
-    helpTaskRunning = false;
-    stealTaskRunning = false;
-    workerScheduler.clear('unified_next_tick');
-}
-
 function applyRuntimeConfig(snapshot: DynamicRecord, syncNow = false): void {
     const prevAuto = getAutomation();
     const accountId = process.env.FARM_ACCOUNT_ID || '';
@@ -472,8 +333,8 @@ function applyRuntimeConfig(snapshot: DynamicRecord, syncNow = false): void {
     if (loginReady) {
         refreshFarmCheckLoop(200);
         refreshFriendCheckLoop(200);
-        resetUnifiedSchedule();
-        scheduleUnifiedNextTick();
+        automationScheduler.reset();
+        automationScheduler.scheduleNext();
 
         // 保存设置后若“自动处理日常”开启，则立即执行一次
         const hasAutomationPayload = !!(snapshot && snapshot.automation && typeof snapshot.automation === 'object');
@@ -508,11 +369,23 @@ function applyRuntimeConfig(snapshot: DynamicRecord, syncNow = false): void {
                     }
                 });
             }
+
+            if (!prevAuto?.mystery_shop_buy && nextAuto?.mystery_shop_buy) {
+                workerScheduler.setTimeoutTask('mystery_shop_immediate_after_save', 400, () => {
+                    if (!loginReady) return;
+                    mysteryShopRuntime?.checkNow().catch(() => null);
+                });
+            }
         }
     }
 
     if (syncNow) syncStatus();
 }
+
+const handleApiCall = createWorkerApiHandler(createWorkerApiMethods({
+    applyRuntimeConfig,
+    getDailyGiftOverview,
+}), sendToMaster);
 
 // 接收主进程指令
 onMasterMessage(async (msg) => {
@@ -653,6 +526,17 @@ async function startBot(config: Extract<MasterToWorkerMessage, { type: 'start' }
 
     networkEvents.on('kickout', onKickout);
 
+    const mysteryRuntime: WorkerMysteryShopRuntime = mysteryShopRuntime
+        || createWorkerMysteryShopRuntime({
+            events: networkEvents,
+            getAutomation,
+            isLifecycleActive,
+            log,
+            service: require('../services/mystery-shop'),
+        });
+    mysteryShopRuntime = mysteryRuntime;
+    mysteryRuntime.start();
+
     // 服务端版本前缀校准结果上报主进程（用于持久化，跨重启生效）
     networkEvents.on('versionPrefixChanged', (prefix: unknown) => {
         sendToMaster({ type: 'version_prefix_update', prefix: String(prefix || '') });
@@ -662,6 +546,7 @@ async function startBot(config: Extract<MasterToWorkerMessage, { type: 'start' }
         if (!isLifecycleActive()) return;
         loginReady = true;
         reauthRequiredNotified = false;
+        mysteryShopRuntime?.checkNow().catch(() => null);
         if (onSellGain) {
             networkEvents.off('sell', onSellGain);
         }
@@ -681,22 +566,15 @@ async function startBot(config: Extract<MasterToWorkerMessage, { type: 'start' }
         }
 
         // 战令（千星游记）推送驱动自动领取（BattlePassChangeNotify 到达即领）
-        if (onBattlePassNotify) {
-            networkEvents.off('battlePassNotify', onBattlePassNotify);
-        }
-        onBattlePassNotify = async () => {
-            if (!isRunning) return;
-            try {
-                const result = await require('../services/activity').claimBattlePassRewards();
-                if (result && result.rewards && result.rewards.length > 0) {
-                    log('活动', `战令推送自动领取 ${result.rewards.length} 项奖励`, { module: 'activity', event: 'battle_pass_push_claim', count: result.rewards.length });
-                }
-            } catch (e) {
-                const reason = errorMessage(e);
-                log('活动', `战令推送自动领取失败: ${reason}`, { module: 'activity', event: 'battle_pass_push_claim_error', error: reason });
-            }
-        };
-        networkEvents.on('battlePassNotify', onBattlePassNotify);
+        const runtime: WorkerBattlePassPushRuntime = battlePassPushRuntime
+            || createWorkerBattlePassPushRuntime({
+                events: networkEvents,
+                activityService: require('../services/activity'),
+                isLifecycleActive,
+                log,
+            });
+        battlePassPushRuntime = runtime;
+        runtime.start();
 
         if (onFarmHarvested) {
             networkEvents.off('farmHarvested', onFarmHarvested);
@@ -804,7 +682,7 @@ async function startBot(config: Extract<MasterToWorkerMessage, { type: 'start' }
         
         startFarmCheckLoop({ externalScheduler: true });
         startFriendCheckLoop({ externalScheduler: true });
-        startUnifiedScheduler();
+        automationScheduler.start();
         // 每日礼包/任务改为跨日调度，不在农场轮询内执行
         startDailyRoutineTimer();
 
@@ -843,247 +721,4 @@ function onKickout(payload: DynamicRecord): void {
     workerScheduler.setTimeoutTask('kickout_stop', 200, () => {
         stopBot().catch(() => exitWorker(0));
     });
-}
-
-// 处理来自 Admin 面板的直接调用请求 (如: 购买种子、开关设置等)
-async function handleApiCall(msg: ApiCallMessage): Promise<void> {
-    const { id, method, args } = msg;
-    let result = null;
-    let error: string | undefined;
-
-    try {
-        switch (method) {
-            case 'getLands':
-                result = await getLandsDetail();
-                break;
-            case 'getFriends':
-                result = await getFriendsList(args[0] === true);
-                break;
-            case 'clearFriendsCache':
-                require('../services/friend').clearFriendsListCache();
-                result = { ok: true };
-                break;
-            case 'getInteractRecords':
-                result = await getInteractRecords();
-                break;
-            case 'getFriendLands':
-                result = await getFriendLandsDetail(args[0]);
-                break;
-            case 'doFriendOp':
-                result = await doFriendOperation(args[0], args[1]);
-                break;
-            case 'getSeeds':
-                result = await getAvailableSeeds();
-                break;
-            case 'getBag':
-                result = await require('../services/warehouse').getBagDetail();
-                break;
-            case 'getBagSeeds':
-                result = await require('../services/warehouse').getBagSeeds();
-                break;
-            case 'getDiamondBalance':
-                result = await require('../services/pay').getDiamondBalance();
-                break;
-            case 'useItem': {
-                const { useItem: _useItem } = require('../services/warehouse');
-                const itemId = Number(args[0]) || 0;
-                const count = Math.max(1, Number(args[1]) || 1);
-                result = await _useItem(itemId, count, []);
-                break;
-            }
-            case 'sellItems': {
-                const { sellItems: _sell } = require('../services/warehouse');
-                const sellList = Array.isArray(args[0]) ? args[0] : [];
-                result = await _sell(sellList.map(it => ({ id: it.id, count: it.count, uid: it.uid || 0 })));
-                break;
-            }
-            case 'setAutomation': {
-                const payload: DynamicRecord = args && args[0] && typeof args[0] === 'object' ? args[0] as DynamicRecord : {};
-                applyRuntimeConfig({ automation: { [payload.key]: payload.value } }, true);
-                result = getAutomation();
-                break;
-            }
-            case 'doFarmOp':
-                result = await runFarmOperation(args[0]); // opType
-                break;
-            case 'buyFertilizer': {
-                const fertilizerType = args[0] || 'organic';
-                const fertilizerCount = Number(args[1]) || 0;
-                result = await autoBuyFertilizer(true, fertilizerType, fertilizerCount);
-                break;
-            }
-            case 'checkAndBuyFertilizer': {
-                const options = args[0] || {};
-                result = await checkAndBuyFertilizerBoth(options);
-                break;
-            }
-            case 'getAnalytics': {
-                const { getPlantRankings } = require('../services/analytics');
-                result = getPlantRankings(args[0]); // sortBy
-                break;
-            }
-            case 'getDailyGiftOverview':
-                result = await getDailyGiftOverview();
-                break;
-            case 'getSchedulers':
-                result = getSchedulerRegistrySnapshot();
-                break;
-            // 活动中心（千星游记/观星/星砂商店/节令）
-            case 'getActivityCenterSnapshot':
-                result = await require('../services/activity').getActivityCenterSnapshot();
-                break;
-            // 神秘商人
-            case 'getMysteryShop':
-                result = await require('../services/mystery-shop').getMysteryShopSnapshot();
-                break;
-            case 'buyMysteryGoods':
-                result = await require('../services/mystery-shop').buyMysteryGoods(args[0], args[1]);
-                break;
-            case 'getCurrentSeasonEvent':
-                result = await require('../services/activity').getCurrentSeasonEvent();
-                break;
-            case 'getCurrentStarSandShop':
-                result = await require('../services/activity').getCurrentStarSandShop();
-                break;
-            case 'getCurrentSolarTerms':
-                result = await require('../services/activity').getCurrentSolarTerms();
-                break;
-            case 'getCurrentQingMeiActivity':
-                result = await require('../services/activity').getCurrentQingMeiActivity();
-                break;
-            case 'claimBattlePassRewards':
-                result = await require('../services/activity').claimBattlePassRewards();
-                break;
-            case 'exchangeStarSandGoods':
-                result = await require('../services/activity').exchangeStarSandGoods(args[0], args[1]);
-                break;
-            case 'lightConstellation':
-                result = await require('../services/activity').lightConstellation();
-                break;
-            case 'claimSolarTerm':
-                result = await require('../services/activity').claimSolarTerm(args[0]);
-                break;
-            case 'claimQingMeiDailySeed':
-                result = await require('../services/activity').claimQingMeiDailySeed();
-                break;
-            case 'startQingMeiBrew':
-                result = await require('../services/activity').startQingMeiBrew(args[0]);
-                break;
-            case 'continueQingMeiBrew':
-                result = await require('../services/activity').continueQingMeiBrew();
-                break;
-            case 'settleQingMeiBrew':
-                result = await require('../services/activity').settleQingMeiBrew();
-                break;
-            default:
-                error = 'Unknown method';
-        }
-    } catch (e) {
-        error = errorMessage(e);
-    }
-
-    sendToMaster({ type: 'api_response', id, result, error });
-}
-
-async function getDailyGiftOverview(): Promise<DynamicRecord> {
-    const auto = getAutomation() || {};
-    const task = getTaskDailyStateLikeApp
-        ? await getTaskDailyStateLikeApp()
-        : (getTaskClaimDailyState ? getTaskClaimDailyState() : { doneToday: false, lastClaimAt: 0 });
-    const growthTask = getGrowthTaskStateLikeApp
-        ? await getGrowthTaskStateLikeApp()
-        : { doneToday: false, completedCount: 0, totalCount: 0, tasks: [] };
-    const email = getEmailDailyState ? getEmailDailyState() : { doneToday: false, lastCheckAt: 0 };
-    const free = getFreeGiftDailyState ? getFreeGiftDailyState() : { doneToday: false, lastClaimAt: 0 };
-    const share = getShareDailyState ? getShareDailyState() : { doneToday: false, lastClaimAt: 0 };
-    const vip = getVipDailyState ? getVipDailyState() : { doneToday: false, lastClaimAt: 0 };
-    const month = getMonthCardDailyState ? getMonthCardDailyState() : { doneToday: false, lastClaimAt: 0 };
-
-    return {
-        date: new Date().toISOString().slice(0, 10),
-        growth: {
-            key: 'growth_task',
-            label: '成长任务',
-            doneToday: !!growthTask.doneToday,
-            completedCount: Number(growthTask.completedCount || 0),
-            totalCount: Number(growthTask.totalCount || 0),
-            tasks: Array.isArray(growthTask.tasks) ? growthTask.tasks : [],
-        },
-        gifts: [
-            {
-                key: 'task_claim',
-                label: '每日任务',
-                enabled: !!auto.task,
-                doneToday: !!task.doneToday,
-                lastAt: Number(task.lastClaimAt || 0),
-                completedCount: Number(task.completedCount || 0),
-                totalCount: Number(task.totalCount || 3),
-            },
-            // 以下功能默认启用，enabled 固定为 true
-            { key: 'email_rewards', label: '邮箱奖励', enabled: true, doneToday: !!email.doneToday, lastAt: Number(email.lastCheckAt || 0) },
-            { key: 'mall_free_gifts', label: '商城免费礼包', enabled: true, doneToday: !!free.doneToday, lastAt: Number(free.lastClaimAt || 0) },
-            { key: 'daily_share', label: '分享礼包', enabled: true, doneToday: !!share.doneToday, lastAt: Number(share.lastClaimAt || 0) },
-            {
-                key: 'vip_daily_gift',
-                label: '会员礼包',
-                enabled: true,
-                doneToday: !!vip.doneToday,
-                lastAt: Number(vip.lastClaimAt || vip.lastCheckAt || 0),
-                hasGift: Object.prototype.hasOwnProperty.call(vip, 'hasGift') ? !!vip.hasGift : undefined,
-                canClaim: Object.prototype.hasOwnProperty.call(vip, 'canClaim') ? !!vip.canClaim : undefined,
-                result: vip.result || '',
-            },
-            {
-                key: 'month_card_gift',
-                label: '月卡礼包',
-                enabled: true,
-                doneToday: !!month.doneToday,
-                lastAt: Number(month.lastClaimAt || month.lastCheckAt || 0),
-                hasCard: Object.prototype.hasOwnProperty.call(month, 'hasCard') ? !!month.hasCard : undefined,
-                hasClaimable: Object.prototype.hasOwnProperty.call(month, 'hasClaimable') ? !!month.hasClaimable : undefined,
-                result: month.result || '',
-            },
-        ],
-    };
-}
-
-function syncStatus(): void {
-    if (!process.send && !parentPort) return;
-
-    const userState = getUserState();
-    const ws = getWs();
-    const connected = !!(loginReady && ws && ws.readyState === 1);
-
-    let expProgress = null;
-    const level = (userState.level ?? statusData.level ?? 0);
-    const exp = (userState.exp ?? statusData.exp ?? 0);
-
-    if (level > 0 && exp >= 0) {
-        expProgress = getLevelExpProgress(level, exp);
-    }
-
-    const limits = require('../services/friend').getOperationLimits();
-    const fullStats = require('../services/stats').getStats(statusData, userState, connected, limits);
-    const nowMs = Date.now();
-    const farmRemainSec = Math.max(0, Math.ceil((Number(nextFarmRunAt || 0) - nowMs) / 1000));
-    const helpRemainSec = Math.max(0, Math.ceil((Number(nextHelpRunAt || 0) - nowMs) / 1000));
-    const stealRemainSec = Math.max(0, Math.ceil((Number(nextStealRunAt || 0) - nowMs) / 1000));
-    fullStats.nextChecks = {
-        farmRemainSec,
-        helpRemainSec,
-        stealRemainSec,
-        friendRemainSec: Math.max(helpRemainSec, stealRemainSec),
-    };
-
-    fullStats.automation = getAutomation();
-    fullStats.preferredSeed = getPreferredSeed();
-    fullStats.levelProgress = expProgress;
-    fullStats.configRevision = appliedConfigRevision;
-    const hash = JSON.stringify(fullStats);
-    const now = Date.now();
-    if (hash !== lastStatusHash || now - lastStatusSentAt > 8000) {
-        lastStatusHash = hash;
-        lastStatusSentAt = now;
-        sendToMaster({ type: 'status_sync', data: fullStats });
-    }
 }

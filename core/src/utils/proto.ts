@@ -57,6 +57,8 @@ async function loadProto(): Promise<void> {
     types.AllLandsReply = root.lookupType('gamepb.plantpb.AllLandsReply');
     types.HarvestRequest = root.lookupType('gamepb.plantpb.HarvestRequest');
     types.HarvestReply = root.lookupType('gamepb.plantpb.HarvestReply');
+    types.FarmingRequest = root.lookupType('gamepb.plantpb.FarmingRequest');
+    types.FarmingReply = root.lookupType('gamepb.plantpb.FarmingReply');
     types.WaterLandRequest = root.lookupType('gamepb.plantpb.WaterLandRequest');
     types.WaterLandReply = root.lookupType('gamepb.plantpb.WaterLandReply');
     types.WeedOutRequest = root.lookupType('gamepb.plantpb.WeedOutRequest');
@@ -87,6 +89,8 @@ async function loadProto(): Promise<void> {
     types.UseReply = root.lookupType('gamepb.itempb.UseReply');
     types.BatchUseRequest = root.lookupType('gamepb.itempb.BatchUseRequest');
     types.BatchUseReply = root.lookupType('gamepb.itempb.BatchUseReply');
+    types.CannelNewRequest = root.lookupType('gamepb.itempb.CannelNewRequest');
+    types.CannelNewReply = root.lookupType('gamepb.itempb.CannelNewReply');
     types.PlantRequest = root.lookupType('gamepb.plantpb.PlantRequest');
     types.PlantReply = root.lookupType('gamepb.plantpb.PlantReply');
 
@@ -148,6 +152,7 @@ async function loadProto(): Promise<void> {
     types.VisitLeaveReply = root.lookupType('gamepb.visitpb.LeaveReply');
     types.GetActiveNPCRequest = root.lookupType('gamepb.mysteryshoppb.GetActiveNPCRequest');
     types.GetActiveNPCReply = root.lookupType('gamepb.mysteryshoppb.GetActiveNPCReply');
+    types.MysteryShopNotify = root.lookupType('gamepb.mysteryshoppb.MysteryShopNotify');
     types.BuyRequest = root.lookupType('gamepb.mysteryshoppb.BuyRequest');
     types.BuyReply = root.lookupType('gamepb.mysteryshoppb.BuyReply');
 

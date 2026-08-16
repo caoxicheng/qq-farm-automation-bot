@@ -14,6 +14,16 @@ export interface SnapshotRecord {
     [key: string]: unknown;
 }
 
+export interface CoalescedBackgroundTask {
+    trigger: () => void;
+    cancel: () => void;
+}
+
+export interface CoalescedBackgroundTaskOptions {
+    delayMs?: number;
+    onError?: (error: unknown) => void;
+}
+
 function errorMessage(error: unknown, fallback: string): string {
     if (error instanceof Error && error.message) return error.message;
     if (error === undefined || error === null || error === '') return fallback;
@@ -50,6 +60,56 @@ export function createSingleFlight<Args extends unknown[], Result>(
         });
         inFlight = tracked;
         return tracked;
+    };
+}
+
+export function createCoalescedBackgroundTask(
+    operation: () => unknown | PromiseLike<unknown>,
+    options: CoalescedBackgroundTaskOptions = {},
+): CoalescedBackgroundTask {
+    const delayMs = Math.max(0, Math.floor(Number(options.delayMs) || 0));
+    let timer: NodeJS.Timeout | null = null;
+    let running = false;
+    let pending = false;
+    let cancelled = false;
+
+    function schedule(): void {
+        if (cancelled || running) return;
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(() => {
+            timer = null;
+            void run();
+        }, delayMs);
+    }
+
+    async function run(): Promise<void> {
+        if (cancelled || running || !pending) return;
+        pending = false;
+        running = true;
+        try {
+            await operation();
+        } catch (error) {
+            options.onError?.(error);
+        } finally {
+            running = false;
+            if (pending && !cancelled) schedule();
+        }
+    }
+
+    return {
+        trigger(): void {
+            if (cancelled) return;
+            pending = true;
+            schedule();
+        },
+        cancel(): void {
+            cancelled = true;
+            pending = false;
+            if (timer) {
+                clearTimeout(timer);
+                timer = null;
+            }
+        },
     };
 }
 

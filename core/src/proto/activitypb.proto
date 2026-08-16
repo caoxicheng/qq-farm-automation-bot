@@ -110,7 +110,7 @@ message QingMeiQuote {
 }
 
 message QingMeiSettlement {
-    int64 settlement_mode = 1;
+    int64 settlement_mode = 1;  // 1=直接卖出，2=分享后结算
     int64 total_gold = 2;
     corepb.Item reward = 3;
 }
@@ -167,7 +167,7 @@ message ContinueQingMeiBrewRequest {
 }
 
 message SettleQingMeiBrewRequest {
-    message Params { int64 settlement_mode = 1; }
+    message Params { int64 settlement_mode = 1; }  // 1=直接卖出，2=分享后结算
     int64 activity_id = 1;
     int64 operate_type = 2;
     Params params = 114;

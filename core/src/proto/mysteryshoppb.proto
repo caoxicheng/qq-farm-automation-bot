@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package gamepb.mysteryshoppb;
 
+import "corepb.proto";
+
 service MysteryShopService {
   rpc GetActiveNPC(GetActiveNPCRequest) returns (GetActiveNPCReply);
   rpc Buy(BuyRequest) returns (BuyReply);
@@ -9,17 +11,17 @@ service MysteryShopService {
 
 message GetActiveNPCRequest {}
 
-// The active merchant offer embedded in GetActiveNPCReply.
+// 神秘商人限时商品。字段 3 的业务含义仍待更多样本确认；购买前后抓包确认字段 8 为已购买次数。
 message ActiveNPC {
   int64 npc_id = 1;
   int64 reward_item_id = 2;
-  int32 reward_count = 3;
-  int32 stock_count = 4;
+  int32 field_3 = 3;
+  int32 reward_count = 4;
   int64 currency_item_id = 5;
-  int64 price = 6;
+  int64 unit_price = 6;
   int32 discount_percent = 7;
-  int32 field_8 = 8;  // 抓包确认：响应携带 varint（1），请求侧勿发送
-  int64 original_price = 9;
+  int32 purchased_count = 8;
+  int64 original_unit_price = 9;
 }
 
 message GetActiveNPCReply {
@@ -29,10 +31,14 @@ message GetActiveNPCReply {
   int64 expire_time = 4;
 }
 
-// 购买神秘商人商品（抓包确认：npc_id 为 ActiveNPC.npc_id，count 为购买数量）
+message MysteryShopNotify {
+  ActiveNPC npc = 1;
+  int64 expire_time = 2;
+}
+
+// 购买一次当前商品；抓包确认请求只携带 npc_id。
 message BuyRequest {
   int64 npc_id = 1;
-  int32 count = 2;
 }
 
 message BuyReply {

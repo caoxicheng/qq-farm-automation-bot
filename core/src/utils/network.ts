@@ -570,6 +570,15 @@ function handleNotify(msg: DataRecord): void {
             return;
         }
 
+        // 神秘商人出现：推送携带完整限时商品，交给 Worker 按账号配置决定是否购买。
+        if (type.includes('MysteryShopNotify')) {
+            try {
+                const notify = decodeMessage('MysteryShopNotify', eventBody);
+                networkEvents.emit('mysteryShopNotify', notify);
+            } catch { }
+            return;
+        }
+
         // 红点类通知（图鉴/头像框/成就等）：界面状态提示，bot 无需响应，静默识别避免刷"未处理"日志
         if (type.includes('RedDotNotify')) {
             return;

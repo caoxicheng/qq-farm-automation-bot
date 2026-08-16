@@ -99,6 +99,7 @@ export const DEFAULT_ACCOUNT_CONFIG: AccountConfig = {
         fertilizer_buy_organic: false,
         fertilizer_buy_normal: false,
         sell: false,
+        mystery_shop_buy: false,
         fertilizer: 'smart',
         fertilizer_multi_season: true,
         fertilizer_land_types: [...DEFAULT_FERTILIZER_LAND_TYPES],

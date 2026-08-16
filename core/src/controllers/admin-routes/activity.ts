@@ -21,6 +21,7 @@ const ACTIVITY_ERROR_MESSAGES: Record<string, string> = {
     SHOP_GOODS_UNAVAILABLE: '该商品当前不可兑换，请刷新商店后重试',
     SHOP_BALANCE_UNAVAILABLE: '暂时无法确认星砂余额，请稍后重试',
     INSUFFICIENT_STAR_SAND: '星砂余额不足，无法完成本次兑换',
+    NO_PASS_REWARD: '当前没有可领取的游记奖励，请完成新的游记等级后再试',
     SHOP_RESPONSE_INVALID: '商店数据已经变化，请刷新页面后重试',
     SHOP_UNAVAILABLE: '星砂商店暂未开放，请稍后再来看看',
 };
@@ -72,17 +73,6 @@ export function registerActivityRoutes(context: ActivityRoutesContext): void {
     mountGet('/api/activity-center/shop', 'getCurrentStarSandShop');
     mountGet('/api/activity-center/solar-terms', 'getCurrentSolarTerms');
     mountGet('/api/activity-center/qingmei', 'getCurrentQingMeiActivity');
-    mountGet('/api/mystery-shop', 'getMysteryShop');
-    app.post('/api/mystery-shop/buy', withActivityAccount((accountId, request) => {
-        const npcId = String(request.body?.npcId || '');
-        const count = Math.max(1, Math.min(Math.floor(Number(request.body?.count) || 1), 999));
-        if (!/^[1-9]\d*$/.test(npcId)) {
-            const error = new Error('npcId 必须是正整数') as Error & { code: string };
-            error.code = 'INVALID_PARAM';
-            throw error;
-        }
-        return provider.buyMysteryGoods(accountId, npcId, count);
-    }));
     app.post('/api/activity-center/pass/claim', withActivityAccount(accountId => provider.claimBattlePassRewards(accountId)));
     app.post('/api/activity-center/constellation/light', withActivityAccount(accountId => provider.lightConstellation(accountId)));
     app.post('/api/activity-center/shop/exchange', withActivityAccount((accountId, request) => provider.exchangeStarSandGoods(accountId, request.body?.goodsId, request.body?.count)));
