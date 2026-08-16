@@ -227,18 +227,6 @@ html[data-theme='neo'] [class*='bg-stone-800']:not([data-theme-exempt] *):hover 
   transform: translate(3px, 3px);
 }
 
-/* 神秘商人空态按钮（scoped 手写样式覆盖） */
-html[data-theme='neo'] .mystery-state button {
-  background: #eab308 !important;
-  color: #111111 !important;
-  border: 2px solid #000 !important;
-  box-shadow: 3px 3px 0 #000 !important;
-}
-html[data-theme='neo'] .mystery-state button:hover {
-  box-shadow: none !important;
-  transform: translate(3px, 3px);
-}
-
 /* ===== Neo · 活动页豁免 =====
  * 活动中心（ActivityShell）是固定全屏的星空独立设计，不跟随主题。
  * 所有宽泛覆盖（圆角/阴影/边框/按钮色）用 :not([data-theme-exempt] *)

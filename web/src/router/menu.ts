@@ -30,13 +30,6 @@ export const menuRoutes: MenuItem[] = [
     component: () => import('@/views/ActivityCenter.vue'),
   },
   {
-    path: 'mystery-shop',
-    name: 'mystery-shop',
-    label: '神秘商人',
-    icon: '🎩',
-    component: () => import('@/views/MysteryShop.vue'),
-  },
-  {
     path: 'friends',
     name: 'friends',
     label: '好友',
