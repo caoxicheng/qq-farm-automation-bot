@@ -14,7 +14,7 @@ import SolarTermsTab from '@/components/activity/SolarTermsTab.vue'
 import StarSandExchangeDialog from '@/components/activity/StarSandExchangeDialog.vue'
 import StarSandShopTab from '@/components/activity/StarSandShopTab.vue'
 import TravelPassTab from '@/components/activity/TravelPassTab.vue'
-import { activityTabByKey } from '@/features/activity-center/registry'
+import { activityTabByKey, activityTabs } from '@/features/activity-center/registry'
 import { useAccountStore } from '@/stores/account'
 import { useActivityCenterStore } from '@/stores/activity-center'
 
@@ -22,7 +22,7 @@ const router = useRouter()
 const accountStore = useAccountStore()
 const activityStore = useActivityCenterStore()
 const { currentAccountId } = storeToRefs(accountStore)
-const { season, shop, solarTerms, constellation, qingMei, actions, tabBadges, loading, error, actionError, notice, serverClockOffset, pendingActions } = storeToRefs(activityStore)
+const { season, shop, solarTerms, constellation, qingMei, actions, tabBadges, loading, error, actionError, notice, serverClockOffset, pendingActions, successfulAccountId } = storeToRefs(activityStore)
 const activeTab = ref<ActivityTab>('travel')
 const selectedShopGoods = ref<ShopGoodsDto | null>(null)
 const clockNow = ref(Date.now())
@@ -32,6 +32,18 @@ const currentData = computed(() => activeTab.value === 'shop' ? shop.value : act
 const serverNow = computed(() => clockNow.value + serverClockOffset.value)
 const pageTitle = computed(() => activeTab.value === 'qingmei' ? (qingMei.value?.name || '青酿换万金') : currentData.value && 'title' in currentData.value ? currentData.value.title : (season.value?.title || '—'))
 const activeTabDefinition = computed(() => activityTabByKey[activeTab.value])
+const activityDataReady = computed(() => !!currentAccountId.value && successfulAccountId.value === String(currentAccountId.value))
+const visibleActivityTabs = computed(() => {
+  if (!activityDataReady.value)
+    return activityTabs
+  return activityTabs.filter((tab) => {
+    if (tab.key === 'constellation')
+      return !!constellation.value && (!constellation.value.endTime || constellation.value.endTime > serverNow.value)
+    if (tab.key === 'qingmei')
+      return !!qingMei.value && (!qingMei.value.endTime || qingMei.value.endTime > serverNow.value)
+    return true
+  })
+})
 const theme = computed(() => activeTabDefinition.value.theme)
 const endTime = computed(() => {
   if (activeTab.value === 'shop')
@@ -84,6 +96,10 @@ watch(activeTab, (tab) => {
   if (tab !== 'shop' && !pendingActions.value.exchange)
     selectedShopGoods.value = null
 })
+watch(() => visibleActivityTabs.value.map(tab => tab.key).join(','), () => {
+  if (!visibleActivityTabs.value.some(tab => tab.key === activeTab.value))
+    activeTab.value = visibleActivityTabs.value[0]?.key || 'travel'
+})
 onMounted(() => { load(true); clockTimer = window.setInterval(() => clockNow.value = Date.now(), 1000) })
 onUnmounted(() => {
   if (clockTimer)
@@ -115,7 +131,7 @@ onUnmounted(() => {
           <QingMeiTab v-else :activity="qingMei" :pending-seed="pendingActions.qingMeiSeed" :pending-start="pendingActions.qingMeiStart" :pending-continue="pendingActions.qingMeiContinue" :pending-settle="pendingActions.qingMeiSettle" @claim-seed="claimQingMeiSeed" @start="startQingMeiBrew" @continue="continueQingMeiBrew" @settle="settleQingMeiBrew" />
         </main>
       </template>
-      <BottomNav v-model="activeTab" :badges="tabBadges" />
+      <BottomNav v-model="activeTab" :badges="tabBadges" :items="visibleActivityTabs" />
       <StarSandExchangeDialog
         :open="!!selectedShopGoods"
         :goods="selectedShopGoods"

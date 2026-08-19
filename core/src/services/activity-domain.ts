@@ -1,4 +1,5 @@
 import { createActivitySnapshotCoordinator } from './activity-snapshot';
+import { createTimeoutBudget, settleSequentially } from '../utils/request-coordination';
 const fs = require('node:fs');
 const { getResourcePath } = require('../config/runtime-paths');
 const import_constellation_2026072701 = {
@@ -35,7 +36,8 @@ const CONSTELLATION_ACTIVITY_TYPE = "13";
 const EXCHANGE_SHOP_OPERATE_TYPE = 1;
 const QUERY_SHOP_OPERATE_TYPE = 7;
 const LIGHT_CONSTELLATION_OPERATE_TYPE = 21;
-const SNAPSHOT_REQUEST_TIMEOUT_MS = 20000;
+const SNAPSHOT_TOTAL_TIMEOUT_MS = 20000;
+const SNAPSHOT_PARTITION_TIMEOUT_MS = 5000;
 const ACTIVITY_READ_TIMEOUT_MS = 20000;
 const MAX_SIGNED_INT64 = 9223372036854775807n;
 const SECONDS_PER_DAY = 86400;
@@ -618,12 +620,28 @@ function buildActions(
   };
 }
 async function buildActivityCenterSnapshot(shopOverride: DynamicRecord | null = null): Promise<DynamicRecord> {
-  const bagPromise = getBag(SNAPSHOT_REQUEST_TIMEOUT_MS);
-  const [seasonResult, solarResult, qingMeiResult, bagResult] = await Promise.allSettled([
-    querySeason(SNAPSHOT_REQUEST_TIMEOUT_MS),
-    querySolarTerms(SNAPSHOT_REQUEST_TIMEOUT_MS),
-    qingmei.getCurrentQingMeiActivity(bagPromise, SNAPSHOT_REQUEST_TIMEOUT_MS),
-    bagPromise
+  // 游戏网关对活动元数据和背包突发请求较敏感。快照分区允许独立失败，
+  // 但底层 RPC 必须依次发出，并共享小于 Worker API 外层限制的总超时预算。
+  const nextSnapshotTimeout = createTimeoutBudget(SNAPSHOT_TOTAL_TIMEOUT_MS, SNAPSHOT_PARTITION_TIMEOUT_MS);
+  const [seasonResult] = await settleSequentially<DynamicRecord>([
+    () => querySeason(nextSnapshotTimeout())
+  ]);
+  const [solarResult] = await settleSequentially<DynamicRecord>([
+    () => querySolarTerms(nextSnapshotTimeout())
+  ]);
+  const [bagResult] = await settleSequentially<unknown>([
+    () => getBag(nextSnapshotTimeout())
+  ]);
+  const [qingMeiResult] = await settleSequentially<DynamicRecord | null>([
+    () => {
+      // 先取得剩余预算，再创建失败 Promise。若预算已经耗尽，避免留下无人消费的
+      // rejected Promise，进而触发 Worker 的 unhandledRejection。
+      const timeout = nextSnapshotTimeout();
+      const bagInput = bagResult.status === "fulfilled"
+        ? bagResult.value
+        : Promise.reject(bagResult.reason);
+      return qingmei.getCurrentQingMeiActivity(bagInput, timeout);
+    }
   ]);
   const rawSeason = settledValue(seasonResult);
   if (!rawSeason && solarResult.status === "rejected" && qingMeiResult.status === "rejected") {
@@ -637,8 +655,8 @@ async function buildActivityCenterSnapshot(shopOverride: DynamicRecord | null = 
   if (shopOverride) {
     shopResult = { status: "fulfilled", value: shopOverride };
   } else if (rawSeason) {
-    [shopResult] = await Promise.allSettled([
-      queryShopFromSeason(rawSeason, settledValue(bagResult), SNAPSHOT_REQUEST_TIMEOUT_MS)
+    [shopResult] = await settleSequentially<DynamicRecord>([
+      () => queryShopFromSeason(rawSeason, settledValue(bagResult), nextSnapshotTimeout())
     ]);
   } else {
     shopResult = { status: "rejected", reason: new Error("\u8D5B\u5B63\u67E5\u8BE2\u5931\u8D25\uFF0C\u65E0\u6CD5\u53D1\u73B0\u6D3B\u52A8\u5546\u5E97 ID") };

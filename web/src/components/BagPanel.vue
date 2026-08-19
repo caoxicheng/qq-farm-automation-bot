@@ -72,7 +72,7 @@ const confirmModal = ref({
 })
 
 const batchMode = ref(false)
-const selectedForBatch = ref<Set<number>>(new Set())
+const selectedForBatch = ref<Set<string>>(new Set())
 
 interface SellReward {
   id: number
@@ -83,6 +83,14 @@ interface SellReward {
 const selectedSellableCount = computed(() => {
   return selectedForBatch.value.size
 })
+
+function itemKey(item: any) {
+  if (item?.key)
+    return String(item.key)
+  if (item?.uid)
+    return `uid:${item.uid}`
+  return `item:${Number(item?.id) || 0}`
+}
 
 function getPriceClass(item: any) {
   const priceId = Number(item?.priceId || 0)
@@ -133,8 +141,8 @@ function aggregateSellRewards(selectedItems: any[]): SellReward[] {
 }
 
 function selectedDisplayItems(selectedItems: any[]) {
-  const ids = new Set(selectedItems.map((item: any) => Number(item?.id) || 0))
-  return items.value.filter((item: any) => ids.has(Number(item?.id) || 0))
+  const keys = new Set(selectedItems.map((item: any) => itemKey(item)))
+  return items.value.filter((item: any) => keys.has(itemKey(item)))
 }
 
 function rewardLines(rewards: SellReward[]) {
@@ -147,12 +155,13 @@ function rewardSummary(rewards: SellReward[]) {
 
 function handleSellClick(item: any) {
   if (batchMode.value) {
-    const isSelected = selectedForBatch.value.has(Number(item.id))
+    const key = itemKey(item)
+    const isSelected = selectedForBatch.value.has(key)
     if (isSelected) {
-      selectedForBatch.value.delete(Number(item.id))
+      selectedForBatch.value.delete(key)
     }
     else {
-      selectedForBatch.value.add(Number(item.id))
+      selectedForBatch.value.add(key)
     }
     return
   }
@@ -197,7 +206,7 @@ async function handleConfirm() {
   try {
     if (action === 'sell' && item) {
       const sellItems = originalItems.value
-        .filter((it: any) => Number(it.id) === Number(item.id))
+        .filter((it: any) => itemKey(it) === itemKey(item))
         .map((it: any) => ({ id: it.id, count: it.count, uid: it.uid || 0 }))
 
       if (sellItems.length === 0) {
@@ -217,7 +226,7 @@ async function handleConfirm() {
     }
     else if (action === 'batchSell' && selectedItems) {
       const itemsToSell = originalItems.value
-        .filter((it: any) => selectedItems.some((si: any) => Number(si.id) === Number(it.id)))
+        .filter((it: any) => selectedItems.some((si: any) => itemKey(si) === itemKey(it)))
         .map((it: any) => ({ id: it.id, count: it.count, uid: it.uid || 0 }))
 
       if (itemsToSell.length === 0) {
@@ -241,7 +250,7 @@ async function handleConfirm() {
       }
     }
     else if (action === 'use' && item) {
-      const res = await bagStore.useItem(currentAccountId.value, Number(item.id), Number(item.count || 1))
+      const res = await bagStore.useItem(currentAccountId.value, Number(item.id), Number(item.count || 1), item.uid || 0)
       if (res.ok) {
         toastStore.success(`已使用 ${item.name || `物品${item.id}`}`)
         await loadBag()
@@ -277,7 +286,7 @@ function selectAllSellable() {
   selectedForBatch.value.clear()
   for (const item of filteredItems.value) {
     if (canBatchSell(item)) {
-      selectedForBatch.value.add(Number(item.id))
+      selectedForBatch.value.add(itemKey(item))
     }
   }
 }
@@ -295,7 +304,7 @@ function handleBatchSellClick() {
   }
 
   const itemsToSell = originalItems.value
-    .filter((it: any) => selectedList.includes(Number(it.id)))
+    .filter((it: any) => selectedList.includes(itemKey(it)))
     .map((it: any) => ({ id: it.id, count: it.count, uid: it.uid || 0 }))
 
   const rewards = aggregateSellRewards(selectedDisplayItems(itemsToSell))
@@ -359,7 +368,7 @@ useIntervalFn(loadBag, 60000)
         背包
       </h2>
       <div v-if="items.length" class="text-sm text-gray-500">
-        共 {{ items.length }} 种物品
+        共 {{ items.length }} 组物品
       </div>
     </div>
 
@@ -448,11 +457,11 @@ useIntervalFn(loadBag, 60000)
       <div class="grid grid-cols-2 gap-4 lg:grid-cols-5 md:grid-cols-4 sm:grid-cols-3 xl:grid-cols-6">
         <div
           v-for="item in filteredItems"
-          :key="item.id"
+          :key="itemKey(item)"
           class="group relative flex flex-col items-center border rounded-lg bg-white p-3 transition dark:border-gray-700 dark:bg-gray-800 hover:shadow-md"
           :class="{
-            'ring-2 ring-orange-500 dark:ring-orange-400': batchMode && selectedForBatch.has(Number(item.id)),
-            'opacity-50': batchMode && canBatchSell(item) && !selectedForBatch.has(Number(item.id)),
+            'ring-2 ring-orange-500 dark:ring-orange-400': batchMode && selectedForBatch.has(itemKey(item)),
+            'opacity-50': batchMode && canBatchSell(item) && !selectedForBatch.has(itemKey(item)),
           }"
           @click="batchMode && canBatchSell(item) && handleSellClick(item)"
         >
@@ -489,11 +498,11 @@ useIntervalFn(loadBag, 60000)
             <div
               v-else-if="canBatchSell(item)"
               class="h-5 w-5 flex items-center justify-center border-2 rounded transition"
-              :class="selectedForBatch.has(Number(item.id))
+              :class="selectedForBatch.has(itemKey(item))
                 ? 'border-orange-500 bg-orange-500 text-white'
                 : 'border-gray-300 bg-white dark:border-gray-600 dark:bg-gray-700'"
             >
-              <div v-if="selectedForBatch.has(Number(item.id))" class="i-carbon-checkmark text-xs" />
+              <div v-if="selectedForBatch.has(itemKey(item))" class="i-carbon-checkmark text-xs" />
             </div>
           </div>
 
@@ -502,12 +511,12 @@ useIntervalFn(loadBag, 60000)
             :data-fallback="(item.name || '物').slice(0, 1)"
           >
             <img
-              v-if="item.image && !imageErrors[item.id]"
+              v-if="item.image && !imageErrors[itemKey(item)]"
               :src="item.image"
               :alt="item.name"
               class="max-h-full max-w-full object-contain"
               loading="lazy"
-              @error="imageErrors[item.id] = true"
+              @error="imageErrors[itemKey(item)] = true"
             >
             <div v-else class="text-2xl text-gray-400 font-bold uppercase">
               {{ (item.name || '物').slice(0, 1) }}

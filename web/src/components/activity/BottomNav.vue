@@ -1,25 +1,24 @@
 <script setup lang="ts">
+import type { ActivityTabDefinition } from '@/features/activity-center/registry'
 import type { ActivityTabKey } from '@/features/activity-center/types'
-import { activityTabs } from '@/features/activity-center/registry'
 
 export type ActivityTab = ActivityTabKey
 
-withDefaults(defineProps<{
+const props = withDefaults(defineProps<{
   modelValue: ActivityTab
   badges?: Partial<Record<ActivityTab, boolean>>
+  items: readonly ActivityTabDefinition[]
 }>(), { badges: () => ({}) })
 
 defineEmits<{
   'update:modelValue': [value: ActivityTab]
 }>()
-
-const items = activityTabs
 </script>
 
 <template>
-  <nav class="activity-nav" aria-label="活动页面">
+  <nav class="activity-nav" aria-label="活动页面" :style="{ gridTemplateColumns: `repeat(${Math.max(1, props.items.length)}, minmax(0, 1fr))` }">
     <button
-      v-for="item in items"
+      v-for="item in props.items"
       :key="item.key"
       type="button"
       :class="`activity-nav__item--${item.key}`"

@@ -27,6 +27,7 @@ export const useActivityCenterStore = defineStore('activity-center', () => {
   const actionError = ref('')
   const notice = ref('')
   const loadedAccountId = ref('')
+  const successfulAccountId = ref('')
   const serverClockOffset = ref(0)
   const requestVersion = ref(0)
   const pendingActions = ref<Record<ActivityMutationKey, boolean>>({
@@ -65,6 +66,7 @@ export const useActivityCenterStore = defineStore('activity-center', () => {
     actionError.value = ''
     notice.value = ''
     loadedAccountId.value = ''
+    successfulAccountId.value = ''
     serverClockOffset.value = 0
     pendingActions.value = { claimPass: false, lightConstellation: false, claimSolar: false, exchange: false, qingMeiSeed: false, qingMeiStart: false, qingMeiContinue: false, qingMeiSettle: false }
   }
@@ -98,12 +100,16 @@ export const useActivityCenterStore = defineStore('activity-center', () => {
   }
 
   function applySnapshot(value: unknown, clientStartedAt = Date.now(), preserveFailedQingMei = false) {
+    const previousConstellation = snapshot.value.constellation
     const previousQingMei = snapshot.value.qingMei
     const normalized = normalizeActivitySnapshot(value)
     let warning = ''
-    if (preserveFailedQingMei && !normalized.qingMei && normalized.errors.qingMei && previousQingMei) {
+    if (!normalized.constellation && normalized.errors.season && previousConstellation)
+      normalized.constellation = previousConstellation
+    if (!normalized.qingMei && normalized.errors.qingMei && previousQingMei) {
       normalized.qingMei = disableQingMeiActions(previousQingMei)
-      warning = '青酿操作已提交，但最新状态暂未取回，请点击右上角刷新确认，不要重复操作'
+      if (preserveFailedQingMei)
+        warning = '青酿操作已提交，但最新状态暂未取回，请点击右上角刷新确认，不要重复操作'
     }
     snapshot.value = normalized
     const serverTime = [normalized.season?.serverTime, normalized.shop?.serverTime, normalized.solarTerms?.serverTime, normalized.constellation?.serverTime]
@@ -135,6 +141,7 @@ export const useActivityCenterStore = defineStore('activity-center', () => {
       if (loadedAccountId.value !== requestedAccountId) {
         snapshot.value = normalizeActivitySnapshot({})
         loadedAccountId.value = ''
+        successfulAccountId.value = ''
         serverClockOffset.value = 0
       }
 
@@ -144,6 +151,7 @@ export const useActivityCenterStore = defineStore('activity-center', () => {
           return false
         applySnapshot(value, clientStartedAt)
         loadedAccountId.value = requestedAccountId
+        successfulAccountId.value = requestedAccountId
         return true
       }
       catch (loadError) {
@@ -262,6 +270,7 @@ export const useActivityCenterStore = defineStore('activity-center', () => {
     actionError,
     notice,
     loadedAccountId,
+    successfulAccountId,
     serverClockOffset,
     serverNow,
     pendingActions,

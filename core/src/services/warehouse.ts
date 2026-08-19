@@ -1,3 +1,7 @@
+import { createSingleFlight, withTimeout } from '../utils/request-coordination';
+import type { SellConditionContext } from '../config/sell-conditions';
+import { areSellConditionsKnown, isSellConditionSatisfied } from '../config/sell-conditions';
+
 /**
  * 仓库系统 - 自动出售果实
  * 协议说明：BagReply 使用 item_bag（ItemBag），item_bag.items 才是背包物品列表
@@ -7,14 +11,17 @@ const { getFruitName, getPlantByFruitId, getPlantBySeedId, getPlantSizeBySeedId,
 const { isAutomationOn } = require('../models/store');
 const { sendMsgAsync, networkEvents, getUserState } = require('../utils/network');
 const { types } = require('../utils/proto');
-const { toLong, toNum, log, logWarn, sleep } = require('../utils/utils');
+const { toLong, toNum, toTimeSec, log, logWarn, sleep } = require('../utils/utils');
 const { updateStatusGold } = require('./status');
 const { asRecord, errorMessage, recordArray } = require('./service-boundaries');
+const { getPreviewSellConditionContext, getSellConditionContext } = require('./activity-windows');
 
 export interface BagItemLike {
     id?: unknown;
     count?: unknown;
     uid?: unknown;
+    expire_time?: unknown;
+    mutant_types?: unknown;
 }
 
 export interface SellRewardDto {
@@ -39,9 +46,19 @@ interface BatchUseItem {
     uid?: unknown;
 }
 
+interface UseItemPayload {
+    itemId: number;
+    count: number;
+    uid: string;
+}
+
 interface BagDetailRow {
+    key: string;
     id: number;
     count: number;
+    uid: string;
+    expireTime: number;
+    mutantTypes: string[];
     name: string;
     image: string;
     category: string;
@@ -71,6 +88,7 @@ interface BagSeedDto {
 const missingImageNotified = new Set<number>();
 
 const SELL_BATCH_SIZE = 15;
+const BAG_DETAIL_TIMEOUT_MS = 8000;
 // 种子物品 ID 段（2xxxx）：活动种子不在本地 Plant.json 时也按种子处理
 const SEED_ID_MIN = 20000;
 const SEED_ID_MAX = 30000;
@@ -113,30 +131,124 @@ function getDateKey(): string {
 
 // ============ API ============
 
-async function getBag(timeoutOrOptions: unknown = 20000): Promise<unknown> {
+async function requestBag(timeoutOrOptions: unknown = 20000): Promise<unknown> {
     const body = types.BagRequest.encode(types.BagRequest.create({})).finish();
     const { body: replyBody } = await sendMsgAsync('gamepb.itempb.ItemService', 'Bag', body, timeoutOrOptions);
     return types.BagReply.decode(replyBody);
 }
 
+const getBagSingleFlight = createSingleFlight(requestBag);
+
+function getBag(timeoutOrOptions: unknown = 20000): Promise<unknown> {
+    const options = asRecord(timeoutOrOptions);
+    const timeoutMs = Math.max(1, typeof timeoutOrOptions === 'number'
+        ? timeoutOrOptions
+        : Number(options.timeoutMs) || 20000);
+    return withTimeout(
+        getBagSingleFlight(timeoutOrOptions),
+        timeoutMs,
+        `请求超时: Bag (caller timeout=${timeoutMs}ms)`,
+    );
+}
+
+function int64String(value: unknown): string {
+    if (value === null || value === undefined) return '0';
+    const text = typeof value === 'object' && typeof (value as { toString?: unknown }).toString === 'function'
+        ? String((value as { toString: () => string }).toString())
+        : String(value);
+    return /^\d+$/.test(text) ? text : '0';
+}
+
+function getItemExpireTime(item: unknown): number {
+    const source = asRecord(item);
+    return Math.max(0, toTimeSec(source.expire_time ?? source.expireTime));
+}
+
+function getMutantTypes(item: unknown): string[] {
+    const source = asRecord(item);
+    return (Array.isArray(source.mutant_types) ? source.mutant_types as unknown[] : [])
+        .map(int64String)
+        .filter((value: string) => value !== '0');
+}
+
+function hasExpireSellCondition(itemId: unknown): boolean {
+    const policy = getItemSalePolicyById(itemId);
+    return String(policy?.condition || '')
+        .split(';')
+        .some(condition => condition.trim().startsWith('道具过期后:'));
+}
+
+function findBagItem(items: BagItemLike[], requested: BagItemLike): BagItemLike | null {
+    const id = toNum(requested.id);
+    const uid = int64String(requested.uid);
+    return (items || []).find(item => (
+        toNum(item.id) === id && (uid === '0' || int64String(item.uid) === uid)
+    )) || null;
+}
+
 function toSellItem(item: BagItemLike): { id: unknown; count: unknown; uid?: unknown } {
     const idNum = toNum(item && item.id);
     const countNum = toNum(item && item.count);
-    const uidNum = toNum(item && item.uid);
+    const uid = int64String(item && item.uid);
     const payload: { id: unknown; count: unknown; uid?: unknown } = {
         id: toLong(idNum),
         count: toLong(countNum),
     };
     // SellRequest 通常只需要 id + count；仅在 uid 有效时携带
-    if (uidNum > 0) payload.uid = toLong(uidNum);
+    if (uid !== '0') payload.uid = toLong(uid);
     return payload;
 }
 
-function getSellEligibility(itemOrId: unknown): SellEligibilityDto {
+function planItemUse(
+    items: BagItemLike[],
+    itemIdValue: unknown,
+    countValue: unknown,
+    uidValue: unknown = 0,
+): UseItemPayload[] {
+    const itemId = toNum(itemIdValue);
+    const requestedCount = Math.max(1, toNum(countValue));
+    const requestedUid = int64String(uidValue);
+    const candidates = (items || []).filter(item => (
+        toNum(item.id) === itemId
+        && (requestedUid === '0' || int64String(item.uid) === requestedUid)
+        && toNum(item.count) > 0
+    ));
+    const available = candidates.reduce((sum, item) => sum + Math.max(0, toNum(item.count)), 0);
+    if (available < requestedCount) {
+        throw new Error(`物品数量不足: 需要 ${requestedCount}，当前 ${available}`);
+    }
+
+    let remaining = requestedCount;
+    const payloads: UseItemPayload[] = [];
+    for (const item of candidates) {
+        const useCount = Math.min(remaining, Math.max(0, toNum(item.count)));
+        if (useCount <= 0) continue;
+        payloads.push({ itemId, count: useCount, uid: int64String(item.uid) });
+        remaining -= useCount;
+        if (remaining === 0) break;
+    }
+    return payloads;
+}
+
+function getSellEligibility(itemOrId: unknown, context?: SellConditionContext): SellEligibilityDto {
     const item = asRecord(itemOrId);
     const id = toNum(typeof itemOrId === 'object' ? item.id : itemOrId);
     const policy = getItemSalePolicyById(id);
-    const rewards = (policy && Array.isArray(policy.rewards) ? policy.rewards : []).map((reward: unknown) => {
+    const isConditional = policy?.status === 'conditional';
+    const conditionKnown = Boolean(isConditional && context
+        && areSellConditionsKnown(policy?.condition, {
+            ...context,
+            expireTime: getItemExpireTime(item) || context.expireTime,
+        }));
+    const conditionMet = Boolean(conditionKnown && context
+        && isSellConditionSatisfied(policy?.condition, {
+            ...context,
+            expireTime: getItemExpireTime(item) || context.expireTime,
+        }));
+    const rawRewards = isConditional
+        ? (conditionKnown ? (conditionMet ? policy?.conditionalRewards : policy?.rewards) : [])
+        : policy?.rewards;
+    const rewards = (Array.isArray(rawRewards) ? rawRewards : []).map((reward: unknown) => {
         const row = asRecord(reward);
         return {
             id: Number(row.id) || 0,
@@ -145,9 +257,12 @@ function getSellEligibility(itemOrId: unknown): SellEligibilityDto {
         };
     });
     const primary = rewards[0] || null;
+    const sellable = policy?.status === 'available'
+        ? rewards.length > 0
+        : Boolean(isConditional && conditionKnown && rewards.length > 0);
     return {
-        sellable: policy?.status === 'available',
-        status: policy?.status || 'unavailable',
+        sellable,
+        status: sellable ? 'available' : (policy?.status || 'unavailable'),
         itemType: Number(policy?.itemType) || 0,
         rewards,
         condition: policy?.condition || null,
@@ -178,11 +293,20 @@ async function sellItems(items: BagItemLike[]): Promise<Record<string, unknown> 
     // SELL_BATCH_SIZE=15 为自动卖果实实测安全值；面板批量卖出（一次全发）也走这里分批。
     const list = Array.isArray(items) ? items : [];
     if (list.length === 0) return null;
+    const baseContext: SellConditionContext = await getSellConditionContext();
+    let currentBagItems: BagItemLike[] | null = null;
     for (const item of list) {
         const id = toNum(item && item.id);
         const count = toNum(item && item.count);
         if (id <= 0 || count <= 0) throw new Error('出售物品参数无效');
-        if (!getSellEligibility(id).sellable) throw new Error(`物品 ${id} 当前不可直接出售`);
+        let eligibilitySource = item;
+        if (hasExpireSellCondition(id)) {
+            if (!currentBagItems) currentBagItems = getBagItems(await getBag());
+            const actualItem = findBagItem(currentBagItems, item);
+            if (!actualItem || toNum(actualItem.count) < count) throw new Error(`物品 ${id} 的背包数量或 UID 已变化`);
+            eligibilitySource = actualItem;
+        }
+        if (!getSellEligibility(eligibilitySource, baseContext).sellable) throw new Error(`物品 ${id} 当前不可直接出售`);
     }
     let lastReply = null;
     for (let i = 0; i < list.length; i += SELL_BATCH_SIZE) {
@@ -195,35 +319,22 @@ async function sellItems(items: BagItemLike[]): Promise<Record<string, unknown> 
     return lastReply;
 }
 
-async function useItem(itemId: unknown, count = 1, landIds: unknown[] = []): Promise<Record<string, unknown>> {
+async function useItem(itemId: unknown, count = 1, landIds: unknown[] = [], uid: unknown = 0): Promise<Record<string, unknown>> {
+    if (landIds.length > 0) throw new Error('新版物品使用协议不再接受 landIds');
+    const bagReply = await getBag();
+    const payloads = planItemUse(getBagItems(bagReply), itemId, count, uid);
+    if (payloads.length > 1) return batchUseItems(payloads);
+    const payload = payloads[0];
+    if (!payload) throw new Error(`背包中未找到物品 ${toNum(itemId)}`);
     const body = types.UseRequest.encode(types.UseRequest.create({
-        item: { id: toLong(itemId), count: toLong(count) },
+        item: {
+            id: toLong(payload.itemId),
+            count: toLong(payload.count),
+            uid: toLong(payload.uid),
+        },
     })).finish();
-    try {
-        const { body: replyBody } = await sendMsgAsync('gamepb.itempb.ItemService', 'Use', body);
-        return asRecord(types.UseReply.decode(replyBody));
-    } catch (e) {
-        const msg = errorMessage(e);
-        const isParamError = msg.includes('code=1000020') || msg.includes('请求参数错误');
-        if (!isParamError) throw e;
-
-        // 兼容旧服务端平铺编码，待协议稳定后移除。
-        const fallbackType = require('protobufjs').Type.fromJSON('LegacyUseRequest', {
-            fields: {
-                item_id: { type: 'int64', id: 1 },
-                count: { type: 'int64', id: 2 },
-                land_ids: { rule: 'repeated', type: 'int64', id: 3 },
-            },
-        });
-        const fallbackBody = fallbackType.encode(fallbackType.create({
-            item_id: toLong(itemId),
-            count: toLong(count),
-            land_ids: (landIds || []).map((id) => toLong(id)),
-        })).finish();
-
-        const { body: fallbackReplyBody } = await sendMsgAsync('gamepb.itempb.ItemService', 'Use', fallbackBody);
-        return asRecord(types.UseReply.decode(fallbackReplyBody));
-    }
+    const { body: replyBody } = await sendMsgAsync('gamepb.itempb.ItemService', 'Use', body);
+    return asRecord(types.UseReply.decode(replyBody));
 }
 
 async function batchUseItems(items: BatchUseItem[]): Promise<Record<string, unknown>> {
@@ -445,25 +556,68 @@ async function getCurrentTotalsFromBag(): Promise<{ gold: number | null; exp: nu
 }
 
 async function getBagDetail() {
-    const bagReply = await getBag();
+    // 普通 Worker API 的外层截止时间为 10 秒；背包与售价上下文并行读取，并为背包
+    // 留出响应传输余量。活动窗口刷新超时后使用安全的缓存状态，不阻塞背包展示。
+    const [bagReply, sellContext] = await Promise.all([
+        getBag(BAG_DETAIL_TIMEOUT_MS),
+        getPreviewSellConditionContext(),
+    ]);
     const rawItems = getBagItems(bagReply);
-    
+
+    const systemItems = rawItems
+        .filter(item => toNum(item.id) > 0 && toNum(item.count) > 0 && int64String(item.uid) === '0')
+        .map((item) => {
+            const id = toNum(item.id);
+            const count = toNum(item.count);
+            const info = getItemById(id) || null;
+            const display = getItemDisplayById(id);
+            const interactionType = info?.interaction_type ? String(info.interaction_type) : '';
+            const hoursText = interactionType === 'fertilizerbucket'
+                ? `${(Math.floor((count / 3600) * 10) / 10).toFixed(1)}小时`
+                : '';
+            return {
+                id,
+                count,
+                name: display?.name || info?.name || `物品 #${id}`,
+                interactionType,
+                hoursText,
+            };
+        });
+
     // 保留原始物品列表（用于出售等操作）
-    const originalItems: Array<{ id: number; count: number; uid: number }> = [];
+    const originalItems: Array<{
+        key: string;
+        id: number;
+        count: number;
+        uid: string;
+        expireTime: number;
+        mutantTypes: string[];
+    }> = [];
     for (const it of (rawItems || [])) {
         const id = toNum(it.id);
         const count = toNum(it.count);
-        const uid = toNum(it.uid);
-        if (id <= 0 || count <= 0) continue;
-        originalItems.push({ id, count, uid });
+        const uid = int64String(it.uid);
+        if (id <= 0 || count <= 0 || uid === '0') continue;
+        originalItems.push({
+            key: `uid:${uid}`,
+            id,
+            count,
+            uid,
+            expireTime: getItemExpireTime(it),
+            mutantTypes: getMutantTypes(it),
+        });
     }
-    
-    // 合并展示
-    const merged = new Map<number, BagDetailRow>();
+
+    // 真实背包堆以 UID 为身份；同物品 ID 的不同变异/有效期不能合并操作。
+    const merged = new Map<string, BagDetailRow>();
     for (const it of (rawItems || [])) {
         const id = toNum(it.id);
         const count = toNum(it.count);
-        if (id <= 0 || count <= 0) continue;
+        const uid = int64String(it.uid);
+        if (id <= 0 || count <= 0 || uid === '0') continue;
+        const key = `uid:${uid}`;
+        const expireTime = getItemExpireTime(it);
+        const mutantTypes = getMutantTypes(it);
         const info = getItemById(id) || null;
         const display = getItemDisplayById(id);
         let name = display && display.name ? String(display.name) : (info && info.name ? String(info.name) : '');
@@ -487,14 +641,14 @@ async function getBagDetail() {
         }
         if (!name) name = `物品 #${id}`;
         const interactionType = info && info.interaction_type ? String(info.interaction_type) : '';
-        const sellEligibility = getSellEligibility(id);
+        const sellEligibility = getSellEligibility(it, { ...sellContext, expireTime });
         const primaryReward = sellEligibility.rewards[0] || null;
         const displayPrice = display && display.price;
         const priceId = primaryReward?.id || (info ? (Number(info.price_id) || 0) : (Number(displayPrice && displayPrice.id) || 0));
         const price = primaryReward?.amount || (info ? (Number(info.price) || 0) : (Number(displayPrice && displayPrice.amount) || 0));
         const priceUnit = primaryReward?.unit || (priceId ? getRewardUnit(priceId) : '');
 
-        if (!merged.has(id)) {
+        if (!merged.has(key)) {
             const image = getItemImageById(id);
             // 种子/果实段缺图时提示同步（去重，避免刷屏）
             if (!image && (isLikelySeedId(id) || isLikelyFruitId(id)) && !missingImageNotified.has(id)) {
@@ -505,9 +659,13 @@ async function getBagDetail() {
                     itemId: id,
                 });
             }
-            merged.set(id, {
+            merged.set(key, {
+                key,
                 id,
                 count: 0,
+                uid,
+                expireTime,
+                mutantTypes,
                 name,
                 image,
                 category,
@@ -524,7 +682,7 @@ async function getBagDetail() {
                 hoursText: '',
             });
         }
-        const row = merged.get(id);
+        const row = merged.get(key);
         if (row) row.count += count;
     }
 
@@ -554,7 +712,7 @@ async function getBagDetail() {
         if (cb !== ca) return cb - ca;
         return Number(a.id || 0) - Number(b.id || 0);
     });
-    return { totalKinds: items.length, items, originalItems };
+    return { totalKinds: items.length, items, originalItems, systemItems };
 }
 
 // ============ 出售逻辑 ============
@@ -570,13 +728,17 @@ async function sellAllFruits(): Promise<void> {
     try {
         const bagReply = await getBag();
         const items = getBagItems(bagReply);
+        const sellContext: SellConditionContext = await getSellConditionContext();
 
         const toSell: BagItemLike[] = [];
         const names: string[] = [];
         for (const item of items) {
             const id = toNum(item.id);
             const count = toNum(item.count);
-            const eligibility = getSellEligibility(id);
+            const eligibility = getSellEligibility(item, {
+                ...sellContext,
+                expireTime: getItemExpireTime(item),
+            });
             if (isAutoSellEligible(eligibility) && count > 0) {
                 toSell.push(item);
                 const display = getItemDisplayById(id);
@@ -734,6 +896,7 @@ export {
     getSellEligibility,
     isAutoSellEligible,
     openFertilizerGiftPacksSilently,
+    planItemUse,
     sellAllFruits,
     sellItems,
     useItem,
