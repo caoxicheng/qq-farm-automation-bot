@@ -54,15 +54,15 @@ test('活动多格种子在旧版植物表缺失时仍能识别占地尺寸', ()
     assert.equal(getPlantSizeBySeedId(29999, 1), 1);
 });
 
-test('种植请求按协议编码种子、地块和多格自动整合标记', () => {
+test('种植请求按协议编码种子、地块和多格主格自动整合标记', () => {
     assert.deepEqual(decodePlantRequest(encodePlantRequest(20001, [1, 2])), {
         seedId: 20001,
         landIds: [1, 2],
         autoSlave: false,
     });
-    assert.deepEqual(decodePlantRequest(encodePlantRequest(29003, [1, 2, 5, 6], true)), {
+    assert.deepEqual(decodePlantRequest(encodePlantRequest(29003, [5], true)), {
         seedId: 29003,
-        landIds: [1, 2, 5, 6],
+        landIds: [5],
         autoSlave: true,
     });
 });

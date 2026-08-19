@@ -1130,6 +1130,12 @@ async function runBadOnceOnStartup() {
 
     const accountId = process.env.FARM_ACCOUNT_ID || '';
 
+    if (isCheckingFriends) {
+        friendScheduler.setTimeoutTask('bad_startup_once_retry', 5000, () => runBadOnceOnStartup());
+        return;
+    }
+    isCheckingFriends = true;
+
     log('好友', '========== 启动时放虫放草开始 ==========', { module: 'friend', event: '启动放虫放草开始' });
 
     try {
@@ -1210,6 +1216,8 @@ async function runBadOnceOnStartup() {
 
     } catch (err) {
         logWarn('好友', `启动时放虫放草异常: ${errorMessage(err)}`);
+    } finally {
+        isCheckingFriends = false;
     }
 }
 

@@ -83,15 +83,40 @@ export function getSlaveLandIds(land: DynamicRecord): number[] {
 
 export function findEmptyLandQuads(emptyLandIds: unknown[]): number[][] {
     const emptySet = new Set((emptyLandIds || []).map(Number));
-    const quads: number[][] = [];
-    for (let id = 1; id <= 20; id += 1) {
-        if (id % 4 === 0) continue;
-        const quad = [id, id + 1, id + 4, id + 5];
-        if (!quad.every(landId => emptySet.has(landId))) continue;
-        quads.push(quad);
-        for (const landId of quad) emptySet.delete(landId);
+    const candidates: number[][] = [];
+
+    // 土地按每行 4 格编号；服务端要求用 2x2 左下格作为主格，并由 auto_slave 自动占用其余三格。
+    for (let topLeft = 1; topLeft <= 20; topLeft += 1) {
+        if (topLeft % 4 === 0) continue;
+        const occupied = [topLeft, topLeft + 1, topLeft + 4, topLeft + 5];
+        if (!occupied.every(landId => emptySet.has(landId))) continue;
+        candidates.push([topLeft + 4, ...occupied.filter(landId => landId !== topLeft + 4)]);
     }
-    return quads;
+
+    // 最多只有 15 个候选窗口，回溯选出数量最多且互不重叠的组合。
+    // 优先尝试编号较小的窗口，保证全空时稳定返回 6 个标准分区。
+    let best: number[][] = [];
+    const selected: number[][] = [];
+    const used = new Set<number>();
+    function search(index: number): void {
+        if (selected.length + candidates.length - index <= best.length) return;
+        if (index >= candidates.length) {
+            best = selected.map(group => [...group]);
+            return;
+        }
+
+        const group = candidates[index];
+        if (!group.some(landId => used.has(landId))) {
+            selected.push(group);
+            group.forEach(landId => used.add(landId));
+            search(index + 1);
+            group.forEach(landId => used.delete(landId));
+            selected.pop();
+        }
+        search(index + 1);
+    }
+    search(0);
+    return best;
 }
 
 function hasPlantData(land: DynamicRecord): boolean {

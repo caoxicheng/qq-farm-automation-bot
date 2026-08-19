@@ -17,14 +17,30 @@ function phase(value) {
     return { phase: value, begin_time: 1 };
 }
 
-test('四格作物只选择不重叠的相邻 2x2 空地', () => {
-    assert.deepEqual(findEmptyLandQuads([1, 2, 5, 6, 3, 4, 7, 8]), [
-        [1, 2, 5, 6],
-        [3, 4, 7, 8],
+test('四格作物全空时选择六组标准分区并将左下主格放在首位', () => {
+    assert.deepEqual(findEmptyLandQuads(Array.from({ length: 24 }, (_, index) => index + 1)), [
+        [5, 1, 2, 6],
+        [7, 3, 4, 8],
+        [13, 9, 10, 14],
+        [15, 11, 12, 16],
+        [21, 17, 18, 22],
+        [23, 19, 20, 24],
     ]);
-    assert.deepEqual(findEmptyLandQuads([1, 2, 3, 4]), []);
+});
+
+test('四格作物在部分占用时选择最多的不重叠偏移组合', () => {
+    assert.deepEqual(findEmptyLandQuads([7, 8, 11, 12]), [[11, 7, 8, 12]]);
+    assert.deepEqual(findEmptyLandQuads([2, 3, 6, 7]), [[6, 2, 3, 7]]);
+    const emptyExceptOneAndFour = Array.from({ length: 24 }, (_, index) => index + 1)
+        .filter(landId => landId !== 1 && landId !== 4);
+    assert.deepEqual(findEmptyLandQuads(emptyExceptOneAndFour), [
+        [6, 2, 3, 7],
+        [13, 9, 10, 14],
+        [15, 11, 12, 16],
+        [21, 17, 18, 22],
+        [23, 19, 20, 24],
+    ]);
     assert.deepEqual(findEmptyLandQuads([16, 17, 18]), []);
-    assert.deepEqual(findEmptyLandQuads([17, 18, 21, 22]), [[17, 18, 21, 22]]);
 });
 
 test('主从土地拓扑将从地映射到有作物的主地', () => {

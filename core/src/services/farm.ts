@@ -50,6 +50,13 @@ let farmLoopRunning = false;
 let externalSchedulerMode = false;
 let fertilizerBuyCheckTimer: NodeJS.Timeout | null = null;
 const farmScheduler = createScheduler('farm');
+const MAX_ORGANIC_FERTILIZE_OPERATIONS = 240;
+const MAX_ORGANIC_FERTILIZE_ROUNDS = 20;
+
+function getOrganicFertilizeOperationLimit(landCount: unknown): number {
+    const count = Math.max(0, Math.trunc(Number(landCount) || 0));
+    return Math.min(MAX_ORGANIC_FERTILIZE_OPERATIONS, count * MAX_ORGANIC_FERTILIZE_ROUNDS);
+}
 
 // ============ 农场 API ============
 
@@ -144,7 +151,7 @@ async function fertilize(landIds: unknown[], fertilizerId = NORMAL_FERTILIZER_ID
 
 /**
  * 有机肥循环施肥:
- * 按地块顺序 1-2-3-...-1 持续施肥，直到出现失败即停止。
+ * 按地块顺序循环施肥，失败或达到单次安全上限时停止。
  */
 async function fertilizeOrganicLoop(landIds: unknown[]): Promise<number> {
     const ids = (Array.isArray(landIds) ? landIds : []).filter(Boolean);
@@ -152,8 +159,9 @@ async function fertilizeOrganicLoop(landIds: unknown[]): Promise<number> {
 
     let successCount = 0;
     let idx = 0;
+    const operationLimit = getOrganicFertilizeOperationLimit(ids.length);
 
-    while (true) {
+    while (successCount < operationLimit) {
         const landId = ids[idx];
         try {
             const body = types.FertilizeRequest.encode(types.FertilizeRequest.create({
@@ -169,6 +177,10 @@ async function fertilizeOrganicLoop(landIds: unknown[]): Promise<number> {
 
         idx = (idx + 1) % ids.length;
         await randomDelay(1000, 1500);
+    }
+
+    if (successCount >= operationLimit) {
+        logWarn('施肥', `有机肥循环达到单次上限 ${operationLimit}，已停止继续请求`);
     }
 
     return successCount;
@@ -631,6 +643,46 @@ async function checkFarm(): Promise<boolean> {
     }
 }
 
+async function harvestMatureOwnLandsOnce(actions: string[]): Promise<number> {
+    let latest: DynamicRecord;
+    try {
+        latest = await getAllLands();
+    } catch (e) {
+        logWarn('收获', `施肥后刷新土地失败: ${errorMessage(e)}`);
+        return 0;
+    }
+
+    const lands = Array.isArray(latest?.lands) ? latest.lands : [];
+    const harvestable = lands.length > 0 ? analyzeLands(lands, false).harvestable : [];
+    if (!Array.isArray(harvestable) || harvestable.length === 0) return 0;
+
+    try {
+        await harvest(harvestable);
+        actions.push(`施肥后收获${harvestable.length}`);
+        recordOperation('harvest', harvestable.length);
+        networkEvents.emit('farmHarvested', {
+            count: harvestable.length,
+            landIds: [...harvestable],
+            opType: 'fertilizer_followup',
+        });
+        log('收获', `施肥后立即收获 ${harvestable.length} 块土地`, {
+            module: 'farm',
+            event: '施肥后收获作物',
+            result: 'ok',
+            count: harvestable.length,
+            landIds: [...harvestable],
+        });
+        return harvestable.length;
+    } catch (e) {
+        logWarn('收获', `施肥后立即收获失败: ${errorMessage(e)}`, {
+            module: 'farm',
+            event: '施肥后收获作物',
+            result: 'error',
+        });
+        return 0;
+    }
+}
+
 /**
  * 手动/自动执行农场操作
  * @param {string} opType - 'all', 'harvest', 'clear', 'plant', 'upgrade'
@@ -827,6 +879,7 @@ async function runFarmOperation(opType: string) {
                 const result = await runFertilizerByConfig([], { skipNormal: true });
                 if (result.organic > 0) {
                     actions.push(`有机肥${result.organic}`);
+                    await harvestMatureOwnLandsOnce(actions);
                 }
             } catch (e) {
                 logWarn('施肥', `巡田时施肥失败: ${errorMessage(e)}`);
@@ -972,6 +1025,7 @@ export {
     getCurrentPhase,
     getDisplayLandContext,
     getLandsDetail,
+    getOrganicFertilizeOperationLimit,
     isOccupiedSlaveLand,
     refreshFarmCheckLoop,
     runFarmOperation,
