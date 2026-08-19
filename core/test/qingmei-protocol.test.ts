@@ -61,9 +61,10 @@ test('青酿操作回包中的精确报价优先于快照推导结果', () => {
 });
 
 test('新版物品使用与活动分享协议保留数量和场景参数', () => {
-    const use = types.UseRequest.decode(types.UseRequest.encode(types.UseRequest.create({ item: { id: 100003, count: 5 } })).finish());
+    const use = types.UseRequest.decode(types.UseRequest.encode(types.UseRequest.create({ item: { id: 100003, count: 5, uid: '9223372036854775806' } })).finish());
     assert.equal(use.item.id.toString(), '100003');
     assert.equal(use.item.count.toString(), '5');
+    assert.equal(use.item.uid.toString(), '9223372036854775806');
     const share = types.ReportShareRequest.decode(types.ReportShareRequest.encode(types.ReportShareRequest.create({ source: 11, scene: 215 })).finish());
     assert.equal(share.source, 11);
     assert.equal(share.scene, 215);

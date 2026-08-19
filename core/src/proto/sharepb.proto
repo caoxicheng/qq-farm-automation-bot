@@ -16,11 +16,12 @@ message CheckCanShareReply {
 // --- 报告分享 ---
 message ReportShareRequest {
     int32 source = 1;
+    bytes share_token = 2;  // 小程序分享回调携带的动态凭证；部分分享来源可为空
     int32 scene = 4;
 }
 
 message ReportShareReply {
-    bool success = 1;  // 是否成功
+    bytes result = 1;  // 分享回调的不透明结果；不同账号可能返回不同长度
 }
 
 // --- 领取分享奖励 ---
@@ -29,7 +30,5 @@ message ClaimShareRewardRequest {
 }
 
 message ClaimShareRewardReply {
-    bool success = 1;           // 是否成功
-    bool has_reward = 2;        // 是否有奖励
-    repeated corepb.Item items = 3;  // 奖励物品列表
+    repeated corepb.Item items = 1;  // 奖励物品列表；失败由网关错误码返回
 }

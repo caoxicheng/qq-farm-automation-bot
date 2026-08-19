@@ -76,6 +76,20 @@ message ActivityData {
     QingMeiQuote qingmei_quote = 114;
 }
 
+message ActivityWindow {
+    int64 id = 1;
+    string name = 2;
+    int64 begin_time = 3;
+    int64 end_time = 4;
+}
+
+message ActivityListRequest {}
+
+message ActivityListReply {
+    repeated ActivityData activities = 1;
+    repeated ActivityWindow activity_windows = 2;
+}
+
 message QingMeiDailySeedGrant {
     int64 grant_id = 1;
     ActivityItem item = 3;

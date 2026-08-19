@@ -94,8 +94,9 @@ async function sendReportArkClick(sharerId: string, sharerOpenId: string, shareS
     const body = types.ReportArkClickRequest.encode(types.ReportArkClickRequest.create({
         sharer_id: toLong(sharerId),
         sharer_open_id: sharerOpenId,
-        share_cfg_id: toLong(shareSource || 0),
-        scene_id: '1256',  // 模拟微信场景
+        share_cfg_id: shareSource || '1256',
+        scene_id: toLong(0),
+        report_data: Buffer.alloc(0),
     })).finish();
     
     const { body: replyBody } = await sendMsgAsync('gamepb.userpb.UserService', 'ReportArkClick', body);

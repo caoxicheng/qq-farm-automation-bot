@@ -4,6 +4,7 @@
  *   node tools/decode-captures.js <proxymanlogv2 文件路径> [过滤 service 子串]
  *   node tools/decode-captures.js /path/capture.proxymanlogv2 Myste
  *   node tools/decode-captures.js /path/capture.proxymanlogv2   （全部）
+ *   node tools/decode-captures.js /path/capture.proxymanlogv2 --strict
  *
  * 原理（与作者 decode-shop-protocols.js 相同，但零硬编码）:
  *   1. 每帧 gatepb.Message -> meta(service/method/message_type) + body
@@ -14,8 +15,22 @@
  */
 const fs = require('node:fs');
 const path = require('node:path');
-const { getRoot, loadProto } = require('../src/utils/proto');
-const cryptoWasm = require('../src/utils/crypto-wasm');
+
+function requireRuntimeModule(name) {
+    const candidates = [
+        path.join(__dirname, '..', 'src', 'utils', `${name}.js`),
+        path.join(__dirname, '..', 'build', 'src', 'utils', `${name}.js`),
+    ];
+    const target = candidates.find(candidate => fs.existsSync(candidate));
+    if (!target) {
+        throw new Error(`缺少 ${name} 运行时模块，请先在 core/ 执行 pnpm run build:core`);
+    }
+    return require(target);
+}
+
+const { getRoot, loadProto } = requireRuntimeModule('proto');
+const { auditProtobufMessage } = requireRuntimeModule('protobuf-audit');
+const cryptoWasm = requireRuntimeModule('crypto-wasm');
 
 let filter = process.argv[3] || '';
 
@@ -62,10 +77,12 @@ function print(file, service, method, typeName, type, body, encrypted, altBody) 
     let decoded;
     let roundtrip = false;
     let wire_diff;
+    let compatibility_issues = [];
     // 加密请求帧：roundtrip 用解密后的 body（明文才是业务字节）
     const compareBody = altBody && altBody.length > 0 && !altBody.equals(body) ? altBody : body;
     try {
         const message = type.decode(compareBody);
+        compatibility_issues = auditProtobufMessage(type, compareBody);
         decoded = type.toObject(message, { longs: String, enums: String, bytes: String });
         const encoded = Buffer.from(type.encode(message).finish());
         roundtrip = encoded.equals(Buffer.from(compareBody));
@@ -83,7 +100,19 @@ function print(file, service, method, typeName, type, body, encrypted, altBody) 
             alt_decoded = type.toObject(altMessage, { longs: String, enums: String, bytes: String });
         } catch { /* ignore */ }
     }
-    return { file, service, method, type: typeName, encrypted, roundtrip, wire_diff, decoded, alt_decoded };
+    return {
+        file,
+        service,
+        method,
+        type: typeName,
+        encrypted,
+        compatible: roundtrip && compatibility_issues.length === 0,
+        roundtrip,
+        compatibility_issues,
+        wire_diff,
+        decoded,
+        alt_decoded,
+    };
 }
 
 async function processFrame(file, raw, root, results) {
@@ -111,15 +140,15 @@ async function processFrame(file, raw, root, results) {
     } else if (messageType === 3 && body.length > 0) {
         try {
             const notification = root.lookupType('gatepb.EventMessage').decode(body);
-            service = service || String(notification.message_type || '');
-            method = method || String(notification.message_type || '');
+            service = String(notification.message_type || service || '');
+            method = '';
             body = Buffer.from(notification.body || []);
         } catch { /* ignore */ }
     }
     if (filter && !service.includes(filter) && !method.includes(filter)) return;
     const found = walk(root, service, method, messageType);
     if (!found) {
-        if (filter && results) {
+        if (results) {
             results.push({ file, service, method, type: null, encrypted, note: '未在 proto 中定义', body_hex: toHex(body).slice(0, 64) });
         }
         return;
@@ -140,7 +169,9 @@ function renderMarkdown(results, root) {
     const groups = new Map();
     for (const r of results) {
         if (!r || !r.service) continue;
-        const key = r.method ? `${r.service}.${r.method}` : r.service;
+        // 请求与回复使用不同类型，必须分别统计；否则请求 roundtrip 成功会掩盖回复缺字段。
+        const rpc = r.method ? `${r.service}.${r.method}` : r.service;
+        const key = `${rpc} · ${r.type || 'unknown'}`;
         if (!groups.has(key)) groups.set(key, []);
         groups.get(key).push(r);
     }
@@ -152,11 +183,14 @@ function renderMarkdown(results, root) {
     let green = 0;
     let red = 0;
     for (const [key, frames] of groups) {
-        const best = frames.find((f) => f.roundtrip) || frames[0];
+        const allCompatible = frames.every(frame => frame.compatible === true);
+        const best = allCompatible
+            ? frames.find(frame => frame.compatible) || frames[0]
+            : frames.find(frame => frame.compatible !== true) || frames[0];
         const typeName = best.type;
-        if (best.roundtrip) green++;
+        if (allCompatible) green++;
         else red++;
-        const ok = best.roundtrip ? '✅' : '❌';
+        const ok = allCompatible ? '✅' : '❌';
         lines.push(`## ${key} · \`${typeName}\` ${ok}`);
         lines.push('');
         if (!typeName) {
@@ -164,8 +198,13 @@ function renderMarkdown(results, root) {
             lines.push('');
             continue;
         }
-        if (!best.roundtrip) {
-            lines.push('> **roundtrip 不一致**：proto 定义与线上字节有差异（字段缺失/类型错误），需补齐 proto 后重新验证。');
+        if (!allCompatible) {
+            lines.push('> **协议审计不一致**：proto 定义与线上字节有差异（字段缺失/类型错误），需补齐 proto 后重新验证。');
+            if (best.compatibility_issues?.length) {
+                lines.push('');
+                for (const issue of best.compatibility_issues)
+                    lines.push(`- ${issue.path}: ${issue.message}`);
+            }
             if (best.wire_diff) {
                 lines.push('');
                 lines.push('```text');
@@ -202,20 +241,21 @@ function renderMarkdown(results, root) {
 
 async function main() {
     const mdMode = process.argv.includes('--md');
+    const strictMode = process.argv.includes('--strict');
     const positional = process.argv.slice(2).filter((a) => !a.startsWith('--'));
     const capturePath0 = positional[0] || '';
     const filter0 = positional[1] || '';
     const capturePath = path.resolve(capturePath0);
     filter = filter0;
-    if (!capturePath || !fs.existsSync(capturePath)) {
-        console.error('用法: node tools/decode-captures.js <proxymanlogv2 文件> [过滤 service 子串] [--md]');
+    if (!capturePath0 || !fs.existsSync(capturePath)) {
+        console.error('用法: node tools/decode-captures.js <proxymanlogv2 文件> [过滤 service 子串] [--md] [--strict]');
         process.exitCode = 1;
         return;
     }
     await cryptoWasm.initWasm();
     await loadProto();
     const root = getRoot();
-    const results = mdMode ? [] : null;
+    const results = mdMode || strictMode ? [] : null;
     const emit = async (file, raw) => processFrame(file, raw, root, results);
 
     if (capturePath.endsWith('.proxymanlogv2')) {
@@ -224,9 +264,16 @@ async function main() {
         fs.mkdirSync(tmpDir, { recursive: true });
         const { execFileSync } = require('node:child_process');
         execFileSync('unzip', ['-o', '-q', capturePath, '-d', tmpDir]);
-        const jsonFiles2 = fs.readdirSync(tmpDir).filter((n) => n.endsWith('.json'));
-        for (const jf of jsonFiles2) {
-            const data = JSON.parse(fs.readFileSync(path.join(tmpDir, jf), 'utf8'));
+        const captureFiles = fs.readdirSync(tmpDir, { withFileTypes: true })
+            .filter(entry => entry.isFile())
+            .map(entry => entry.name);
+        for (const captureFile of captureFiles) {
+            let data;
+            try {
+                data = JSON.parse(fs.readFileSync(path.join(tmpDir, captureFile), 'utf8'));
+            } catch {
+                continue;
+            }
             const receipts = (data.websocketMessageStorage || {}).receipts || [];
             for (let i = 0; i < receipts.length; i++) {
                 const payload = (receipts[i].message || {}).payload || receipts[i].payload || {};
@@ -234,7 +281,7 @@ async function main() {
                 if (!b64) continue;
                 let raw;
                 try { raw = Buffer.from(b64, 'base64'); } catch { continue; }
-                await emit(`${path.basename(jf)}#${i}`, raw);
+                await emit(`${path.basename(captureFile)}#${i}`, raw);
             }
         }
         fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -259,6 +306,20 @@ async function main() {
     }
     if (mdMode) {
         process.stdout.write(`${renderMarkdown(results, root)  }\n`);
+    } else if (strictMode) {
+        for (const result of results) process.stdout.write(`${JSON.stringify(result)}\n`);
+    }
+    if (strictMode) {
+        if (results.length === 0) {
+            console.error('协议严格审计失败：没有找到可审计的 Protobuf 帧，请检查抓包路径、格式和过滤条件');
+            process.exitCode = 1;
+            return;
+        }
+        const failures = results.filter(result => !result.type || result.roundtrip !== true || result.compatible !== true);
+        if (failures.length > 0) {
+            console.error(`协议严格审计失败：${failures.length}/${results.length} 帧存在未定义类型、未知字段或 roundtrip 差异`);
+            process.exitCode = 1;
+        }
     }
 }
 

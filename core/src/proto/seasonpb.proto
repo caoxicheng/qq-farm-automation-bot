@@ -25,12 +25,14 @@ message SeasonActivity {
 message SeasonPass {
     int64 activity_id = 1;
     int64 current_level = 2;
+    int64 field_3 = 3;
     int64 current_progress = 4;
     int64 progress_target = 5;
     int64 node_count = 6;
     repeated SeasonRewardNode nodes = 8;
     int64 claimed_through_level = 9;
     int64 field_11 = 11;
+    int64 field_12 = 12;
     int64 field_13 = 13;
     repeated SeasonItem field_14 = 14;
     bytes title = 16;

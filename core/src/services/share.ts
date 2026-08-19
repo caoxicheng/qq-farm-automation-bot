@@ -33,6 +33,11 @@ function isAlreadyClaimedError(error: unknown): boolean {
     return msg.includes('code=1009001') || msg.includes('已经领取');
 }
 
+function isNoRewardError(error: unknown): boolean {
+    const msg = errorMessage(error);
+    return msg.includes('没有可领取') || msg.includes('暂无可领取');
+}
+
 async function checkCanShare() {
     const body = types.CheckCanShareRequest.encode(types.CheckCanShareRequest.create({})).finish();
     const { body: replyBody } = await sendMsgAsync('gamepb.sharepb.ShareService', 'CheckCanShare', body);
@@ -57,54 +62,9 @@ async function claimShareReward() {
     return types.ClaimShareRewardReply.decode(replyBody);
 }
 
-async function performDailyShare(force = false): Promise<boolean> {
-    const now = Date.now();
-    if (!force && isDoneToday()) return false;
-    if (!force && now - lastCheckAt < CHECK_COOLDOWN_MS) return false;
-    lastCheckAt = now;
+async function claimDailyShareReward(): Promise<boolean> {
     try {
-        const can = asRecord(await checkCanShare());
-        if (!can.can_share) {
-            markDoneToday();
-            log('分享', '今日暂无可领取分享礼包', {
-                module: 'task',
-                event: DAILY_KEY,
-                result: 'none',
-            });
-            return false;
-        }
-        const report = asRecord(await reportShare());
-        if (!report.success) {
-            log('分享', '上报分享状态失败', {
-                module: 'task',
-                event: DAILY_KEY,
-                result: 'error',
-            });
-            return false;
-        }
-        let rep: Record<string, unknown> | null = null;
-        try {
-            rep = asRecord(await claimShareReward());
-        } catch (error) {
-            if (isAlreadyClaimedError(error)) {
-                markDoneToday();
-                log('分享', '今日分享奖励已领取', {
-                    module: 'task',
-                    event: DAILY_KEY,
-                    result: 'none',
-                });
-                return false;
-            }
-            throw error;
-        }
-        if (!rep || !rep.success) {
-            log('分享', '领取分享礼包失败', {
-                module: 'task',
-                event: DAILY_KEY,
-                result: 'error',
-            });
-            return false;
-        }
+        const rep = asRecord(await claimShareReward());
         const items = recordArray(rep.items);
         const reward = formatRewardSummary(items);
         log('分享', reward ? `领取成功 → ${reward}` : '领取成功', {
@@ -116,6 +76,31 @@ async function performDailyShare(force = false): Promise<boolean> {
         lastClaimAt = Date.now();
         markDoneToday();
         return true;
+    } catch (error) {
+        const alreadyClaimed = isAlreadyClaimedError(error);
+        if (!alreadyClaimed && !isNoRewardError(error)) throw error;
+        markDoneToday();
+        log('分享', alreadyClaimed ? '今日分享奖励已领取' : '今日暂无可领取分享礼包', {
+            module: 'task',
+            event: DAILY_KEY,
+            result: 'none',
+        });
+        return false;
+    }
+}
+
+async function performDailyShare(force = false): Promise<boolean> {
+    const now = Date.now();
+    if (!force && isDoneToday()) return false;
+    if (!force && now - lastCheckAt < CHECK_COOLDOWN_MS) return false;
+    lastCheckAt = now;
+    try {
+        const can = asRecord(await checkCanShare());
+        if (!can.can_share) {
+            return await claimDailyShareReward();
+        }
+        await reportShare();
+        return await claimDailyShareReward();
     } catch (error) {
         log('分享', `领取失败: ${errorMessage(error)}`, {
             module: 'task',

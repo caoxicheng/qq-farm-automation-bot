@@ -16,6 +16,7 @@ message GetRechargeInfoRequest {
 message RechargeInfo {
   int64 balance = 1;  // 余额（钻石）
   int64 field_3 = 3;  // 实测值: 10；语义未知
+  int64 field_4 = 4;  // 2026-08-18 抓包值: 360；语义未知
 }
 
 // 充值信息响应

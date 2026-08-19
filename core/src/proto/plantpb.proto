@@ -83,6 +83,16 @@ message PlantInfo {
     repeated int64 mutant_config_ids = 20;     // 变异配置ID
     bool is_nudged = 21;                       // 是否被催熟
     int64 field_22 = 22;  // 抓包确认 field 22 varint（4263，剩余时间？）
+    bytes field_23 = 23;
+    int64 field_24 = 24;
+    int64 field_25 = 25;
+    int64 field_26 = 26;
+    int64 field_27 = 27;
+    bytes field_32 = 32;
+    repeated bytes field_34 = 34;
+    bytes field_36 = 36;
+    int64 field_37 = 37;
+    bytes field_41 = 41;
 }
 
 // ============ 生长阶段详情 ============
@@ -149,9 +159,10 @@ message HarvestRequest {
 
 message HarvestReply {
     repeated LandInfo land = 1;
-    // repeated Item items = 2;     // corepb.Item
-    // repeated Item lost_items = 3;
+    repeated corepb.Item items = 2;
+    repeated corepb.Item lost_items = 3;
     repeated OperationLimit operation_limits = 4;
+    repeated bytes field_7 = 7;
 }
 
 // --- 批量帮忙 ---
@@ -165,6 +176,7 @@ message FarmingRequest {
 
 message FarmingOperationResult {
     int64 land_id = 1;
+    corepb.Item item = 2;
 }
 
 message FarmingReply {
@@ -211,7 +223,7 @@ message InsecticideReply {
 message PlantItem {
     int64 seed_id = 1;              // 种子ID
     repeated int64 land_ids = 2;    // 要种植的土地ID列表
-    bool auto_slave = 3;            // 是否自动副产
+    bool auto_slave = 3;            // 是否由主格自动占用 2x2 从属格
 }
 
 message PlantRequest {
@@ -229,9 +241,15 @@ message RemovePlantRequest {
     repeated int64 land_ids = 1;
 }
 
+message RemovePlantResult {
+    int64 land_id = 1;
+    corepb.Item item = 2;
+}
+
 message RemovePlantReply {
     repeated LandInfo land = 1;
     repeated OperationLimit operation_limits = 2;
+    repeated RemovePlantResult results = 3;
 }
 
 // --- 施肥 ---
@@ -243,7 +261,8 @@ message FertilizeRequest {
 message FertilizeReply {
     repeated LandInfo land = 1;
     repeated OperationLimit operation_limits = 2;
-    int64 fertilizer = 3;  // 剩余肥料时间
+    corepb.Item fertilizer = 3;
+    repeated bytes results = 4;
 }
 
 // --- 放虫 ---

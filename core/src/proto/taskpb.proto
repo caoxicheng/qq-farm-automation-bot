@@ -23,6 +23,7 @@ message Task {
     int64 group = 11;                // 分组
     int64 cond_type = 12;            // 条件类型
     int64 is_show_text = 13;         // 是否显示文本
+    repeated corepb.Item field_14 = 14; // 抓包确认：任务附加物品，语义待确认
 }
 
 // ============ 活跃度奖励 ============

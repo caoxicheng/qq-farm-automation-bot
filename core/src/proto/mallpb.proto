@@ -47,7 +47,7 @@ message PurchaseRequest {
 message PurchaseResponse {
   int32 goods_id = 1;     // 商品ID
   int32 count = 2;        // 购买数量
-  corepb.Item reward_info = 3; // 购买返回的商品（服务端回传的结构化物品）
+  repeated corepb.Item reward_info = 3; // 购买返回的商品（同一礼包可能包含多项）
   bytes result = 5;       // 购买结果
 }
 
@@ -58,10 +58,19 @@ message MonthCardInfo {
   int32 goods_id = 1;
   corepb.Item reward = 2;
   bool can_claim = 3;
+  int64 field_4 = 4;
+  int64 field_5 = 5;
+  int64 field_6 = 6;
+  bool field_7 = 7;
+  int64 field_8 = 8;
+  int64 field_9 = 9;
+  string field_10 = 10;
+  corepb.Item field_11 = 11;
 }
 
 message GetMonthCardInfosReply {
   repeated MonthCardInfo infos = 1;
+  int64 field_2 = 2;
 }
 
 // 领取月卡奖励
@@ -71,4 +80,5 @@ message ClaimMonthCardRewardRequest {
 
 message ClaimMonthCardRewardReply {
   repeated corepb.Item items = 1;
+  MonthCardInfo info = 2;
 }

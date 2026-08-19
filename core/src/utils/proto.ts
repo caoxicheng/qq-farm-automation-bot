@@ -198,6 +198,8 @@ async function loadProto(): Promise<void> {
     types.AntiDataReply = root.lookupType('gamepb.acepb.AntiDataReply');
 
     // 活动中心（星砂商店/观星/节令）
+    types.ActivityListRequest = root.lookupType('gamepb.activitypb.ActivityListRequest');
+    types.ActivityListReply = root.lookupType('gamepb.activitypb.ActivityListReply');
     types.QueryActivityRequest = root.lookupType('gamepb.activitypb.QueryActivityRequest');
     types.ExchangeShopRequest = root.lookupType('gamepb.activitypb.ExchangeShopRequest');
     types.OperateConstellationRequest = root.lookupType('gamepb.activitypb.OperateConstellationRequest');
