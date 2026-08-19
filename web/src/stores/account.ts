@@ -8,6 +8,7 @@ export interface Account {
   name: string
   nick?: string
   uin?: number
+  wxid?: string
   platform?: string
   running?: boolean
   avatar?: string
@@ -35,6 +36,14 @@ export function getPlatformClass(p?: string) {
   if (p === 'wx')
     return 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400'
   return ''
+}
+
+export function getAccountBindingLabel(account: Pick<Account, 'platform' | 'uin' | 'wxid'>) {
+  if (account.platform === 'wx')
+    return account.wxid ? '已绑定' : '未绑定'
+  if (account.uin)
+    return String(account.uin)
+  return account.wxid ? '已绑定' : '未绑定'
 }
 
 export const useAccountStore = defineStore('account', () => {

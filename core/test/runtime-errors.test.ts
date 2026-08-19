@@ -12,6 +12,7 @@ test('已有的离线和 Worker 超时状态继续按软错误处理', () => {
     assert.equal(isSoftRuntimeError(new Error('账号未运行')), true);
     assert.equal(isSoftRuntimeError(new Error('账号已离线')), true);
     assert.equal(isSoftRuntimeError(new Error('API Timeout')), true);
+    assert.equal(isSoftRuntimeError(new Error('Worker exited')), true);
 });
 
 test('真实服务端异常仍保留 HTTP 500 处理路径', () => {

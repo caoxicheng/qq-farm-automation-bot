@@ -45,7 +45,7 @@ export function createWorkerApiMethods(options: WorkerApiMethodOptions): Record<
             const { useItem } = require('../services/warehouse');
             const itemId = Number(args[0]) || 0;
             const count = Math.max(1, Number(args[1]) || 1);
-            return useItem(itemId, count, []);
+            return useItem(itemId, count, [], args[2] || 0);
         },
         sellItems: (args) => {
             const { sellItems } = require('../services/warehouse');

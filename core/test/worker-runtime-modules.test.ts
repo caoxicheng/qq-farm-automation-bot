@@ -70,6 +70,35 @@ test('Worker 默认 API 方法表保持与主进程调用契约一致', () => {
     ]);
 });
 
+test('Worker 使用物品接口不把 int64 UID 转成不安全的 number', async (t) => {
+    const warehousePath = require.resolve('../src/services/warehouse');
+    const previousWarehouse = require.cache[warehousePath];
+    const calls = [];
+    require.cache[warehousePath] = {
+        id: warehousePath,
+        filename: warehousePath,
+        loaded: true,
+        exports: {
+            useItem: (...args) => {
+                calls.push(args);
+                return { ok: true };
+            },
+        },
+    } as NodeJS.Module;
+    t.after(() => {
+        if (previousWarehouse) require.cache[warehousePath] = previousWarehouse;
+        else delete require.cache[warehousePath];
+    });
+
+    const methods = createWorkerApiMethods({
+        applyRuntimeConfig() {},
+        getDailyGiftOverview() { return {}; },
+    });
+    await methods.useItem([90001, 2, '9223372036854775806']);
+
+    assert.deepEqual(calls, [[90001, 2, [], '9223372036854775806']]);
+});
+
 test('每日礼包视图规范化任务进度和可选状态', () => {
     const overview = buildDailyGiftOverview({
         auto: { task: true },

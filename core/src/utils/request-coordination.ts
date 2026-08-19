@@ -24,6 +24,15 @@ export interface CoalescedBackgroundTaskOptions {
     onError?: (error: unknown) => void;
 }
 
+export class OperationTimeoutError extends Error {
+    readonly code = 'OPERATION_TIMEOUT';
+
+    constructor(message: string) {
+        super(message);
+        this.name = 'OperationTimeoutError';
+    }
+}
+
 function errorMessage(error: unknown, fallback: string): string {
     if (error instanceof Error && error.message) return error.message;
     if (error === undefined || error === null || error === '') return fallback;
@@ -61,6 +70,56 @@ export function createSingleFlight<Args extends unknown[], Result>(
         inFlight = tracked;
         return tracked;
     };
+}
+
+export async function settleSequentially<Result>(
+    operations: readonly (() => Result | PromiseLike<Result>)[],
+): Promise<PromiseSettledResult<Result>[]> {
+    const results: PromiseSettledResult<Result>[] = [];
+    for (const operation of operations) {
+        try {
+            results.push({ status: 'fulfilled', value: await operation() });
+        } catch (reason) {
+            results.push({ status: 'rejected', reason });
+        }
+    }
+    return results;
+}
+
+export function createTimeoutBudget(
+    totalMs: number,
+    maxOperationMs: number,
+    now: () => number = Date.now,
+): () => number {
+    const total = Math.max(1, Math.floor(Number(totalMs) || 0));
+    const perOperation = Math.max(1, Math.floor(Number(maxOperationMs) || 0));
+    const deadline = now() + total;
+    return () => {
+        const remaining = deadline - now();
+        if (remaining <= 0) throw new Error('请求总超时预算已耗尽');
+        return Math.max(1, Math.min(perOperation, remaining));
+    };
+}
+
+export function withTimeout<Result>(
+    request: PromiseLike<Result>,
+    timeoutMs: number,
+    message = '操作超时',
+): Promise<Result> {
+    const timeout = Math.max(1, Math.floor(Number(timeoutMs) || 0));
+    return new Promise<Result>((resolve, reject) => {
+        const timer = setTimeout(() => reject(new OperationTimeoutError(message)), timeout);
+        Promise.resolve(request).then(
+            (value) => {
+                clearTimeout(timer);
+                resolve(value);
+            },
+            (error) => {
+                clearTimeout(timer);
+                reject(error);
+            },
+        );
+    });
 }
 
 export function createCoalescedBackgroundTask(

@@ -10,7 +10,7 @@ import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseInput from '@/components/ui/BaseInput.vue'
 import BaseSelect from '@/components/ui/BaseSelect.vue'
 import BaseSwitch from '@/components/ui/BaseSwitch.vue'
-import { getPlatformClass, getPlatformLabel, useAccountStore } from '@/stores/account'
+import { getAccountBindingLabel, getPlatformClass, getPlatformLabel, useAccountStore } from '@/stores/account'
 import { useFarmStore } from '@/stores/farm'
 import { useSettingStore } from '@/stores/setting'
 import { useStatusStore } from '@/stores/status'
@@ -67,6 +67,7 @@ const editingAccount = ref<any>(null)
 const accountToDelete = ref<any>(null)
 const showClearStoppedConfirm = ref(false)
 const clearStoppedLoading = ref(false)
+const accountOperationIds = ref(new Set<string>())
 
 const isAccountOpsDisabled = computed(() => !userStore.isAdmin && userStore.isExpired)
 const quotaLimit = computed(() => {
@@ -149,12 +150,29 @@ async function confirmDelete() {
   }
 }
 
+function isAccountOperationPending(account: any) {
+  return accountOperationIds.value.has(String(account.id))
+}
+
 async function toggleAccount(account: any) {
-  if (account.running) {
-    await accountStore.stopAccount(account.id)
+  const accountId = String(account.id)
+  if (accountOperationIds.value.has(accountId))
+    return
+
+  accountOperationIds.value = new Set(accountOperationIds.value).add(accountId)
+  try {
+    if (account.running)
+      await accountStore.stopAccount(accountId)
+    else
+      await accountStore.startAccount(accountId)
   }
-  else {
-    await accountStore.startAccount(account.id)
+  catch (error) {
+    console.error(`${account.running ? '停止' : '启动'}账号失败`, error)
+  }
+  finally {
+    const pending = new Set(accountOperationIds.value)
+    pending.delete(accountId)
+    accountOperationIds.value = pending
   }
 }
 
@@ -1026,7 +1044,7 @@ async function handleTestOffline() {
                         {{ getPlatformLabel(acc.platform) }}
                       </span>
                       <span class="truncate text-xs text-gray-500 sm:text-sm">
-                        {{ acc.uin || '未绑定' }}
+                        {{ getAccountBindingLabel(acc) }}
                       </span>
                     </div>
                   </div>
@@ -1041,12 +1059,13 @@ async function handleTestOffline() {
                     size="sm"
                     class="border rounded-full shadow-sm transition-all duration-500 ease-in-out sm:w-20 active:scale-95"
                     :class="acc.running ? 'border-red-200 bg-red-50 text-red-600 hover:bg-red-100 focus:ring-red-500 active:border-red-300 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/30 dark:focus:ring-red-500 dark:active:border-red-700' : 'border-green-200 bg-green-50 text-green-600 hover:bg-green-100 focus:ring-green-500 active:border-green-300 dark:border-green-800 dark:bg-green-900/20 dark:text-green-400 dark:hover:bg-green-900/30 dark:focus:ring-green-500 dark:active:border-green-700'"
-                    :disabled="!acc.running && isAccountOpsDisabled"
+                    :loading="isAccountOperationPending(acc)"
+                    :disabled="isAccountOperationPending(acc) || (!acc.running && isAccountOpsDisabled)"
                     :title="!acc.running && isAccountOpsDisabled ? '账号已到期，无法启动账号' : ''"
-                    @click="toggleAccount(acc)"
+                    @click.stop="toggleAccount(acc)"
                   >
-                    <div :class="acc.running ? 'i-carbon-stop-filled' : 'i-carbon-play-filled'" class="mr-1" />
-                    {{ acc.running ? '停止' : '启动' }}
+                    <div v-if="!isAccountOperationPending(acc)" :class="acc.running ? 'i-carbon-stop-filled' : 'i-carbon-play-filled'" class="mr-1" />
+                    {{ isAccountOperationPending(acc) ? (acc.running ? '停止中' : '启动中') : (acc.running ? '停止' : '启动') }}
                   </BaseButton>
                 </div>
               </div>
@@ -1064,7 +1083,7 @@ async function handleTestOffline() {
                     variant="ghost"
                     class="min-h-[36px] min-w-[36px] !p-2"
                     title="设置"
-                    @click="openSettings(acc)"
+                    @click.stop="openSettings(acc)"
                   >
                     <div i-carbon-settings />
                   </BaseButton>
@@ -1072,7 +1091,7 @@ async function handleTestOffline() {
                     variant="ghost"
                     class="min-h-[36px] min-w-[36px] !p-2"
                     title="编辑"
-                    @click="openEditModal(acc)"
+                    @click.stop="openEditModal(acc)"
                   >
                     <div i-carbon-edit />
                   </BaseButton>
@@ -1080,7 +1099,7 @@ async function handleTestOffline() {
                     variant="ghost"
                     class="min-h-[36px] min-w-[36px] text-red-500 !p-2 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300"
                     title="删除"
-                    @click="handleDelete(acc)"
+                    @click.stop="handleDelete(acc)"
                   >
                     <div i-carbon-trash-can />
                   </BaseButton>

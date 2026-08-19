@@ -4,7 +4,10 @@ const {
     canReserveRequest,
     capturePostMutationSnapshot,
     createSingleFlight,
+    createTimeoutBudget,
     retryFailedSnapshotSection,
+    settleSequentially,
+    withTimeout,
 } = require('../src/utils/request-coordination');
 
 test('普通业务最多占四槽并为控制请求保留第五槽', () => {
@@ -43,6 +46,54 @@ test('single-flight 失败后会释放在途状态', async () => {
     });
     await assert.rejects(run(), /failed/);
     assert.equal(await run(), 'recovered');
+});
+
+test('网关读取按声明顺序串行执行并保留分区失败', async () => {
+    const events = [];
+    const results = await settleSequentially([
+        async () => {
+            events.push('season:start');
+            await Promise.resolve();
+            events.push('season:end');
+            return 'season';
+        },
+        async () => {
+            events.push('solar');
+            throw new Error('solar failed');
+        },
+        async () => {
+            events.push('bag');
+            return 'bag';
+        },
+    ]);
+
+    assert.deepEqual(events, ['season:start', 'season:end', 'solar', 'bag']);
+    assert.deepEqual(results.map(result => result.status), ['fulfilled', 'rejected', 'fulfilled']);
+    assert.equal(results[0].value, 'season');
+    assert.match(results[1].reason.message, /solar failed/);
+    assert.equal(results[2].value, 'bag');
+});
+
+test('串行请求共享总超时预算并限制单次等待时间', () => {
+    let now = 1_000;
+    const nextTimeout = createTimeoutBudget(20_000, 5_000, () => now);
+
+    assert.equal(nextTimeout(), 5_000);
+    now += 17_500;
+    assert.equal(nextTimeout(), 2_500);
+    now += 2_500;
+    assert.throws(() => nextTimeout(), /总超时预算已耗尽/);
+});
+
+test('共享请求允许不同调用方按各自截止时间结束等待', async () => {
+    let release;
+    const shared = new Promise(resolve => { release = resolve; });
+    const longWait = withTimeout(shared, 100, 'long timeout');
+    const shortWait = withTimeout(shared, 5, 'short timeout');
+
+    await assert.rejects(shortWait, error => error?.code === 'OPERATION_TIMEOUT' && /short timeout/.test(error.message));
+    release('ok');
+    assert.equal(await longWait, 'ok');
 });
 
 test('部分快照失败时仅补读失败分区并清除错误', async () => {

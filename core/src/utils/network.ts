@@ -115,6 +115,31 @@ const MAX_PENDING_REQUESTS = 5;
 const MAX_BUSINESS_REQUESTS = 4;
 let connectionRevision = 0;
 let lastInboundAt = Date.now();
+let lastPressureLogAt = 0;
+
+function describePendingRequests(limit = MAX_PENDING_REQUESTS): string {
+    if (pendingCallbacks.size === 0) return 'none';
+    const now = Date.now();
+    return Array.from(pendingCallbacks.entries())
+        .slice(0, Math.max(1, limit))
+        .map(([seq, entry]) => {
+            const ageMs = Math.max(0, now - entry.startedAt);
+            const stage = entry.sentAt > 0 ? 'sent' : 'encoding';
+            return `${entry.methodName}#${seq}:${ageMs}ms:${stage}:${entry.category}`;
+        })
+        .join(',');
+}
+
+function requestPressureDetails(): string {
+    return `pending=${pendingCallbacks.size}, active=${describePendingRequests()}, lastInbound=${Math.max(0, Date.now() - lastInboundAt)}ms`;
+}
+
+function logRequestPressure(methodName: string): void {
+    const now = Date.now();
+    if (now - lastPressureLogAt < 1000) return;
+    lastPressureLogAt = now;
+    logWarn('系统', `Gateway 请求压力: rejected=${methodName}, ${requestPressureDetails()}`);
+}
 
 function rejectAllPendingRequests(reason = '请求被中断'): number {
     const entries = Array.from(pendingCallbacks.entries());
@@ -279,7 +304,8 @@ function sendMsgAsync(
             maxPending: MAX_PENDING_REQUESTS,
             maxBusiness: MAX_BUSINESS_REQUESTS,
         })) {
-            reject(new Error(`请求队列已满: ${methodName} (pending=${pendingCallbacks.size})`));
+            logRequestPressure(methodName);
+            reject(new Error(`请求队列已满: ${methodName} (${requestPressureDetails()})`));
             return;
         }
 
@@ -309,7 +335,7 @@ function sendMsgAsync(
         pendingCallbacks.set(seq, entry);
         networkScheduler.setTimeoutTask(timeoutKey, timeout, () => {
             const error = new RequestTimeoutError(
-                `请求超时: ${methodName} (seq=${seq}, pending=${Math.max(0, pendingCallbacks.size - 1)}, elapsed=${Date.now() - startedAt}ms)`,
+                `请求超时: ${methodName} (seq=${seq}, elapsed=${Date.now() - startedAt}ms, ${requestPressureDetails()})`,
                 entry.sentAt,
             );
             finish(error);
@@ -398,6 +424,11 @@ function handleNotify(msg: DataRecord): void {
         const event = decodeMessage('EventMessage', messageBody);
         const type = String(event.message_type || '');
         const eventBody = toBuffer(event.body);
+
+        if (type.includes('ActiviesChangeNotify') || type.includes('ActivitiesChangeNotify')) {
+            networkEvents.emit('activitiesChanged');
+            return;
+        }
 
         // 被踢下线
         if (type.includes('Kickout')) {
@@ -595,6 +626,11 @@ function handleNotify(msg: DataRecord): void {
             return;
         }
 
+        // 物品每日使用次数与充值信息均由对应页面/任务主动查询，推送仅用于客户端界面刷新。
+        if (type.includes('ItemUseDailyNotify') || type.includes('RechargeInfoNotify')) {
+            return;
+        }
+
         // 其他未处理的推送类型（新协议信号，开发调试用，默认被日志页过滤）
         const gid = toNum((getUserState() || {}).gid) || '';
         log('推送', `未处理类型: ${type}`, { module: 'push', event: 'unhandled_push', type, gid, dev: true });
@@ -718,7 +754,7 @@ function startHeartbeat(): void {
             const wasSent = Number(requestError.sentAt) > 0;
             const noInboundSinceSend = lastInboundAt <= Number(requestError.sentAt);
             if (requestError.code === 'REQUEST_TIMEOUT' && wasSent && noInboundSinceSend) {
-                logWarn('心跳', `心跳请求超时且 ${Math.round((Date.now() - lastInboundAt) / 1000)}s 无入站消息，立即重连`);
+                logWarn('心跳', `心跳请求超时且 ${Math.round((Date.now() - lastInboundAt) / 1000)}s 无入站消息，立即重连 (${requestPressureDetails()})`);
                 reconnect(null);
             }
         }).finally(() => {

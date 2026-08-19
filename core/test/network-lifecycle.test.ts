@@ -68,6 +68,25 @@ test('请求超时会释放请求槽并允许后续请求进入', async () => {
     );
 });
 
+test('业务请求槽满时错误包含活跃请求与入站诊断', async () => {
+    connectFake();
+    const pending = ['One', 'Two', 'Three', 'Four'].map(method => (
+        network.sendMsgAsync('TestService', method, Buffer.alloc(0), 1000)
+    ));
+    const rejections = pending.map(request => assert.rejects(request, /请求已中断: 诊断测试清理/));
+    await new Promise(resolve => setImmediate(resolve));
+
+    await assert.rejects(
+        network.sendMsgAsync('TestService', 'Overflow', Buffer.alloc(0), 1000),
+        error => /请求队列已满: Overflow/.test(error.message)
+            && /active=.*One/.test(error.message)
+            && /lastInbound=\d+ms/.test(error.message),
+    );
+
+    network.cleanup('诊断测试清理');
+    await Promise.all(rejections);
+});
+
 test('网络清理会拒绝全部在途请求并清除超时任务', async () => {
     connectFake();
     const pending = network.sendMsgAsync('TestService', 'Pending', Buffer.alloc(0), 1000);

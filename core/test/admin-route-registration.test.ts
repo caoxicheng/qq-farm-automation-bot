@@ -5,17 +5,20 @@ const { registerGameplayRoutes } = require('../src/controllers/admin-routes/game
 const { registerLogRoutes } = require('../src/controllers/admin-routes/logs');
 const { registerQrRoutes } = require('../src/controllers/admin-routes/qr');
 const { registerUserRoutes } = require('../src/controllers/admin-routes/users');
+const { OperationTimeoutError } = require('../src/utils/request-coordination');
 
 function createAppRecorder() {
     const routes = [];
+    const handlers = new Map();
     const app = {};
     for (const method of ['get', 'post', 'delete']) {
-        app[method] = (path) => {
+        app[method] = (path, ...routeHandlers) => {
             routes.push(`${method.toUpperCase()} ${path}`);
+            handlers.set(`${method.toUpperCase()} ${path}`, routeHandlers[routeHandlers.length - 1]);
             return app;
         };
     }
-    return { app, routes };
+    return { app, handlers, routes };
 }
 
 const middleware = (_req, _res, next) => next?.();
@@ -126,6 +129,109 @@ test('用户、日志与二维码路由完整注册', () => {
     const qrRecorder = createAppRecorder();
     registerQrRoutes(qrRecorder.app);
     assert.deepEqual(qrRecorder.routes, ['POST /api/qr/create', 'POST /api/qr/check']);
+});
+
+test('微信账号启动会等待新 Code 持久化后再创建 Worker', async () => {
+    const { app, handlers } = createAppRecorder();
+    const events = [];
+    let finishRefresh;
+    const refreshResult = new Promise(resolve => {
+        finishRefresh = resolve;
+    });
+
+    registerGameplayRoutes({
+        addOrUpdateAccount: (value) => events.push(['save', value]),
+        adminLogger: { info() {}, warn() {} },
+        app,
+        authRequired: middleware,
+        checkAccountAccess: accessAllowed,
+        getAccountId,
+        handleApiError,
+        provider: {
+            getAccounts: () => ({ accounts: [{ id: 'account-1', platform: 'wx', wxid: 'wx-user' }] }),
+            startAccount: (id) => {
+                events.push(['start', id]);
+                return true;
+            },
+        },
+        resolveAccountId: value => String(value || ''),
+        store: {},
+        wxLoginAdapter: {
+            getFarmCode: () => refreshResult,
+        },
+    });
+
+    const handler = handlers.get('POST /api/accounts/:id/start');
+    const response = {
+        payload: null,
+        statusCode: 200,
+        status(code) {
+            this.statusCode = code;
+            return this;
+        },
+        json(payload) {
+            this.payload = payload;
+            return this;
+        },
+    };
+    const request = handler({ params: { id: 'account-1' } }, response);
+
+    await Promise.resolve();
+    assert.deepEqual(events, []);
+
+    finishRefresh({ Success: true, Data: { code: 'fresh-code' } });
+    await request;
+
+    assert.deepEqual(events, [
+        ['save', { id: 'account-1', code: 'fresh-code' }],
+        ['start', 'account-1'],
+    ]);
+    assert.deepEqual(response.payload, { ok: true });
+});
+
+test('微信 Code 刷新超时时返回可重试错误且不创建 Worker', async () => {
+    const { app, handlers } = createAppRecorder();
+    let startCalls = 0;
+
+    registerGameplayRoutes({
+        addOrUpdateAccount: value => value,
+        adminLogger: { info() {}, warn() {} },
+        app,
+        authRequired: middleware,
+        checkAccountAccess: accessAllowed,
+        getAccountId,
+        handleApiError,
+        provider: {
+            getAccounts: () => ({ accounts: [{ id: 'account-1', platform: 'wx', wxid: 'wx-user' }] }),
+            startAccount: () => {
+                startCalls += 1;
+                return true;
+            },
+        },
+        resolveAccountId: value => String(value || ''),
+        store: {},
+        wxLoginAdapter: {
+            getFarmCode: async () => { throw new OperationTimeoutError('微信 Code 刷新超时'); },
+        },
+    });
+
+    const response = {
+        payload: null,
+        statusCode: 200,
+        status(code) {
+            this.statusCode = code;
+            return this;
+        },
+        json(payload) {
+            this.payload = payload;
+            return this;
+        },
+    };
+    await handlers.get('POST /api/accounts/:id/start')({ params: { id: 'account-1' } }, response);
+
+    assert.equal(response.statusCode, 503);
+    assert.deepEqual(response.payload, { ok: false, error: '微信 Code 刷新超时，请稍后重试' });
+    assert.equal(startCalls, 0);
 });
 
 test('活动路由只保留活动中心操作，不再暴露神秘商人手动页面接口', () => {

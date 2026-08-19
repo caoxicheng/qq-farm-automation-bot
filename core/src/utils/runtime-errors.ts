@@ -2,6 +2,7 @@ const SOFT_RUNTIME_MESSAGES = new Set([
     '账号未运行',
     '账号已离线',
     'API Timeout',
+    'Worker exited',
 ]);
 
 const SOFT_RUNTIME_PREFIXES = [

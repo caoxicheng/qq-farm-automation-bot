@@ -1,10 +1,12 @@
 import type { Express, Request, RequestHandler, Response } from 'express';
 import type { DataProvider } from '../../runtime/data-provider';
+import { OperationTimeoutError, withTimeout } from '../../utils/request-coordination';
 import { registerFriendRoutes } from './friends';
 
 const { getLevelExpProgress } = require('../../config/gameConfig');
 
 type DynamicRecord = Record<string, any>;
+const WX_CODE_REFRESH_TIMEOUT_MS = 25000;
 
 interface GameplayRouteOptions {
     addOrUpdateAccount: (account: DynamicRecord) => DynamicRecord;
@@ -230,9 +232,9 @@ function registerGameplayRoutes(options: GameplayRouteOptions): void {
         }
 
         try {
-            const { itemId, count } = req.body;
+            const { itemId, count, uid } = req.body;
             if (!itemId) return res.status(400).json({ ok: false, error: '缺少 itemId' });
-            const data = await provider.useItem(id, Number(itemId), Math.max(1, Number(count) || 1));
+            const data = await provider.useItem(id, Number(itemId), Math.max(1, Number(count) || 1), uid || 0);
             res.json({ ok: true, data });
         } catch (e) {
             handleApiError(res, e);
@@ -307,26 +309,29 @@ function registerGameplayRoutes(options: GameplayRouteOptions): void {
                 return res.status(403).json({ ok: false, error: '无权访问此账号' });
             }
 
-            // 微信账号：启动前自动刷新登录 code（wx.login code 短时效）——不阻塞启动响应：
-            // MMTLS 握手可能耗时 6s+（微信服务器目标逐个超时），await 会让前端"点击登录"卡住；
-            // 即使刷新失败/未完成，worker 用旧 code 启动后由 ws_code_rejected 自动刷新链路兜底（loginBuffer 已持久化）
+            // 微信 code 短时有效。必须先刷新再创建 Worker，否则每次服务重建后都会先用旧 code
+            // 触发网关 400，并让页面在 Worker 重连窗口内收到瞬时 API 失败。
+            // 不同账号使用独立凭证锁，可以并行刷新；同一账号的重复请求由适配器复用在途 Promise。
             try {
                 const account = provider.getAccounts().accounts.find((a: DynamicRecord) => String(a.id) === String(accountId));
                 if (account && account.platform === 'wx' && account.wxid) {
-                    wxLoginAdapter.getFarmCode(account.wxid, { accountId })
-                        .then((refresh: DynamicRecord) => {
-                            if (refresh.Success && refresh.Data && refresh.Data.code) {
-                                addOrUpdateAccount({ id: accountId, code: refresh.Data.code });
-                                adminLogger.info('startAccount', { accountId, note: 'wx code refreshed automatically' });
-                            } else {
-                                adminLogger.warn('startAccount', { accountId, note: 'wx code refresh failed, fallback to stored code', msg: refresh.Message });
-                            }
-                        })
-                        .catch((refreshErr: unknown) => {
-                            adminLogger.warn('startAccount', { accountId, note: 'wx code refresh error, fallback to stored code', err: errorMessage(refreshErr) });
-                        });
+                    const refresh = await withTimeout<DynamicRecord>(
+                        wxLoginAdapter.getFarmCode(account.wxid, { accountId }),
+                        WX_CODE_REFRESH_TIMEOUT_MS,
+                        '微信 Code 刷新超时',
+                    );
+                    if (refresh.Success && refresh.Data && refresh.Data.code) {
+                        addOrUpdateAccount({ id: accountId, code: refresh.Data.code });
+                        adminLogger.info('startAccount', { accountId, note: 'wx code refreshed before worker start' });
+                    } else {
+                        adminLogger.warn('startAccount', { accountId, note: 'wx code refresh failed, fallback to stored code', msg: refresh.Message });
+                    }
                 }
             } catch (refreshErr) {
+                if (refreshErr instanceof OperationTimeoutError) {
+                    adminLogger.warn('startAccount', { accountId, note: 'wx code refresh timeout, worker not started' });
+                    return res.status(503).json({ ok: false, error: '微信 Code 刷新超时，请稍后重试' });
+                }
                 adminLogger.warn('startAccount', { accountId, note: 'wx code refresh error, fallback to stored code', err: errorMessage(refreshErr) });
             }
 
