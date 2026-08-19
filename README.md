@@ -4,21 +4,23 @@
 
 > 默认管理员账号和密码均为 `admin`，服务端口为 `3007`。首次登录后请立即修改密码。
 >
-> 本项目开源免费，仅供学习与研究，禁止倒卖或用于商业用途。
+> 本项目源代码采用 ISC 许可证，主要用于自行研究和评估游戏协议风险；请同时遵守游戏服务条款。
 
 ## 功能
 
-- **农场自动化**：收获、种植、浇水、除草除虫、铲除、施肥和土地升级
-- **仓库与好友**：自动出售、背包优先种植、偷菜、帮忙、捣乱和好友黑名单
-- **任务与活动**：每日任务、活跃度、图鉴、邮件、月卡、礼包、千星游记、观星、青梅活动和神秘商人自动购买
+- **农场自动化**：收获、种植、浇水、除草除虫、铲除、施肥和土地升级；智能施肥后会补收新成熟作物并限制单轮请求量
+- **仓库与好友**：按 UID 展示和操作真实背包堆，支持活动/过期条件售价、自动出售、背包优先种植、偷菜、帮忙、捣乱和好友黑名单
+- **任务与活动**：每日任务、活跃度、图鉴、邮件、月卡、礼包、千星游记、观星、青梅活动和神秘商人自动购买；已结束的青梅与观星入口自动下线
 - **微信登录**：内置应用宝扫码协议，无需额外登录服务
 - **多账号管理**：账号独立策略、实时日志、运行状态和数据分析
 - **运行自愈**：Worker 看护、掉线停止和可配置的延迟自动重登
 - **静态资源包**：物品名称和图片随代码及 Docker 镜像发布，运行时不访问微信缓存或 CDN
 
-## 快速开始
+## 启动方式
 
-推荐使用 Docker Compose。需要 Docker（含 Compose 插件）和 Git。
+### Docker Compose（推荐）
+
+需要 Docker（含 Compose 插件）和 Git。镜像构建会重新编译 Web 与 Core，不会复用宿主机上的 `core/build`。
 
 ```bash
 git clone https://github.com/caoxicheng/qq-farm-automation-bot.git
@@ -26,22 +28,48 @@ cd qq-farm-automation-bot
 docker compose up -d --build
 ```
 
-浏览器访问 `http://localhost:3007`；远程部署时将 `localhost` 替换为服务器地址。
-
-登录后前往 **设置 → 账号管理**：QQ 玩家可手动填码，微信玩家可扫码添加。账号添加后点击“启动”开始挂机。
-
-神秘商人自动购买默认关闭；需要时可在对应账号的 **设置 → 自动控制 → 自动购买神秘商品** 中开启。商人出现后 Bot 会按服务端推送自动购买当前整份商品，并避免对同一轮商品重复下单。
-
 常用命令：
 
 ```bash
 docker compose ps                   # 查看状态
 docker compose logs -f qq-farm-bot  # 查看日志
-docker compose up -d --build        # 拉取改动后重新构建
+docker compose up -d --build        # 更新代码或依赖后重新构建
+docker compose restart              # 仅重启现有镜像，不包含新代码
 docker compose down                 # 停止服务，保留数据
 ```
 
 账号、配置和日志保存在 `qq-farm-data`、`qq-farm-logs` 数据卷中。不要随意执行 `docker compose down -v`，该命令会删除数据卷。
+
+### Node.js 源码启动
+
+需要 Node.js 20+、pnpm 和 Git，支持 Windows、macOS 与 Linux。统一从仓库根目录启动：
+
+```bash
+corepack enable
+pnpm install --frozen-lockfile
+pnpm start
+```
+
+根目录的 `pnpm start` 会依次重新构建 Web、清理并编译 Core，然后启动服务。拉取代码后仍执行同一命令，无需手动删除 `web/dist` 或 `core/build`。
+
+不要直接执行 `node core/build/client.js`。该命令会绕过编译步骤，可能同时运行新版 Protobuf 和旧版业务代码。只调试后端时可以使用 `pnpm dev:core`，但需要确保已经生成 `web/dist`。
+
+### 运行已编译产物
+
+该方式只适用于 CI、发布流程或已经确认构建完成的目录：
+
+```bash
+pnpm build
+pnpm start:compiled
+```
+
+`start:compiled` 不会重新编译。普通源码用户应使用 `pnpm start`。
+
+Docker 与 Node.js 源码服务不能同时占用默认的 `3007` 端口。切换到 Node.js 前可执行 `docker compose stop`；切回 Docker 时先结束 Node.js 进程，再执行 `docker compose up -d`。
+
+启动后访问 `http://localhost:3007`；远程部署时将 `localhost` 替换为服务器地址。登录后前往 **设置 → 账号管理** 添加账号，再点击“启动”开始挂机。
+
+神秘商人自动购买默认关闭；需要时可在对应账号的 **设置 → 自动控制 → 自动购买神秘商品** 中开启。商人出现后 Bot 会按服务端推送自动购买当前整份商品，并避免对同一轮商品重复下单。
 
 ## 微信登录与自动重登
 
@@ -55,16 +83,9 @@ docker compose down                 # 停止服务，保留数据
 
 游戏为单会话机制，手机登录会将 Bot 踢下线。手机使用结束后可手动启动账号，也可在 **设置 → 策略设置 → 自动重登设置** 中开启延迟重登。自动重登默认关闭，并包含每日上限和防循环保护。
 
-## 源码运行
+## 开发与测试
 
-需要 Node.js 20+、pnpm 和 Git。源码服务与 Docker 服务不能同时占用 `3007` 端口。
-
-```bash
-corepack enable
-pnpm install
-pnpm build:web
-pnpm dev:core
-```
+`pnpm dev:core` 会在启动前重新编译 Core；`pnpm dev:web` 单独启动 Vite 开发服务器。日常完整启动仍建议使用根目录的 `pnpm start`。
 
 常用开发命令：
 
@@ -131,7 +152,16 @@ Core 回归测试重点覆盖：
 - 协议请求编码与农场、好友领域规则
 - 管理接口和 Socket 的身份鉴权、账号隔离
 - Worker API 契约、调度顺序、异常恢复和状态去重
+- 网关请求单飞、活动快照串行化、队列压力诊断和施肥安全上限
+- 背包 UID 精度、活动条件售价与 protobuf 未知字段/wire type 审计
 - 随版本发布的游戏资源完整性
+
+分析新抓包前先构建 Core，再运行严格协议审计；出现未知消息、未知字段、wire type 不匹配或 roundtrip 差异时命令会以非零状态退出：
+
+```bash
+pnpm -C core build:core
+node core/tools/decode-captures.js /path/to/capture.proxymanlogv2 --strict
+```
 
 未完成的工程事项统一记录在 `TODO.md`，已完成的重构细节不长期保留在代办中。
 
@@ -167,6 +197,10 @@ Core 回归测试重点覆盖：
 - [QianChenJun/qq-farm-bot](https://github.com/QianChenJun/qq-farm-bot) — 部分功能
 - [liyangpengs/qq-farm-bot](https://github.com/liyangpengs/qq-farm-bot) — 赛季、活动协议与 ACE/TSDK 上报参考
 
+## 许可证
+
+源代码以 [ISC License](LICENSE) 发布。仓库内涉及 QQ 农场的名称、图像、配置数据和其他游戏素材不因本许可证转移其原有权利，相关权利归各自权利人所有。
+
 ## 免责声明
 
-本项目仅供学习与研究。使用本工具可能违反游戏服务条款，由此产生的后果由使用者自行承担。请勿用于商业用途或倒卖。
+本项目不隶属于或受腾讯官方认可。使用本工具可能违反游戏服务条款，由此产生的后果由使用者自行承担。

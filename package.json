@@ -1,10 +1,13 @@
  {
   "name": "qq-farm-bot-ui",
+  "license": "ISC",
   "packageManager": "pnpm@10.30.2",
   "scripts": {
+    "start": "pnpm build:web && pnpm -C core start",
+    "start:compiled": "pnpm -C core start:compiled",
     "dev:core": "pnpm -C core dev",
     "dev:web": "pnpm -C web dev",
-    "dev": "pnpm build:web && pnpm dev:core",
+    "dev": "pnpm start",
     "lint": "pnpm lint:core && pnpm lint:web",
     "lint:core": "pnpm -C core lint",
     "lint:web": "pnpm -C web lint",
