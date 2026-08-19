@@ -1,10 +1,10 @@
 {
   "schemaVersion": 2,
-  "bundleVersion": "c58f5",
+  "bundleVersion": "bd1e3",
   "sources": {
-    "mainscene": "c58f5",
+    "mainscene": "bd1e3",
     "plant": "e8ffb",
-    "itemInfoHash": "c232f3e20da9eaeed438b710d5350e250ecd2bd6655c22eb13dba84da58a0fd3",
+    "itemInfoHash": "1acfd38e186c64acb36a948fe93aec7cfa65789fe4e8161081059f684799128c",
     "plantHash": "a725956b14e70b4c261bf5a7294cbb6fcd619290e6156d21bf2d78302f80f39c",
     "overridesHash": "830f137a7a7f1081cdf6e7f90beebe56c3ecf0998c26f5555e8061e0e58a5d0b",
     "legacyItemInfoHash": "778e1252bf0cfe30bfb9f72a9243e619521ce9d118526f4313490e10f0c789ba"
@@ -12,8 +12,8 @@
   "catalogs": {
     "items": {
       "file": "catalogs/items.json",
-      "sha256": "f28e4758239b00589765440586e0501a565abe52d56c3e7add31f9acd515e232",
-      "count": 751
+      "sha256": "e84e7085f8b941aa5978617dae0b0311d8c5d711db1ec3f0a9a043c82715f732",
+      "count": 752
     },
     "plants": {
       "file": "catalogs/plants.json",

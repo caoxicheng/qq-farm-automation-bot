@@ -510,6 +510,19 @@
     "source": "override"
   },
   {
+    "id": 2158,
+    "name": "小红花做好事头像框",
+    "kind": "decoration",
+    "itemType": 10,
+    "imageHash": null,
+    "assetName": null,
+    "relatedSeedId": null,
+    "relatedFruitId": null,
+    "level": null,
+    "price": null,
+    "source": "official"
+  },
+  {
     "id": 3001,
     "name": "普通收藏点",
     "kind": "item",
